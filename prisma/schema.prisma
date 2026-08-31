@@ -1,0 +1,309 @@
+generator client {
+  provider   = "prisma-client"
+  output     = "../generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum UserRole {
+  ADMIN
+  AGENT
+  VIEWER
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  RINGING
+  ACCEPTED
+  REJECTED
+  CONNECTING
+  ACTIVE
+  ENDED
+  MISSED
+  FAILED
+  CANCELLED
+}
+
+enum ChatSenderType {
+  VISITOR
+  AGENT
+  SYSTEM
+}
+
+enum SiteStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id              String        @id @default(cuid()) @db.VarChar(30)
+  email           String        @unique @db.VarChar(191)
+  displayName     String?       @db.VarChar(191)
+  passwordHash    String?       @db.VarChar(255)
+  globalRole      UserRole      @default(VIEWER)
+  createdAt       DateTime      @default(now()) @db.DateTime(3)
+  updatedAt       DateTime      @updatedAt @db.DateTime(3)
+  siteMemberships SiteMember[]
+  assignedThreads ChatThread[]  @relation("ChatThreadAssignedAgent")
+  chatMessages    ChatMessage[] @relation("ChatMessageAgent")
+  requestedCalls  Call[]        @relation("CallAgent")
+  auditLogs       AuditLog[]    @relation("AuditActor")
+}
+
+model Site {
+  id                   String                @id @default(cuid()) @db.VarChar(30)
+  name                 String                @db.VarChar(191)
+  publicKey            String                @unique @db.VarChar(191)
+  allowedOrigins       Json
+  status               SiteStatus            @default(ACTIVE)
+  widgetDisplayName    String?               @db.VarChar(191)
+  widgetAvatarUrl      String?               @db.VarChar(2048)
+  widgetLogoUrl        String?               @db.VarChar(2048)
+  trackingEnabled      Boolean               @default(true)
+  chatEnabled          Boolean               @default(true)
+  audioCallEnabled     Boolean               @default(true)
+  videoCallEnabled     Boolean               @default(true)
+  consentMode          String?               @db.VarChar(32)
+  eventRetentionDays   Int?
+  createdAt            DateTime              @default(now()) @db.DateTime(3)
+  updatedAt            DateTime              @updatedAt @db.DateTime(3)
+  members              SiteMember[]
+  visitors             Visitor[]
+  sessions             Session[]
+  visitorEvents        VisitorEvent[]
+  chatThreads          ChatThread[]
+  calls                Call[]
+  intentScoreSnapshots IntentScoreSnapshot[]
+  auditLogs            AuditLog[]
+}
+
+model SiteMember {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  siteId    String   @db.VarChar(30)
+  userId    String   @db.VarChar(30)
+  role      UserRole @default(VIEWER)
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  updatedAt DateTime @updatedAt @db.DateTime(3)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, userId])
+  @@index([userId, siteId])
+}
+
+model Visitor {
+  id                   String                @id @default(cuid()) @db.VarChar(30)
+  siteId               String                @db.VarChar(30)
+  anonymousId          String                @db.VarChar(191)
+  firstSeenAt          DateTime              @default(now()) @db.DateTime(3)
+  lastSeenAt           DateTime              @default(now()) @db.DateTime(3)
+  createdAt            DateTime              @default(now()) @db.DateTime(3)
+  updatedAt            DateTime              @updatedAt @db.DateTime(3)
+  site                 Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  identities           VisitorIdentity[]
+  sessions             Session[]
+  visitorEvents        VisitorEvent[]
+  chatThreads          ChatThread[]
+  calls                Call[]
+  intentScoreSnapshots IntentScoreSnapshot[]
+
+  @@unique([siteId, anonymousId])
+  @@index([siteId, lastSeenAt])
+}
+
+model VisitorIdentity {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  visitorId   String   @db.VarChar(30)
+  provider    String   @db.VarChar(64)
+  externalId  String   @db.VarChar(191)
+  displayName String?  @db.VarChar(191)
+  email       String?  @db.VarChar(191)
+  linkedAt    DateTime @default(now()) @db.DateTime(3)
+  visitor     Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  @@unique([visitorId, provider, externalId])
+  @@index([provider, externalId])
+}
+
+model Session {
+  id                   String                @id @default(cuid()) @db.VarChar(30)
+  siteId               String                @db.VarChar(30)
+  visitorId            String                @db.VarChar(30)
+  anonymousSessionId   String                @unique @db.VarChar(191)
+  currentUrl           String?               @db.VarChar(2048)
+  referrerUrl          String?               @db.VarChar(2048)
+  utmSource            String?               @db.VarChar(191)
+  utmMedium            String?               @db.VarChar(191)
+  utmCampaign          String?               @db.VarChar(191)
+  utmTerm              String?               @db.VarChar(191)
+  utmContent           String?               @db.VarChar(191)
+  geoCountry           String?               @db.VarChar(2)
+  geoRegion            String?               @db.VarChar(191)
+  geoCity              String?               @db.VarChar(191)
+  geoTimezone          String?               @db.VarChar(64)
+  deviceType           String?               @db.VarChar(32)
+  browserName          String?               @db.VarChar(64)
+  operatingSystem      String?               @db.VarChar(64)
+  startedAt            DateTime              @default(now()) @db.DateTime(3)
+  lastSeenAt           DateTime              @default(now()) @db.DateTime(3)
+  endedAt              DateTime?             @db.DateTime(3)
+  createdAt            DateTime              @default(now()) @db.DateTime(3)
+  updatedAt            DateTime              @updatedAt @db.DateTime(3)
+  site                 Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor              Visitor               @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  pageViews            PageView[]
+  visitorEvents        VisitorEvent[]
+  chatThreads          ChatThread[]
+  calls                Call[]
+  intentScoreSnapshots IntentScoreSnapshot[]
+
+  @@index([siteId, lastSeenAt])
+  @@index([visitorId, lastSeenAt])
+}
+
+model PageView {
+  id                    String    @id @default(cuid()) @db.VarChar(30)
+  sessionId             String    @db.VarChar(30)
+  path                  String    @db.VarChar(2048)
+  url                   String    @db.VarChar(2048)
+  title                 String?   @db.VarChar(512)
+  enteredAt             DateTime  @default(now()) @db.DateTime(3)
+  leftAt                DateTime? @db.DateTime(3)
+  activeDurationSeconds Int?
+  session               Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, enteredAt])
+}
+
+model VisitorEvent {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  siteId    String   @db.VarChar(30)
+  sessionId String   @db.VarChar(30)
+  visitorId String?  @db.VarChar(30)
+  type      String   @db.VarChar(64)
+  name      String   @db.VarChar(128)
+  payload   Json?
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  visitor   Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, type, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([visitorId, createdAt])
+}
+
+model ChatThread {
+  id              String        @id @default(cuid()) @db.VarChar(30)
+  siteId          String        @db.VarChar(30)
+  visitorId       String        @db.VarChar(30)
+  sessionId       String?       @db.VarChar(30)
+  assignedAgentId String?       @db.VarChar(30)
+  status          String        @default("OPEN") @db.VarChar(32)
+  createdAt       DateTime      @default(now()) @db.DateTime(3)
+  updatedAt       DateTime      @updatedAt @db.DateTime(3)
+  lastMessageAt   DateTime?     @db.DateTime(3)
+  site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor         Visitor       @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session         Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  assignedAgent   User?         @relation("ChatThreadAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  messages        ChatMessage[]
+
+  @@index([siteId, updatedAt])
+  @@index([visitorId, updatedAt])
+  @@index([assignedAgentId, updatedAt])
+}
+
+model ChatMessage {
+  id         String         @id @default(cuid()) @db.VarChar(30)
+  threadId   String         @db.VarChar(30)
+  senderType ChatSenderType
+  agentId    String?        @db.VarChar(30)
+  content    String         @db.Text
+  metadata   Json?
+  sentAt     DateTime       @default(now()) @db.DateTime(3)
+  thread     ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  agent      User?          @relation("ChatMessageAgent", fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, sentAt])
+}
+
+model Call {
+  id          String      @id @default(cuid()) @db.VarChar(30)
+  siteId      String      @db.VarChar(30)
+  visitorId   String      @db.VarChar(30)
+  sessionId   String?     @db.VarChar(30)
+  agentId     String?     @db.VarChar(30)
+  type        CallType
+  status      CallStatus  @default(RINGING)
+  roomName    String?     @unique @db.VarChar(191)
+  requestedAt DateTime    @default(now()) @db.DateTime(3)
+  respondedAt DateTime?   @db.DateTime(3)
+  startedAt   DateTime?   @db.DateTime(3)
+  endedAt     DateTime?   @db.DateTime(3)
+  failureCode String?     @db.VarChar(64)
+  createdAt   DateTime    @default(now()) @db.DateTime(3)
+  updatedAt   DateTime    @updatedAt @db.DateTime(3)
+  site        Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor     Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session     Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent       User?       @relation("CallAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  events      CallEvent[]
+
+  @@index([visitorId, requestedAt])
+  @@index([agentId, requestedAt])
+  @@index([siteId, requestedAt])
+  @@index([sessionId, requestedAt])
+}
+
+model CallEvent {
+  id        String   @id @default(cuid()) @db.VarChar(30)
+  callId    String   @db.VarChar(30)
+  type      String   @db.VarChar(64)
+  payload   Json?
+  createdAt DateTime @default(now()) @db.DateTime(3)
+  call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@index([callId, createdAt])
+}
+
+model IntentScoreSnapshot {
+  id         String   @id @default(cuid()) @db.VarChar(30)
+  siteId     String   @db.VarChar(30)
+  visitorId  String   @db.VarChar(30)
+  sessionId  String?  @db.VarChar(30)
+  score      Int
+  reasons    Json?
+  capturedAt DateTime @default(now()) @db.DateTime(3)
+  site       Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor    Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, capturedAt])
+  @@index([visitorId, capturedAt])
+  @@index([sessionId, capturedAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid()) @db.VarChar(30)
+  siteId      String?  @db.VarChar(30)
+  actorUserId String?  @db.VarChar(30)
+  action      String   @db.VarChar(128)
+  entityType  String   @db.VarChar(64)
+  entityId    String?  @db.VarChar(191)
+  metadata    Json?
+  createdAt   DateTime @default(now()) @db.DateTime(3)
+  site        Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}

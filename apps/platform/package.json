@@ -1,0 +1,34 @@
+{
+  "name": "platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-mariadb": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@upstash/redis": "latest",
+    "@upstash/realtime": "latest",
+    "bcryptjs": "latest",
+    "livekit-client": "latest",
+    "livekit-server-sdk": "latest",
+    "next": "latest",
+    "next-auth": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "server-only": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/dom-mediacapture-record": "^1.0.22",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint-config-next": "latest",
+    "tailwindcss": "latest"
+  }
+}

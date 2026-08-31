@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@supernizo/shared": ["../shared/src/index.ts"],
+      "@tracker/*": ["./src/*"]
+    },
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}
