@@ -1,6 +1,17 @@
 import 'server-only';
 
+import { config } from 'dotenv';
+import { resolve } from 'node:path';
 import { z } from 'zod';
+
+for (const path of [
+  resolve(process.cwd(), '.env.local'),
+  resolve(process.cwd(), '../../.env.local'),
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), '../../.env'),
+]) {
+  config({ override: false, path, quiet: true });
+}
 
 const nonEmptyString = z.string().trim().min(1);
 const httpUrl = z.url().refine(
@@ -53,7 +64,18 @@ const DatabaseEnvironmentSchema = ServerEnvironmentSchema.pick({
   DATABASE_URL: true,
 });
 
+const AuthenticationEnvironmentSchema = ServerEnvironmentSchema.pick({
+  AUTH_SECRET: true,
+});
+
+const RedisEnvironmentSchema = ServerEnvironmentSchema.pick({
+  UPSTASH_REDIS_REST_TOKEN: true,
+  UPSTASH_REDIS_REST_URL: true,
+});
+
 export type DatabaseEnvironment = z.infer<typeof DatabaseEnvironmentSchema>;
+export type AuthenticationEnvironment = z.infer<typeof AuthenticationEnvironmentSchema>;
+export type RedisEnvironment = z.infer<typeof RedisEnvironmentSchema>;
 
 export class EnvironmentConfigurationError extends Error {
   public constructor(public readonly invalidVariables: readonly string[]) {
@@ -105,6 +127,28 @@ export function getDatabaseEnvironment(
 
   if (!result.success) {
     throw new EnvironmentConfigurationError(['DATABASE_URL']);
+  }
+
+  return result.data;
+}
+
+export function getAuthenticationEnvironment(
+  source: EnvironmentSource = process.env,
+): AuthenticationEnvironment {
+  const result = AuthenticationEnvironmentSchema.safeParse(source);
+
+  if (!result.success) {
+    throw new EnvironmentConfigurationError(['AUTH_SECRET']);
+  }
+
+  return result.data;
+}
+
+export function getRedisEnvironment(source: EnvironmentSource = process.env): RedisEnvironment {
+  const result = RedisEnvironmentSchema.safeParse(source);
+
+  if (!result.success) {
+    throw new EnvironmentConfigurationError(['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']);
   }
 
   return result.data;

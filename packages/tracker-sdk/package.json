@@ -11,12 +11,12 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "browser": "./dist/index.global.js",
+  "browser": "./dist/browser/index.js",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup ././src/index.ts --format esm,iife --platform browser --global-name SupernizoTracker --dts --clean",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.browser.json && node ./scripts/copy-browser-bundle.mjs",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

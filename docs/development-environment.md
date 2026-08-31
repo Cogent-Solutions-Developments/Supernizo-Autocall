@@ -33,6 +33,16 @@ pnpm test:db
 
 The initial migration is committed for repeatable clean-database creation. Use `pnpm prisma:deploy` in production; it applies committed migrations and never creates one. The seed creates `admin@local.test` and the `Demo Site`, whose allowed origin is `http://localhost:3100`.
 
+## Local dashboard sign-in
+
+Set a unique local-only admin password in `.env.local` before running the seed:
+
+```dotenv
+LOCAL_ADMIN_PASSWORD=replace-with-a-unique-local-password-of-at-least-12-characters
+```
+
+Then rerun `pnpm prisma:seed`. Sign in at `/login` as `admin@local.test` with that password. `AUTH_SECRET` must also be a random value of at least 32 characters for the encrypted/signed dashboard session. Do not use `LOCAL_ADMIN_PASSWORD` in production; production users must be provisioned through the approved identity workflow.
+
 For production, use a managed MySQL provider with TLS and connection management. Do not reuse the local password.
 
 ## Upstash Redis and Realtime

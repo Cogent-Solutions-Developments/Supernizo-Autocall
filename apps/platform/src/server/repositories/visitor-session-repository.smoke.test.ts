@@ -58,6 +58,7 @@ describeWithDatabase('VisitorSessionRepository smoke test', () => {
     });
 
     await repository.createPageView({
+      anonymousPageViewId: randomUUID(),
       enteredAt: occurredAt,
       path: '/pricing',
       sessionId: session.id,

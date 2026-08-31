@@ -1,0 +1,200 @@
+import 'server-only';
+
+import type {
+  TrackerEventRequest,
+  TrackerHeartbeatRequest,
+  TrackerPageLeaveRequest,
+  TrackerPageRequest,
+  TrackingContext,
+} from '@supernizo/shared';
+
+import { ConflictError, NotFoundError } from '@/server/errors/app-error';
+import { getDatabaseClient } from '@/server/db/client';
+
+import { assertTrackingSiteAccess } from './tracker-bootstrap-service';
+
+type ResolvedTrackingContext = Readonly<{
+  sessionId: string;
+  siteId: string;
+  visitorId: string;
+}>;
+
+type RelationshipCheck = Readonly<{
+  sessionSiteId: string;
+  sessionVisitorId: string;
+  siteId: string;
+  visitorId: string;
+  visitorSiteId: string;
+}>;
+
+export function assertTrackingContextRelationships(relationships: RelationshipCheck): void {
+  if (
+    relationships.visitorSiteId !== relationships.siteId ||
+    relationships.sessionSiteId !== relationships.siteId ||
+    relationships.sessionVisitorId !== relationships.visitorId
+  ) {
+    throw new ConflictError('The tracking visitor and session context is invalid.');
+  }
+}
+
+async function resolveTrackingContext(
+  context: TrackingContext,
+  origin: string,
+): Promise<ResolvedTrackingContext> {
+  const database = getDatabaseClient();
+  const site = await database.site.findUnique({
+    where: { publicKey: context.sitePublicKey },
+  });
+  assertTrackingSiteAccess(site, origin);
+  if (!site) {
+    throw new NotFoundError('The tracking site was not found.');
+  }
+
+  const visitor = await database.visitor.findUnique({
+    where: {
+      siteId_anonymousId: {
+        anonymousId: context.visitorId,
+        siteId: site.id,
+      },
+    },
+  });
+  const session = await database.session.findUnique({
+    where: { anonymousSessionId: context.sessionId },
+  });
+
+  if (!visitor || !session) {
+    throw new NotFoundError('The tracking visitor or session was not found.');
+  }
+
+  assertTrackingContextRelationships({
+    sessionSiteId: session.siteId,
+    sessionVisitorId: session.visitorId,
+    siteId: site.id,
+    visitorId: visitor.id,
+    visitorSiteId: visitor.siteId,
+  });
+
+  return { sessionId: session.id, siteId: site.id, visitorId: visitor.id };
+}
+
+async function requirePageView(pageViewId: string, sessionId: string): Promise<string> {
+  const pageView = await getDatabaseClient().pageView.findUnique({
+    where: { anonymousPageViewId: pageViewId },
+  });
+
+  if (!pageView || pageView.sessionId !== sessionId) {
+    throw new ConflictError('The tracking page view does not belong to this session.');
+  }
+
+  return pageView.id;
+}
+
+export async function recordTrackerPage(input: {
+  origin: string;
+  payload: TrackerPageRequest;
+}): Promise<void> {
+  const context = await resolveTrackingContext(input.payload, input.origin);
+  const database = getDatabaseClient();
+  const now = new Date();
+
+  await database.$transaction([
+    database.session.update({
+      data: { currentUrl: input.payload.url, lastSeenAt: now },
+      where: { id: context.sessionId },
+    }),
+    database.visitor.update({
+      data: { lastSeenAt: now },
+      where: { id: context.visitorId },
+    }),
+    database.pageView.upsert({
+      create: {
+        anonymousPageViewId: input.payload.pageViewId,
+        enteredAt: now,
+        path: input.payload.path,
+        sessionId: context.sessionId,
+        title: input.payload.title,
+        url: input.payload.url,
+      },
+      update: {},
+      where: { anonymousPageViewId: input.payload.pageViewId },
+    }),
+  ]);
+}
+
+async function applyPageMetrics(
+  payload: TrackerHeartbeatRequest | TrackerPageLeaveRequest,
+  origin: string,
+  leave: boolean,
+): Promise<void> {
+  const context = await resolveTrackingContext(payload, origin);
+  const pageViewId = await requirePageView(payload.pageViewId, context.sessionId);
+  const database = getDatabaseClient();
+  const now = new Date();
+
+  await database.$transaction([
+    database.session.update({
+      data: {
+        activeDurationSeconds: { increment: payload.activeSecondsDelta },
+        lastSeenAt: now,
+      },
+      where: { id: context.sessionId },
+    }),
+    database.visitor.update({
+      data: { lastSeenAt: now },
+      where: { id: context.visitorId },
+    }),
+    database.pageView.update({
+      data: {
+        activeDurationSeconds: { increment: payload.activeSecondsDelta },
+        maxScrollPercent: { set: payload.maxScrollPercent },
+        ...(leave ? { leftAt: now } : {}),
+      },
+      where: { id: pageViewId },
+    }),
+  ]);
+}
+
+export async function recordTrackerHeartbeat(input: {
+  origin: string;
+  payload: TrackerHeartbeatRequest;
+}): Promise<void> {
+  await applyPageMetrics(input.payload, input.origin, false);
+}
+
+export async function recordTrackerPageLeave(input: {
+  origin: string;
+  payload: TrackerPageLeaveRequest;
+}): Promise<void> {
+  await applyPageMetrics(input.payload, input.origin, true);
+}
+
+export async function recordTrackerEvent(input: {
+  origin: string;
+  payload: TrackerEventRequest;
+}): Promise<void> {
+  const context = await resolveTrackingContext(input.payload, input.origin);
+  const database = getDatabaseClient();
+
+  if (input.payload.pageViewId) {
+    await requirePageView(input.payload.pageViewId, context.sessionId);
+  }
+
+  await database.$transaction([
+    database.session.update({
+      data: { lastSeenAt: new Date() },
+      where: { id: context.sessionId },
+    }),
+    database.visitorEvent.create({
+      data: {
+        name: input.payload.name,
+        payload: input.payload.pageViewId
+          ? { ...input.payload.metadata, pageViewId: input.payload.pageViewId }
+          : input.payload.metadata,
+        sessionId: context.sessionId,
+        siteId: context.siteId,
+        type: input.payload.type,
+        visitorId: context.visitorId,
+      },
+    }),
+  ]);
+}

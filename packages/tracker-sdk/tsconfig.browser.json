@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": false,
+    "module": "UMD",
+    "moduleResolution": "Node",
+    "noEmit": false,
+    "outDir": "dist/browser",
+    "paths": {},
+    "resolveJsonModule": false,
+    "rootDir": "src"
+  },
+  "files": ["src/index.ts"]
+}

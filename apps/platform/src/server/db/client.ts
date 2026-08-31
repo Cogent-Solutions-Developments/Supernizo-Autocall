@@ -19,8 +19,12 @@ export function createDatabaseClient(
 
 const prismaGlobal = globalThis as PrismaGlobal;
 
-export const prisma = prismaGlobal.prisma ?? createDatabaseClient();
+export function getDatabaseClient(): PrismaClient {
+  const client = prismaGlobal.prisma ?? createDatabaseClient();
 
-if (process.env.NODE_ENV !== 'production') {
-  prismaGlobal.prisma = prisma;
+  if (process.env.NODE_ENV !== 'production') {
+    prismaGlobal.prisma = client;
+  }
+
+  return client;
 }

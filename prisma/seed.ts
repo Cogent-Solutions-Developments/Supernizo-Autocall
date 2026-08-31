@@ -43,11 +43,11 @@ async function seed(): Promise<void> {
   const site = await prisma.site.upsert({
     where: { publicKey: 'site_demo_local' },
     update: {
-      allowedOrigins: ['http://localhost:3100'],
+      allowedOrigins: ['http://localhost:3000', 'http://localhost:3100'],
       name: 'Demo Site',
     },
     create: {
-      allowedOrigins: ['http://localhost:3100'],
+      allowedOrigins: ['http://localhost:3000', 'http://localhost:3100'],
       name: 'Demo Site',
       publicKey: 'site_demo_local',
     },

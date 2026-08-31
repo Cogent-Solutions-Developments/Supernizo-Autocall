@@ -15,6 +15,7 @@ export type CreateSessionInput = Readonly<{
 }>;
 
 export type CreatePageViewInput = Readonly<{
+  anonymousPageViewId: string;
   sessionId: string;
   path: string;
   url: string;
