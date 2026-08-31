@@ -10,14 +10,43 @@ import type {
 
 import { ConflictError, NotFoundError } from '@/server/errors/app-error';
 import { getDatabaseClient } from '@/server/db/client';
+import { publishVisitorPresence } from '@/server/services/live-presence-service';
 
 import { assertTrackingSiteAccess } from './tracker-bootstrap-service';
 
-type ResolvedTrackingContext = Readonly<{
+export type ResolvedTrackingContext = Readonly<{
   sessionId: string;
   siteId: string;
   visitorId: string;
 }>;
+
+async function publishCurrentPresence(context: ResolvedTrackingContext): Promise<void> {
+  const session = await getDatabaseClient().session.findUniqueOrThrow({
+    where: { id: context.sessionId },
+    include: {
+      visitor: {
+        include: { _count: { select: { sessions: true } } },
+      },
+    },
+  });
+
+  await publishVisitorPresence({
+    activeDurationSeconds: session.activeDurationSeconds,
+    anonymousVisitorId: session.visitor.anonymousId,
+    browserName: session.browserName,
+    city: session.geoCity,
+    country: session.geoCountry,
+    currentUrl: session.currentUrl,
+    deviceType: session.deviceType,
+    intentScore: null,
+    lastSeenAt: session.lastSeenAt.toISOString(),
+    returningVisitCount: session.visitor._count.sessions,
+    sessionId: session.anonymousSessionId,
+    siteId: context.siteId,
+    source: session.utmSource,
+    visitorId: context.visitorId,
+  });
+}
 
 type RelationshipCheck = Readonly<{
   sessionSiteId: string;
@@ -37,7 +66,7 @@ export function assertTrackingContextRelationships(relationships: RelationshipCh
   }
 }
 
-async function resolveTrackingContext(
+export async function resolveTrackingContext(
   context: TrackingContext,
   origin: string,
 ): Promise<ResolvedTrackingContext> {
@@ -96,6 +125,12 @@ export async function recordTrackerPage(input: {
   const context = await resolveTrackingContext(input.payload, input.origin);
   const database = getDatabaseClient();
   const now = new Date();
+  const existingPageView = await database.pageView.findUnique({
+    where: { anonymousPageViewId: input.payload.pageViewId },
+  });
+  if (existingPageView && existingPageView.sessionId !== context.sessionId) {
+    throw new ConflictError('The tracking page view does not belong to this session.');
+  }
 
   await database.$transaction([
     database.session.update({
@@ -119,13 +154,14 @@ export async function recordTrackerPage(input: {
       where: { anonymousPageViewId: input.payload.pageViewId },
     }),
   ]);
+  await publishCurrentPresence(context);
 }
 
 async function applyPageMetrics(
   payload: TrackerHeartbeatRequest | TrackerPageLeaveRequest,
   origin: string,
   leave: boolean,
-): Promise<void> {
+): Promise<ResolvedTrackingContext> {
   const context = await resolveTrackingContext(payload, origin);
   const pageViewId = await requirePageView(payload.pageViewId, context.sessionId);
   const database = getDatabaseClient();
@@ -152,13 +188,16 @@ async function applyPageMetrics(
       where: { id: pageViewId },
     }),
   ]);
+
+  return context;
 }
 
 export async function recordTrackerHeartbeat(input: {
   origin: string;
   payload: TrackerHeartbeatRequest;
 }): Promise<void> {
-  await applyPageMetrics(input.payload, input.origin, false);
+  const context = await applyPageMetrics(input.payload, input.origin, false);
+  await publishCurrentPresence(context);
 }
 
 export async function recordTrackerPageLeave(input: {

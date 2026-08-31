@@ -3,21 +3,28 @@ import 'server-only';
 import { Realtime } from '@upstash/realtime';
 import { z } from 'zod';
 
-import { redis } from '@/server/redis/client';
+import { CallSchema, ChatMessageSchema, VisitorPresenceSnapshotSchema } from '@supernizo/shared';
+
+import { getRedisClient } from '@/server/redis/client';
 
 import type { RealtimeEvent, RealtimeProvider, RealtimeProviderServerConfig } from './provider';
 
 const realtimeSchema = {
-  platform: {
-    event: z.object({
-      event: z.string().trim().min(1).max(100),
-      payload: z.unknown(),
-    }),
+  visitor: {
+    online: z.object({ visitor: VisitorPresenceSnapshotSchema }),
+    updated: z.object({ visitor: VisitorPresenceSnapshotSchema }),
+  },
+  chat: {
+    message: z.object({ message: ChatMessageSchema }),
+  },
+  call: {
+    incoming: z.object({ call: CallSchema }),
+    status: z.object({ call: CallSchema }),
   },
 } as const;
 
-function createUpstashRealtimeClient() {
-  return new Realtime({ redis, schema: realtimeSchema });
+export function createUpstashRealtimeClient() {
+  return new Realtime({ redis: getRedisClient(), schema: realtimeSchema });
 }
 
 type UpstashRealtimeClient = ReturnType<typeof createUpstashRealtimeClient>;
@@ -34,14 +41,46 @@ export class UpstashRealtimeProvider implements RealtimeProvider {
   ) {}
 
   public async emit(event: RealtimeEvent): Promise<void> {
-    await this.client.emit(serverConfig.defaultEvent, event);
+    await this.emitWithClient(this.client, event);
   }
 
   public async emitToChannel(channel: string, event: RealtimeEvent): Promise<void> {
-    await this.client.channel(channel).emit(serverConfig.defaultEvent, event);
+    await this.emitWithClient(this.client.channel(channel), event);
   }
 
   public getServerConfig(): RealtimeProviderServerConfig {
     return serverConfig;
+  }
+
+  private async emitWithClient(
+    client: Pick<UpstashRealtimeClient, 'emit'>,
+    event: RealtimeEvent,
+  ): Promise<void> {
+    if (event.type === 'visitor.online') {
+      await client.emit('visitor.online', { visitor: event.visitor });
+      return;
+    }
+    if (event.type === 'visitor.updated') {
+      await client.emit('visitor.updated', { visitor: event.visitor });
+      return;
+    }
+
+    if (event.type === 'visitor.offline') {
+      return;
+    }
+
+    if (event.type === 'chat.message') {
+      await client.emit('chat.message', { message: event.message });
+      return;
+    }
+
+    if (event.type === 'call.incoming') {
+      await client.emit('call.incoming', { call: event.call });
+      return;
+    }
+
+    if (event.type === 'call.status') {
+      await client.emit('call.status', { call: event.call });
+    }
   }
 }

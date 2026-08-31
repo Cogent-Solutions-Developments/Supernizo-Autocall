@@ -2,11 +2,27 @@ import 'server-only';
 
 import { Redis } from '@upstash/redis';
 
-import { getServerEnvironment } from '@/server/env';
+import { getRedisEnvironment } from '@/server/env';
 
-const environment = getServerEnvironment();
+type RedisGlobal = typeof globalThis & { redis?: Redis };
 
-export const redis = new Redis({
-  token: environment.UPSTASH_REDIS_REST_TOKEN,
-  url: environment.UPSTASH_REDIS_REST_URL,
-});
+const redisGlobal = globalThis as RedisGlobal;
+
+export function getRedisClient(): Redis {
+  const existingClient = redisGlobal.redis;
+  if (existingClient) {
+    return existingClient;
+  }
+
+  const environment = getRedisEnvironment();
+  const client = new Redis({
+    token: environment.UPSTASH_REDIS_REST_TOKEN,
+    url: environment.UPSTASH_REDIS_REST_URL,
+  });
+
+  if (process.env.NODE_ENV !== 'production') {
+    redisGlobal.redis = client;
+  }
+
+  return client;
+}

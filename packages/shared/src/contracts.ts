@@ -15,6 +15,18 @@ export const PaginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
+export const DashboardDateRangeSchema = z
+  .object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+  })
+  .refine(({ from, to }) => from <= to, 'The start date must be on or before the end date.')
+  .refine(({ from, to }) => {
+    const start = Date.parse(`${from}T00:00:00.000Z`);
+    const end = Date.parse(`${to}T00:00:00.000Z`);
+    return end - start <= 366 * 24 * 60 * 60 * 1_000;
+  }, 'The selected period may not exceed 366 days.');
+
 export const ApiErrorCodeSchema = z.enum([
   'validation_error',
   'unauthorized',
@@ -122,6 +134,7 @@ export const TrackerBootstrapResponseSchema = z.object({
   features: SiteFeatureFlagsSchema,
   heartbeatIntervalSeconds: z.number().int().positive(),
   realtime: z.object({
+    authorizationToken: z.string().trim().min(1).max(2048),
     channel: z.string().trim().min(1).max(255),
   }),
   sessionId: AnonymousTrackerIdSchema,
@@ -156,10 +169,18 @@ export const TrackerHeartbeatRequestSchema = TrackingContextSchema.extend({
 
 export const TrackerPageLeaveRequestSchema = TrackerHeartbeatRequestSchema;
 
-const SafeEventValueSchema = z.union([z.string().max(256), z.number().finite(), z.boolean(), z.null()]);
+const SafeEventValueSchema = z.union([
+  z.string().max(256),
+  z.number().finite(),
+  z.boolean(),
+  z.null(),
+]);
 export const SafeEventMetadataSchema = z
   .record(z.string().trim().min(1).max(64), SafeEventValueSchema)
-  .refine((metadata) => Object.keys(metadata).length <= 20, 'Metadata may contain at most 20 values.');
+  .refine(
+    (metadata) => Object.keys(metadata).length <= 20,
+    'Metadata may contain at most 20 values.',
+  );
 
 export const TrackerEventTypeSchema = z.enum([
   'cta_click',
@@ -176,6 +197,111 @@ export const TrackerEventRequestSchema = TrackingContextSchema.extend({
   pageViewId: AnonymousPageViewIdSchema.optional(),
   type: TrackerEventTypeSchema,
 });
+
+export const ChatSenderTypeSchema = z.enum(['VISITOR', 'AGENT', 'SYSTEM']);
+export const ChatMessageContentSchema = z.string().trim().min(1).max(2_000);
+
+export const ChatMessageSchema = z.object({
+  content: ChatMessageContentSchema,
+  id: IdSchema,
+  senderName: z.string().trim().min(1).max(191).nullable(),
+  senderType: ChatSenderTypeSchema,
+  sentAt: UtcDateTimeSchema,
+  threadId: IdSchema,
+});
+
+export const ChatThreadSchema = z.object({
+  id: IdSchema,
+  siteId: IdSchema,
+  visitorId: IdSchema,
+});
+
+export const ChatThreadCreateRequestSchema = z.object({
+  siteId: IdSchema,
+  visitorId: IdSchema,
+});
+
+export const ChatAgentMessageRequestSchema = z.object({
+  content: ChatMessageContentSchema,
+});
+
+export const ChatVisitorMessageRequestSchema = z.object({
+  content: ChatMessageContentSchema,
+  context: TrackingContextSchema,
+});
+
+export const ChatHistoryQuerySchema = PaginationSchema;
+
+export const CallTypeSchema = z.enum(['AUDIO', 'VIDEO']);
+export const CallStatusSchema = z.enum([
+  'RINGING',
+  'ACCEPTED',
+  'REJECTED',
+  'CONNECTING',
+  'ACTIVE',
+  'ENDED',
+  'MISSED',
+  'FAILED',
+  'CANCELLED',
+]);
+
+export const CallSchema = z.object({
+  agentDisplayName: z.string().trim().min(1).max(191).nullable(),
+  id: IdSchema,
+  requestedAt: UtcDateTimeSchema,
+  roomName: z.string().trim().min(1).max(191),
+  siteId: IdSchema,
+  status: CallStatusSchema,
+  type: CallTypeSchema,
+  visitorId: IdSchema,
+});
+
+export const CallCreateRequestSchema = z.object({
+  siteId: IdSchema,
+  type: CallTypeSchema,
+  visitorId: IdSchema,
+});
+
+export const CallVisitorActionRequestSchema = z.object({
+  context: TrackingContextSchema,
+});
+
+export const LiveKitParticipantRoleSchema = z.enum(['AGENT', 'VISITOR']);
+export const LiveKitTokenRequestSchema = z.object({
+  callId: IdSchema,
+  context: TrackingContextSchema.optional(),
+  participantRole: LiveKitParticipantRoleSchema,
+});
+export const LiveKitTokenResponseSchema = z.object({
+  token: z.string().trim().min(1).max(8_192),
+  url: z.url(),
+});
+
+export const VisitorPresenceSnapshotSchema = z.object({
+  activeDurationSeconds: z.number().int().nonnegative(),
+  anonymousVisitorId: AnonymousTrackerIdSchema,
+  browserName: z.string().max(64).nullable(),
+  city: z.string().max(191).nullable(),
+  country: z.string().max(2).nullable(),
+  currentUrl: z.string().max(2048).nullable(),
+  deviceType: z.string().max(32).nullable(),
+  intentScore: z.number().int().min(0).max(100).nullable(),
+  lastSeenAt: UtcDateTimeSchema,
+  returningVisitCount: z.number().int().positive(),
+  sessionId: z.string().trim().min(1).max(191),
+  siteId: IdSchema,
+  source: z.string().max(191).nullable(),
+  visitorId: IdSchema,
+});
+
+export const RealtimeEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('visitor.online'), visitor: VisitorPresenceSnapshotSchema }),
+  z.object({ type: z.literal('visitor.updated'), visitor: VisitorPresenceSnapshotSchema }),
+  z.object({ type: z.literal('visitor.offline'), visitorId: IdSchema }),
+  z.object({ type: z.literal('call.incoming'), call: CallSchema }),
+  z.object({ type: z.literal('call.status'), call: CallSchema }),
+  z.object({ type: z.literal('chat.message'), message: ChatMessageSchema }),
+]);
 
 export function createApiSuccessEnvelopeSchema<TSchema extends z.ZodType>(dataSchema: TSchema) {
   return z.object({
@@ -194,7 +320,23 @@ export function createPaginatedEnvelopeSchema<TSchema extends z.ZodType>(itemSch
 
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 export type ApiErrorEnvelope = z.infer<typeof ApiErrorEnvelopeSchema>;
+export type ChatAgentMessageRequest = z.infer<typeof ChatAgentMessageRequestSchema>;
+export type ChatHistoryQuery = z.infer<typeof ChatHistoryQuerySchema>;
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+export type ChatSenderType = z.infer<typeof ChatSenderTypeSchema>;
+export type ChatThread = z.infer<typeof ChatThreadSchema>;
+export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSchema>;
+export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
+export type Call = z.infer<typeof CallSchema>;
+export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
+export type CallStatus = z.infer<typeof CallStatusSchema>;
+export type CallType = z.infer<typeof CallTypeSchema>;
+export type CallVisitorActionRequest = z.infer<typeof CallVisitorActionRequestSchema>;
+export type LiveKitParticipantRole = z.infer<typeof LiveKitParticipantRoleSchema>;
+export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
+export type LiveKitTokenResponse = z.infer<typeof LiveKitTokenResponseSchema>;
 export type Cursor = z.infer<typeof CursorSchema>;
+export type DashboardDateRange = z.infer<typeof DashboardDateRangeSchema>;
 export type Id = z.infer<typeof IdSchema>;
 export type Pagination = z.infer<typeof PaginationSchema>;
 export type RequestId = z.infer<typeof RequestIdSchema>;
@@ -211,3 +353,5 @@ export type TrackerHeartbeatRequest = z.infer<typeof TrackerHeartbeatRequestSche
 export type TrackerPageLeaveRequest = z.infer<typeof TrackerPageLeaveRequestSchema>;
 export type TrackerPageRequest = z.infer<typeof TrackerPageRequestSchema>;
 export type TrackingContext = z.infer<typeof TrackingContextSchema>;
+export type RealtimeEvent = z.infer<typeof RealtimeEventSchema>;
+export type VisitorPresenceSnapshot = z.infer<typeof VisitorPresenceSnapshotSchema>;

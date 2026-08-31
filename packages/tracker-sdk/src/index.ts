@@ -5,6 +5,8 @@ import type {
 } from '@supernizo/shared';
 
 import { EngagementManager } from './engagement';
+import { ChatWidgetController } from './chat-widget';
+import { CallWidgetController } from './call-widget';
 
 export type TrackerOptions = Readonly<{
   endpoint: string;
@@ -56,6 +58,8 @@ type NavigatorWithUserAgentData = Navigator &
 const STORAGE_PREFIX = 'supernizo_';
 const DISABLED_KEY = `${STORAGE_PREFIX}tracking_disabled`;
 let engagementManager: EngagementManager | undefined;
+let chatWidget: ChatWidgetController | undefined;
+let callWidget: CallWidgetController | undefined;
 
 function visitorStorageKey(sitePublicKey: string): string {
   return `${STORAGE_PREFIX}visitor_id:${sitePublicKey}`;
@@ -265,7 +269,15 @@ function writeDisabledState(disabled: boolean): void {
 }
 
 export const Tracker: TrackerRuntime = {
-  disable: () => writeDisabledState(true),
+  disable: () => {
+    writeDisabledState(true);
+    engagementManager?.stop();
+    engagementManager = undefined;
+    chatWidget?.stop();
+    chatWidget = undefined;
+    callWidget?.stop();
+    callWidget = undefined;
+  },
   enable: () => writeDisabledState(false),
   init: async (options = {}) => {
     try {
@@ -331,6 +343,35 @@ export const Tracker: TrackerRuntime = {
         createRandomUuid,
       );
       engagementManager.start();
+      chatWidget?.stop();
+      chatWidget = responseBody.features.chatEnabled
+        ? new ChatWidgetController(
+            {
+              sessionId: responseBody.sessionId,
+              sitePublicKey,
+              visitorId: responseBody.visitorId,
+            },
+            bootstrapEndpoint,
+          )
+        : undefined;
+      chatWidget?.start();
+      callWidget?.stop();
+      callWidget =
+        responseBody.features.audioCallEnabled || responseBody.features.videoCallEnabled
+          ? new CallWidgetController(
+              {
+                sessionId: responseBody.sessionId,
+                sitePublicKey,
+                visitorId: responseBody.visitorId,
+              },
+              bootstrapEndpoint,
+              {
+                channel: responseBody.realtime.channel,
+                token: responseBody.realtime.authorizationToken,
+              },
+            )
+          : undefined;
+      callWidget?.start();
       return responseBody;
     } catch {
       return undefined;

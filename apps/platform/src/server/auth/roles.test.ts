@@ -13,5 +13,6 @@ describe('dashboard role restrictions', () => {
     expect(canContactVisitors('ADMIN')).toBe(true);
     expect(canContactVisitors('AGENT')).toBe(true);
     expect(canContactVisitors('VIEWER')).toBe(false);
+    expect(() => assertRole('VIEWER', ['ADMIN', 'AGENT'])).toThrow(ForbiddenError);
   });
 });

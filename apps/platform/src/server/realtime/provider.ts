@@ -1,9 +1,8 @@
 import 'server-only';
 
-export type RealtimeEvent = Readonly<{
-  event: string;
-  payload: unknown;
-}>;
+import type { RealtimeEvent } from '@supernizo/shared';
+
+export type { RealtimeEvent } from '@supernizo/shared';
 
 export type RealtimeProviderServerConfig = Readonly<{
   defaultEvent: 'platform.event';

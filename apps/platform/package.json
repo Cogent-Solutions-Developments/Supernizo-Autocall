@@ -9,11 +9,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supernizo/shared": "workspace:*",
+    "@livekit/components-react": "^2.9.24",
+    "@livekit/components-styles": "^1.2.0",
     "@prisma/adapter-mariadb": "7.10.0",
     "@prisma/client": "7.10.0",
-    "@upstash/redis": "latest",
+    "@supernizo/shared": "workspace:*",
     "@upstash/realtime": "latest",
+    "@upstash/redis": "latest",
     "@vercel/functions": "latest",
     "bcryptjs": "latest",
     "dotenv": "latest",

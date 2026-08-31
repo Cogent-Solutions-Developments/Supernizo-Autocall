@@ -98,6 +98,7 @@ export class EngagementManager {
   private accumulator: ActiveTimeAccumulator;
   private currentPage: PageState | undefined;
   private heartbeatTimer: number | undefined;
+  private scrollSampleTimer: number | undefined;
   private readonly observedScrollThresholds = new Set<number>();
   private originalPushState: History['pushState'] | undefined;
   private originalReplaceState: History['replaceState'] | undefined;
@@ -107,11 +108,15 @@ export class EngagementManager {
     private readonly bootstrapEndpoint: string,
     private readonly createIdentifier: () => string | undefined,
   ) {
-    this.accumulator = new ActiveTimeAccumulator(Date.now(), document.visibilityState === 'visible');
+    this.accumulator = new ActiveTimeAccumulator(
+      Date.now(),
+      document.visibilityState === 'visible',
+    );
   }
 
   public start(): void {
     this.startPage();
+    this.sendHeartbeat(true);
     this.heartbeatTimer = window.setInterval(() => this.sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
     this.installLifecycleListeners();
   }
@@ -120,6 +125,11 @@ export class EngagementManager {
     if (this.heartbeatTimer !== undefined) {
       window.clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = undefined;
+    }
+
+    if (this.scrollSampleTimer !== undefined) {
+      window.clearTimeout(this.scrollSampleTimer);
+      this.scrollSampleTimer = undefined;
     }
 
     this.restoreHistory();
@@ -161,12 +171,20 @@ export class EngagementManager {
     };
     this.currentPage = page;
     this.observedScrollThresholds.clear();
-    this.accumulator = new ActiveTimeAccumulator(Date.now(), document.visibilityState === 'visible');
+    this.accumulator = new ActiveTimeAccumulator(
+      Date.now(),
+      document.visibilityState === 'visible',
+    );
 
     this.send('page', { ...this.context, ...page, pageViewId: page.id });
   }
 
   private finishPage(useBeacon: boolean): void {
+    if (!this.currentPage) {
+      return;
+    }
+
+    this.updateScrollDepth();
     const page = this.currentPage;
     if (!page) {
       return;
@@ -282,6 +300,17 @@ export class EngagementManager {
   }
 
   private handleScroll(): void {
+    if (this.scrollSampleTimer !== undefined) {
+      return;
+    }
+
+    this.scrollSampleTimer = window.setTimeout(() => {
+      this.scrollSampleTimer = undefined;
+      this.updateScrollDepth();
+    }, 250);
+  }
+
+  private updateScrollDepth(): void {
     const page = this.currentPage;
     if (!page) {
       return;

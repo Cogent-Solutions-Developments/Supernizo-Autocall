@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
+import { RealtimeClientProvider } from '@/app/components/realtime-client-provider';
+
 import './globals.css';
+import '@livekit/components-styles';
 
 export const metadata: Metadata = {
   title: 'Supernizo Autocall',
@@ -15,7 +18,9 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <RealtimeClientProvider>{children}</RealtimeClientProvider>
+      </body>
     </html>
   );
 }

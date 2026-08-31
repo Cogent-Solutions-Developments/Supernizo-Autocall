@@ -13,6 +13,7 @@ generated/
 
 # Local environment files
 .env
+.env.local
 .env.*.local
 !.env.example
 

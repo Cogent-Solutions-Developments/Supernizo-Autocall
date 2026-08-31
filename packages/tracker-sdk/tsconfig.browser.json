@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "declaration": false,
-    "module": "UMD",
+    "module": "CommonJS",
     "moduleResolution": "Node",
     "noEmit": false,
     "outDir": "dist/browser",

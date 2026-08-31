@@ -47,7 +47,12 @@ describe('engagement helpers', () => {
 
   it('accepts only small scalar custom-event metadata', () => {
     expect(
-      sanitizeEventMetadata({ accepted: true, ignored: ['form input'], plan: 'enterprise', score: 10 }),
+      sanitizeEventMetadata({
+        accepted: true,
+        ignored: ['form input'],
+        plan: 'enterprise',
+        score: 10,
+      }),
     ).toEqual({ accepted: true, plan: 'enterprise', score: 10 });
   });
 });

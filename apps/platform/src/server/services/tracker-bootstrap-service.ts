@@ -8,6 +8,7 @@ import type { TrackerBootstrapRequest, TrackerBootstrapResponse } from '@superni
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getDatabaseClient } from '@/server/db/client';
 import { isOriginAllowed } from '@/server/sites/origins';
+import { createVisitorRealtimeToken } from '@/server/realtime/visitor-token';
 
 const StoredAllowedOriginsSchema = z.array(z.string()).min(1).max(100);
 
@@ -178,6 +179,8 @@ export async function bootstrapTracker(
     where: { anonymousSessionId: input.payload.sessionId },
   });
 
+  const visitorChannel = `visitor:${site.id}:${input.payload.visitorId}`;
+
   return {
     features: {
       audioCallEnabled: site.audioCallEnabled,
@@ -186,7 +189,10 @@ export async function bootstrapTracker(
       videoCallEnabled: site.videoCallEnabled,
     },
     heartbeatIntervalSeconds: 30,
-    realtime: { channel: `visitor:${site.id}:${visitor.id}` },
+    realtime: {
+      authorizationToken: createVisitorRealtimeToken(visitorChannel),
+      channel: visitorChannel,
+    },
     sessionId: input.payload.sessionId,
     visitorId: input.payload.visitorId,
   };
