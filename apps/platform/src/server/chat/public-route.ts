@@ -40,9 +40,10 @@ export async function handlePublicChatRequest<T>(
   handler: (input: Readonly<{ origin: string; payload: T }>) => Promise<Response>,
 ): Promise<Response> {
   const requestId = getRequestId(request);
+  let origin: string | undefined;
 
   try {
-    const origin = getPublicRequestOrigin(request);
+    origin = getPublicRequestOrigin(request);
     await enforceTrackingRateLimit(origin, bucket);
 
     let body: unknown;
@@ -59,7 +60,8 @@ export async function handlePublicChatRequest<T>(
       requestId,
     );
   } catch (error: unknown) {
-    return withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    const response = withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    return origin ? withAllowedOrigin(response, origin) : response;
   }
 }
 
@@ -70,9 +72,10 @@ export async function handlePublicChatQuery<T>(
   handler: (input: Readonly<{ origin: string; query: T }>) => Promise<Response>,
 ): Promise<Response> {
   const requestId = getRequestId(request);
+  let origin: string | undefined;
 
   try {
-    const origin = getPublicRequestOrigin(request);
+    origin = getPublicRequestOrigin(request);
     await enforceTrackingRateLimit(origin, bucket);
 
     const query = Object.fromEntries(new URL(request.url).searchParams.entries());
@@ -84,7 +87,8 @@ export async function handlePublicChatQuery<T>(
       requestId,
     );
   } catch (error: unknown) {
-    return withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    const response = withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    return origin ? withAllowedOrigin(response, origin) : response;
   }
 }
 
