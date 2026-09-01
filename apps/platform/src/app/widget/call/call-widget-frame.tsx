@@ -19,6 +19,7 @@ import {
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 
+import { callCopy, callHeading } from './call-display';
 import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
 
 const CallWidgetConfigSchema = z.object({
@@ -60,27 +61,6 @@ function initials(name: string): string {
     .join('');
 }
 
-function callHeading(call: Call): string {
-  if (call.status === 'RINGING') {
-    return call.type === 'VIDEO' ? 'Incoming video call' : 'Incoming audio call';
-  }
-  if (call.status === 'ACTIVE') return 'Call connected';
-  if (call.status === 'ACCEPTED' || call.status === 'CONNECTING') return 'Call connecting';
-  return `Call ${call.status.toLowerCase()}`;
-}
-
-function callCopy(call: Call, hasMedia: boolean): string {
-  if (call.status === 'RINGING') {
-    return call.type === 'VIDEO'
-      ? 'Accept to speak with the event team using your camera and microphone.'
-      : 'Accept to speak directly with the event team.';
-  }
-  if (call.status === 'ACTIVE') return 'You are connected through a secure private call.';
-  return hasMedia
-    ? 'Connecting to the secure media room.'
-    : 'Preparing your secure media connection.';
-}
-
 export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [config, setConfig] = useState<CallWidgetConfig | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -88,6 +68,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -124,8 +105,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   }, [call, hostOrigin]);
 
   const isRinging = call?.status === 'RINGING';
+  const hasActiveMedia =
+    media !== null && call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
   const agentName = call?.agentDisplayName ?? 'Event team';
   const showAvatar = Boolean(call?.agentAvatarUrl && call.agentAvatarUrl !== failedAvatarUrl);
+  const mediaConnected = call?.id === connectedMediaCallId;
 
   async function acceptCall(): Promise<void> {
     if (!call || !navigator.mediaDevices?.getUserMedia) {
@@ -179,7 +163,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       {call ? (
         <section
           aria-live="assertive"
-          className={`call-card ${call.type === 'AUDIO' ? 'audio-call' : 'video-call'}`}
+          className={`call-card ${call.type === 'AUDIO' ? 'audio-call' : 'video-call'} ${hasActiveMedia ? 'has-media' : ''}`}
         >
           <div aria-hidden="true" className="ambient ambient-one" />
           <div aria-hidden="true" className="ambient ambient-two" />
@@ -211,8 +195,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             </div>
 
             <p className="eyebrow">{agentName}</p>
-            <h1>{callHeading(call)}</h1>
-            <p className="copy">{callCopy(call, Boolean(media))}</p>
+            <h1>{callHeading(call, mediaConnected)}</h1>
+            <p className="copy">{callCopy(call, Boolean(media), mediaConnected)}</p>
             <p className="call-kind">
               {call.type === 'VIDEO' ? (
                 <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
@@ -247,8 +231,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             </div>
           ) : null}
 
-          {media && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status) ? (
-            <LiveKitMediaRoom call={call} media={media} onEnd={endCall} />
+          {hasActiveMedia && media ? (
+            <LiveKitMediaRoom
+              call={call}
+              media={media}
+              onConnected={() => setConnectedMediaCallId(call.id)}
+              onEnd={endCall}
+            />
           ) : null}
 
           <footer>
@@ -517,6 +506,32 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
         .video-call h1 {
           font-size: 23px;
+        }
+        .video-call.has-media {
+          overflow: hidden;
+          padding: 16px 18px 13px;
+        }
+        .video-call.has-media .caller {
+          align-items: flex-start;
+          flex: 0 0 auto;
+          padding: 12px 2px 10px;
+          text-align: left;
+        }
+        .video-call.has-media .avatar-ring,
+        .video-call.has-media .copy,
+        .video-call.has-media .call-kind {
+          display: none;
+        }
+        .video-call.has-media .eyebrow {
+          margin: 0 0 3px;
+        }
+        .video-call.has-media h1 {
+          color: #dceef2;
+          font-size: 17px;
+          letter-spacing: -0.02em;
+        }
+        .video-call.has-media footer {
+          padding-top: 4px;
         }
         @keyframes ring-pulse {
           0% {

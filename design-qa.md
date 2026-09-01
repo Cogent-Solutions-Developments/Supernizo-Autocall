@@ -1,49 +1,42 @@
-# Accepted Audio Call UI — Design QA
+# Visitor Video Call Layout — Design QA
 
-- Source visual truth: user-provided accepted-call screenshot in the current conversation.
-- Source pixels: 429 × 677.
-- Intended implementation: `/widget/call`, audio call in the `ACTIVE` state.
-- Intended iframe CSS size: 360 × 560 at device scale factor 1.
-- Implementation screenshot: unavailable.
-- Density normalization: not performed because a browser-rendered implementation capture was unavailable.
+- Source visual truth: the user-provided active video-call screenshot in the current conversation.
+- Intended implementation: `/widget/call`, video call with a local and remote LiveKit camera publication.
+- Intended layout: remote participant fills the main stage; the visitor camera appears as a small bottom-right picture-in-picture tile.
+- Local route check: `http://localhost:3000/widget/call` loaded successfully in the browser.
+- Active-call implementation screenshot: unavailable because the standalone widget has no call payload or two-party LiveKit room to render.
 
-**Full-view comparison evidence**
+## Full-view comparison evidence
 
-The supplied screenshot shows a P1 layout failure: LiveKit's 100%-height room container participates incorrectly in the outer phone flex layout, placing the connection row and media controls over the agent photo, name, and call copy. The microphone control also renders both LiveKit's default icon and the custom icon.
+The supplied screenshot shows the local visitor camera occupying the only large video tile. The caller avatar and connection copy also consume vertical space after media has started.
 
-The implementation now overrides the LiveKit room root to use normal-flow, auto-height layout. Active media controls render beneath the caller section as circular phone controls with separate labels.
+The implementation now selects the first published non-local camera track for the main stage and independently selects the local camera track for the picture-in-picture tile. The connected video-call header is compacted and its large avatar/copy are hidden while media is active.
 
-**Focused region comparison evidence**
+## Findings
 
-The problematic top control region was evaluated from the supplied screenshot. Post-fix focused evidence is blocked because the in-app browser is unavailable.
+- [P1] A real two-participant browser capture is still required.
+  - Location: active visitor video call.
+  - Evidence: the local widget route loads, but a remote LiveKit publication requires an authenticated agent, visitor call payload, camera permission, and an active room.
+  - Impact: exact remote video crop and picture-in-picture placement could not be visually compared against a live call.
+  - Fix: start a local agent-to-visitor video call and capture the visitor iframe after both cameras publish.
 
-**Findings**
+## Fidelity surfaces
 
-- [P1] Post-fix browser-rendered evidence is missing.
-  - Location: accepted audio call, caller identity and media-control regions.
-  - Evidence: the reported overlap and duplicate icon were corrected in code, but no revised screenshot could be captured.
-  - Impact: exact vertical spacing and control placement cannot be visually confirmed.
-  - Fix: capture a local accepted audio call at 360 × 560 and compare it against the supplied screenshot.
+- Layout: remote video is the full 4:3 stage; local video is a 76 × 94 px bottom-right overlay.
+- Empty state: the main stage explicitly says it is waiting for the agent video, preventing the local preview from being mistaken for the remote participant.
+- Controls: Mute, Camera off/on, and End remain below the video stage.
+- Colors: existing Supernizo navy, teal, and red call tokens are preserved.
+- Responsive behavior: the connected video header is compacted to reserve vertical room for media inside the iframe.
 
-**Fidelity surfaces**
+## Verification completed
 
-- Fonts and typography: existing Supernizo call typography is preserved; post-fix wrapping requires browser confirmation.
-- Spacing and layout rhythm: LiveKit root height and control-flow defects were corrected; visual confirmation is blocked.
-- Colors and visual tokens: existing navy, teal, green, and red phone-call tokens are preserved.
-- Image quality and asset fidelity: configured agent avatar behavior is unchanged.
-- Copy and content: connection state, duration, Mute/Unmute, optional Camera, and End labels remain functional.
-
-**Primary interactions checked**
-
-- Mute toggle now owns one icon and updates between Mute and Unmute.
-- Video calls retain a separate camera toggle.
-- End call remains a dedicated red circular action.
-- Browser interaction and console inspection were blocked because the in-app browser was unavailable.
-
-**Comparison history**
-
-- Iteration 1: found overlapping caller details/controls and a duplicate microphone icon in the supplied screenshot.
-- Fixes: constrained `.lk-room-container` to normal-flow auto height, disabled LiveKit's automatic toggle icon, separated labels from circular controls, and added explicit mute/camera state icons.
-- Post-fix evidence: unavailable because browser capture is blocked.
+- Formatting passed.
+- Platform, shared, and tracker ESLint passed with zero warnings.
+- TypeScript typecheck passed.
+- 29 non-database test files passed (81 tests).
+- The full test command remains blocked by the existing database smoke-test hook timing out while connecting.
+- The repository-wide Prettier check remains blocked by 17 pre-existing unformatted files; both files changed for this video layout pass Prettier.
+- Production build passed.
+- The standalone call widget route loaded without a route error.
 
 final result: blocked
