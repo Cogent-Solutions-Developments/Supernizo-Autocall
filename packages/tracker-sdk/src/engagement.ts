@@ -94,9 +94,17 @@ export function hasNavigationChanged(previousUrl: string, nextUrl: string): bool
   return previousUrl !== nextUrl;
 }
 
+export async function sendAfterPageRegistration<T>(
+  pageRegistered: Promise<boolean>,
+  send: () => Promise<T>,
+): Promise<T | undefined> {
+  return (await pageRegistered) ? send() : undefined;
+}
+
 export class EngagementManager {
   private accumulator: ActiveTimeAccumulator;
   private currentPage: PageState | undefined;
+  private pageRegistered: Promise<boolean> = Promise.resolve(false);
   private heartbeatTimer: number | undefined;
   private scrollSampleTimer: number | undefined;
   private readonly observedScrollThresholds = new Set<number>();
@@ -142,7 +150,7 @@ export class EngagementManager {
       return;
     }
 
-    this.send('event', {
+    this.queuePageRequest(page, 'event', {
       ...this.context,
       metadata: sanitizeEventMetadata(metadata),
       name: trimmedName,
@@ -176,7 +184,7 @@ export class EngagementManager {
       document.visibilityState === 'visible',
     );
 
-    this.send('page', { ...this.context, ...page, pageViewId: page.id });
+    this.pageRegistered = this.send('page', { ...this.context, ...page, pageViewId: page.id });
   }
 
   private finishPage(useBeacon: boolean): void {
@@ -190,7 +198,8 @@ export class EngagementManager {
       return;
     }
 
-    this.send(
+    this.queuePageRequest(
+      page,
       'page/leave',
       {
         ...this.context,
@@ -199,6 +208,7 @@ export class EngagementManager {
         pageViewId: page.id,
       },
       useBeacon,
+      false,
     );
     this.currentPage = undefined;
   }
@@ -209,7 +219,7 @@ export class EngagementManager {
       return;
     }
 
-    this.send('heartbeat', {
+    this.queuePageRequest(page, 'heartbeat', {
       ...this.context,
       activeSecondsDelta: this.accumulator.drainWholeSeconds(Date.now()),
       maxScrollPercent: page.maxScrollPercent,
@@ -217,28 +227,48 @@ export class EngagementManager {
     });
   }
 
-  private send(
+  private queuePageRequest(
+    page: PageState,
+    path: 'event' | 'heartbeat' | 'page/leave',
+    payload: object,
+    useBeacon = false,
+    requireCurrentPage = true,
+  ): void {
+    const pageRegistered = this.pageRegistered;
+
+    void sendAfterPageRegistration(pageRegistered, async () => {
+      if (requireCurrentPage && this.currentPage?.id !== page.id) {
+        return false;
+      }
+
+      return this.send(path, payload, useBeacon);
+    });
+  }
+
+  private async send(
     path: 'event' | 'heartbeat' | 'page' | 'page/leave',
     payload: object,
     useBeacon = false,
-  ): void {
+  ): Promise<boolean> {
     try {
       const endpoint = this.endpoint(path);
       if (useBeacon && typeof navigator.sendBeacon === 'function') {
-        navigator.sendBeacon(endpoint, serializeBeaconPayload(payload));
-        return;
+        return navigator.sendBeacon(endpoint, serializeBeaconPayload(payload));
       }
 
-      void fetch(endpoint, {
+      const response = await fetch(endpoint, {
         body: JSON.stringify(payload),
         credentials: 'omit',
         headers: { 'content-type': 'text/plain;charset=UTF-8' },
         keepalive: useBeacon,
         method: 'POST',
         mode: 'cors',
-      }).catch(() => undefined);
+      });
+
+      return response.ok;
     } catch {
       // Tracking must never interrupt the host page.
+      return false;
     }
   }
 
@@ -326,7 +356,7 @@ export class EngagementManager {
     }
 
     this.observedScrollThresholds.add(threshold);
-    this.send('event', {
+    this.queuePageRequest(page, 'event', {
       ...this.context,
       metadata: { percent: threshold },
       name: 'scroll_depth',
@@ -352,7 +382,7 @@ export class EngagementManager {
       return;
     }
 
-    this.send('event', {
+    this.queuePageRequest(page, 'event', {
       ...this.context,
       metadata: {},
       name: eventName.slice(0, 128),

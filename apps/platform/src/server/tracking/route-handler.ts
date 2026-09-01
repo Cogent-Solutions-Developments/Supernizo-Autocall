@@ -22,9 +22,9 @@ export async function handleTrackingRequest<T>(
   handler: (input: { origin: string; payload: T }) => Promise<void>,
 ): Promise<Response> {
   const requestId = getRequestId(request);
+  const origin = request.headers.get('origin');
 
   try {
-    const origin = request.headers.get('origin');
     if (!origin) {
       throw new ForbiddenError('A valid Origin header is required.');
     }
@@ -46,6 +46,8 @@ export async function handleTrackingRequest<T>(
     await handler({ origin, payload: parsedPayload.data });
     return withRequestId(withAllowedOrigin(new Response(null, { status: 204 }), origin), requestId);
   } catch (error: unknown) {
-    return withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    const response = withRequestId(toHttpErrorResponse(error, requestId), requestId);
+
+    return origin ? withAllowedOrigin(response, origin) : response;
   }
 }

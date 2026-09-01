@@ -18,9 +18,9 @@ function withAllowedOrigin(response: Response, origin: string): Response {
 
 export async function POST(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
+  const origin = request.headers.get('origin');
 
   try {
-    const origin = request.headers.get('origin');
     if (!origin) {
       throw new ForbiddenError('A valid Origin header is required.');
     }
@@ -42,6 +42,8 @@ export async function POST(request: Request): Promise<Response> {
     const response = await bootstrapTracker({ origin, payload: parsedPayload.data, request });
     return withRequestId(withAllowedOrigin(NextResponse.json(response), origin), requestId);
   } catch (error: unknown) {
-    return withRequestId(toHttpErrorResponse(error, requestId), requestId);
+    const response = withRequestId(toHttpErrorResponse(error, requestId), requestId);
+
+    return origin ? withAllowedOrigin(response, origin) : response;
   }
 }

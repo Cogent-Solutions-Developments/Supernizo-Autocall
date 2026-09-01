@@ -17,6 +17,7 @@ exports.EngagementManager = exports.ActiveTimeAccumulator = exports.IDLE_THRESHO
 exports.serializeBeaconPayload = serializeBeaconPayload;
 exports.sanitizeEventMetadata = sanitizeEventMetadata;
 exports.hasNavigationChanged = hasNavigationChanged;
+exports.sendAfterPageRegistration = sendAfterPageRegistration;
 exports.HEARTBEAT_INTERVAL_MS = 15_000;
 exports.IDLE_THRESHOLD_MS = 60_000;
 class ActiveTimeAccumulator {
@@ -84,12 +85,16 @@ function sanitizeEventMetadata(value) {
 function hasNavigationChanged(previousUrl, nextUrl) {
     return previousUrl !== nextUrl;
 }
+async function sendAfterPageRegistration(pageRegistered, send) {
+    return (await pageRegistered) ? send() : undefined;
+}
 class EngagementManager {
     context;
     bootstrapEndpoint;
     createIdentifier;
     accumulator;
     currentPage;
+    pageRegistered = Promise.resolve(false);
     heartbeatTimer;
     scrollSampleTimer;
     observedScrollThresholds = new Set();
@@ -124,7 +129,7 @@ class EngagementManager {
         if (!page || !trimmedName) {
             return;
         }
-        this.send('event', {
+        this.queuePageRequest(page, 'event', {
             ...this.context,
             metadata: sanitizeEventMetadata(metadata),
             name: trimmedName,
@@ -151,7 +156,7 @@ class EngagementManager {
         this.currentPage = page;
         this.observedScrollThresholds.clear();
         this.accumulator = new ActiveTimeAccumulator(Date.now(), document.visibilityState === 'visible');
-        this.send('page', { ...this.context, ...page, pageViewId: page.id });
+        this.pageRegistered = this.send('page', { ...this.context, ...page, pageViewId: page.id });
     }
     finishPage(useBeacon) {
         if (!this.currentPage) {
@@ -162,12 +167,12 @@ class EngagementManager {
         if (!page) {
             return;
         }
-        this.send('page/leave', {
+        this.queuePageRequest(page, 'page/leave', {
             ...this.context,
             activeSecondsDelta: this.accumulator.drainWholeSeconds(Date.now()),
             maxScrollPercent: page.maxScrollPercent,
             pageViewId: page.id,
-        }, useBeacon);
+        }, useBeacon, false);
         this.currentPage = undefined;
     }
     sendHeartbeat(force = false) {
@@ -175,31 +180,41 @@ class EngagementManager {
         if (!page || (!force && document.visibilityState !== 'visible')) {
             return;
         }
-        this.send('heartbeat', {
+        this.queuePageRequest(page, 'heartbeat', {
             ...this.context,
             activeSecondsDelta: this.accumulator.drainWholeSeconds(Date.now()),
             maxScrollPercent: page.maxScrollPercent,
             pageViewId: page.id,
         });
     }
-    send(path, payload, useBeacon = false) {
+    queuePageRequest(page, path, payload, useBeacon = false, requireCurrentPage = true) {
+        const pageRegistered = this.pageRegistered;
+        void sendAfterPageRegistration(pageRegistered, async () => {
+            if (requireCurrentPage && this.currentPage?.id !== page.id) {
+                return false;
+            }
+            return this.send(path, payload, useBeacon);
+        });
+    }
+    async send(path, payload, useBeacon = false) {
         try {
             const endpoint = this.endpoint(path);
             if (useBeacon && typeof navigator.sendBeacon === 'function') {
-                navigator.sendBeacon(endpoint, serializeBeaconPayload(payload));
-                return;
+                return navigator.sendBeacon(endpoint, serializeBeaconPayload(payload));
             }
-            void fetch(endpoint, {
+            const response = await fetch(endpoint, {
                 body: JSON.stringify(payload),
                 credentials: 'omit',
                 headers: { 'content-type': 'text/plain;charset=UTF-8' },
                 keepalive: useBeacon,
                 method: 'POST',
                 mode: 'cors',
-            }).catch(() => undefined);
+            });
+            return response.ok;
         }
         catch {
             // Tracking must never interrupt the host page.
+            return false;
         }
     }
     installLifecycleListeners() {
@@ -272,7 +287,7 @@ class EngagementManager {
             return;
         }
         this.observedScrollThresholds.add(threshold);
-        this.send('event', {
+        this.queuePageRequest(page, 'event', {
             ...this.context,
             metadata: { percent: threshold },
             name: 'scroll_depth',
@@ -294,7 +309,7 @@ class EngagementManager {
         if (!page) {
             return;
         }
-        this.send('event', {
+        this.queuePageRequest(page, 'event', {
             ...this.context,
             metadata: {},
             name: eventName.slice(0, 128),

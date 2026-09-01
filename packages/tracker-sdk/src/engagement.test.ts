@@ -4,6 +4,7 @@ import {
   ActiveTimeAccumulator,
   hasNavigationChanged,
   sanitizeEventMetadata,
+  sendAfterPageRegistration,
   serializeBeaconPayload,
 } from './engagement';
 
@@ -36,6 +37,23 @@ describe('engagement helpers', () => {
     expect(hasNavigationChanged('https://example.com/pricing', 'https://example.com/pricing')).toBe(
       false,
     );
+  });
+
+  it('waits for a page view to be registered before sending page-scoped activity', async () => {
+    let resolveRegistration: ((value: boolean) => void) | undefined;
+    const registration = new Promise<boolean>((resolve) => {
+      resolveRegistration = resolve;
+    });
+    const sent: string[] = [];
+    const queued = sendAfterPageRegistration(registration, async () => {
+      sent.push('heartbeat');
+      return true;
+    });
+
+    expect(sent).toEqual([]);
+    resolveRegistration?.(true);
+    await expect(queued).resolves.toBe(true);
+    expect(sent).toEqual(['heartbeat']);
   });
 
   it('serializes a text/plain beacon payload', async () => {
