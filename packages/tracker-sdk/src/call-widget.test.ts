@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { callWidgetFrameStyles } from './call-widget';
+import { CALL_WIDGET_PERMISSIONS_POLICY, callWidgetFrameStyles } from './call-widget';
 
 describe('call widget mounting', () => {
   it('keeps the call subscription iframe non-interactive until the visitor receives a call', () => {
@@ -17,5 +17,9 @@ describe('call widget mounting', () => {
     expect(visibleStyles).toContain('height:560px');
     expect(visibleStyles).toContain('pointer-events:auto');
     expect(visibleStyles).toContain('width:360px');
+  });
+
+  it('delegates media permissions to the cross-origin call iframe', () => {
+    expect(CALL_WIDGET_PERMISSIONS_POLICY).toBe('microphone; camera');
   });
 });

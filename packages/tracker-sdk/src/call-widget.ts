@@ -14,6 +14,10 @@ type Call = Readonly<{
 type CallWidgetConfig = Readonly<{ channel: string; token: string }>;
 type LiveKitMedia = Readonly<{ token: string; url: string }>;
 
+// The call interface runs in a cross-origin iframe. The host page must
+// explicitly delegate these features before that interface can request them.
+export const CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
+
 export function callWidgetFrameStyles(visible: boolean): readonly string[] {
   return [
     'background:transparent',
@@ -65,6 +69,7 @@ export class CallWidgetController {
       const frame = document.createElement('iframe');
       frame.setAttribute('aria-label', 'Incoming calls');
       frame.setAttribute('title', 'Incoming calls');
+      frame.allow = CALL_WIDGET_PERMISSIONS_POLICY;
       frame.src = widgetUrl.toString();
       frame.style.cssText = callWidgetFrameStyles(false).join(';');
       frame.addEventListener('load', () => this.postConfig());

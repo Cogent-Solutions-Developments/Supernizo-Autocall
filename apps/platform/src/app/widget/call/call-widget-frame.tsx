@@ -13,6 +13,8 @@ import {
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 
+import { mediaConstraintsForCall } from './media-permissions';
+
 const CallWidgetConfigSchema = z.object({
   channel: z.string().min(1),
   token: z.string().min(1),
@@ -47,6 +49,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [config, setConfig] = useState<CallWidgetConfig | null>(null);
   const [call, setCall] = useState<Call | null>(null);
   const [media, setMedia] = useState<LiveKitTokenResponse | null>(null);
+  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -85,6 +89,34 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const isRinging = call?.status === 'RINGING';
   const title = call?.type === 'VIDEO' ? 'Incoming video call' : 'Incoming audio call';
 
+  async function acceptCall(): Promise<void> {
+    if (!call || !navigator.mediaDevices?.getUserMedia) {
+      setPermissionError('This browser cannot request microphone or camera access for the call.');
+      return;
+    }
+
+    setIsRequestingPermission(true);
+    setPermissionError(null);
+    try {
+      const previewStream = await navigator.mediaDevices.getUserMedia(
+        mediaConstraintsForCall(call.type),
+      );
+      previewStream.getTracks().forEach((track) => track.stop());
+      window.parent.postMessage(
+        { action: 'accept', call, type: 'supernizo-call-action' },
+        hostOrigin,
+      );
+    } catch {
+      setPermissionError(
+        call.type === 'VIDEO'
+          ? 'Camera and microphone access are required to accept this video call.'
+          : 'Microphone access is required to accept this audio call.',
+      );
+    } finally {
+      setIsRequestingPermission(false);
+    }
+  }
+
   return (
     <RealtimeProvider
       key={config?.token ?? 'unauthenticated'}
@@ -100,7 +132,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           <h1>{isRinging ? title : `Call ${call.status.toLowerCase()}`}</h1>
           {isRinging ? (
             <p className="copy">
-              Choose an option before any microphone or camera permission is requested.
+              Select Accept to allow the{' '}
+              {call.type === 'VIDEO' ? 'camera and microphone' : 'microphone'} for this call.
             </p>
           ) : (
             <p className="copy">
@@ -109,6 +142,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 : 'Preparing secure media connection.'}
             </p>
           )}
+          {permissionError ? <p className="error">{permissionError}</p> : null}
           {isRinging ? (
             <div className="actions">
               <button
@@ -125,15 +159,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
               </button>
               <button
                 className="accept"
-                onClick={() =>
-                  window.parent.postMessage(
-                    { action: 'accept', call, type: 'supernizo-call-action' },
-                    hostOrigin,
-                  )
-                }
+                disabled={isRequestingPermission}
+                onClick={() => void acceptCall()}
                 type="button"
               >
-                Accept
+                {isRequestingPermission ? 'Requesting access…' : 'Accept'}
               </button>
             </div>
           ) : null}
@@ -174,6 +204,12 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           line-height: 1.4;
           margin: 0;
         }
+        .error {
+          color: #b91c1c;
+          font-size: 14px;
+          line-height: 1.4;
+          margin: 12px 0 0;
+        }
         .actions {
           display: flex;
           gap: 10px;
@@ -194,6 +230,10 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         .accept {
           background: #0f172a;
           color: #fff;
+        }
+        .accept:disabled {
+          cursor: wait;
+          opacity: 0.65;
         }
       `}</style>
     </RealtimeProvider>

@@ -483,8 +483,11 @@ exports.ChatWidgetController = ChatWidgetController;
   modules['./call-widget'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CallWidgetController = void 0;
+exports.CallWidgetController = exports.CALL_WIDGET_PERMISSIONS_POLICY = void 0;
 exports.callWidgetFrameStyles = callWidgetFrameStyles;
+// The call interface runs in a cross-origin iframe. The host page must
+// explicitly delegate these features before that interface can request them.
+exports.CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
 function callWidgetFrameStyles(visible) {
     return [
         'background:transparent',
@@ -535,6 +538,7 @@ class CallWidgetController {
             const frame = document.createElement('iframe');
             frame.setAttribute('aria-label', 'Incoming calls');
             frame.setAttribute('title', 'Incoming calls');
+            frame.allow = exports.CALL_WIDGET_PERMISSIONS_POLICY;
             frame.src = widgetUrl.toString();
             frame.style.cssText = callWidgetFrameStyles(false).join(';');
             frame.addEventListener('load', () => this.postConfig());
