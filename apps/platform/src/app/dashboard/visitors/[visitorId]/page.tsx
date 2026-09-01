@@ -7,6 +7,7 @@ import { DashboardChatPane } from '@/app/components/dashboard-chat-pane';
 import { requireSiteAccess } from '@/server/auth/access';
 import { getLiveVisitor } from '@/server/services/live-presence-service';
 import { getVisitorProfile } from '@/server/services/visitor-insights-service';
+import { listVisitorCallHistory } from '@/server/services/call-history-service';
 
 type VisitorPageProps = Readonly<{
   params: Promise<{ visitorId: string }>;
@@ -44,7 +45,10 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
   });
   if (!profile) notFound();
 
-  const onlineSnapshot = await getLiveVisitor(siteId.data, visitorId.data);
+  const [onlineSnapshot, callHistory] = await Promise.all([
+    getLiveVisitor(siteId.data, visitorId.data),
+    listVisitorCallHistory(siteId.data, visitorId.data),
+  ]);
   const nextTimelineHref = profile.timeline.nextCursor
     ? `/dashboard/visitors/${visitorId.data}?siteId=${siteId.data}&cursor=${encodeURIComponent(profile.timeline.nextCursor)}`
     : null;
@@ -201,9 +205,28 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
           />
           <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-slate-950">Calls</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              No call history yet. Calling arrives in a later phase.
-            </p>
+            {callHistory.length ? (
+              <ul className="mt-3 grid gap-3 text-sm">
+                {callHistory.map((call) => (
+                  <li className="rounded-lg bg-slate-50 p-3" key={call.callId}>
+                    <p className="font-medium text-slate-900">
+                      {call.type} · {call.status}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      {formatDate(call.requestedAt)} ·{' '}
+                      {call.durationSeconds === null
+                        ? 'No connected duration'
+                        : formatActiveSeconds(call.durationSeconds)}
+                    </p>
+                    {call.failureReason ? (
+                      <p className="mt-1 text-rose-700">{call.failureReason}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-slate-600">No call history yet.</p>
+            )}
           </article>
         </aside>
       </section>

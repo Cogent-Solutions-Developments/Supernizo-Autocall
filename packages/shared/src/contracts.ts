@@ -52,6 +52,10 @@ export const UtcDateTimeSchema = z
 
 export const StaffRoleSchema = z.enum(['ADMIN', 'AGENT', 'VIEWER']);
 export const SiteStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
+export const AgentAvailabilitySchema = z.enum(['AVAILABLE', 'BUSY', 'OFFLINE']);
+export const AgentPresenceHeartbeatSchema = z.object({
+  availability: AgentAvailabilitySchema,
+});
 
 export const OriginInputSchema = z.string().trim().min(1).max(2048);
 export const AllowedOriginsInputSchema = z.array(OriginInputSchema).min(1).max(100);
@@ -266,6 +270,15 @@ export const CallVisitorActionRequestSchema = z.object({
   context: TrackingContextSchema,
 });
 
+export const CallHistoryQuerySchema = z.object({
+  agentId: IdSchema.optional(),
+  from: z.iso.date().optional(),
+  siteId: IdSchema.optional(),
+  status: CallStatusSchema.optional(),
+  to: z.iso.date().optional(),
+  type: CallTypeSchema.optional(),
+});
+
 export const LiveKitParticipantRoleSchema = z.enum(['AGENT', 'VISITOR']);
 export const LiveKitTokenRequestSchema = z.object({
   callId: IdSchema,
@@ -320,6 +333,7 @@ export function createPaginatedEnvelopeSchema<TSchema extends z.ZodType>(itemSch
 
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;
 export type ApiErrorEnvelope = z.infer<typeof ApiErrorEnvelopeSchema>;
+export type AgentAvailability = z.infer<typeof AgentAvailabilitySchema>;
 export type ChatAgentMessageRequest = z.infer<typeof ChatAgentMessageRequestSchema>;
 export type ChatHistoryQuery = z.infer<typeof ChatHistoryQuerySchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;

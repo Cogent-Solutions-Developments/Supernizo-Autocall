@@ -1,7 +1,10 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
+import { AgentAvailabilityControl } from '@/app/components/agent-availability-control';
 import { LogoutButton } from '@/app/components/logout-button';
+import loginBackground from '@/assets/loging  background.webp';
 import { requireDashboardUser } from '@/server/auth/access';
 
 type DashboardLayoutProps = Readonly<{
@@ -14,37 +17,68 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const user = await requireDashboardUser();
 
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4 sm:px-10">
-          <div>
-            <p className="text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">
-              Supernizo Autocall
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {user.name ?? user.email} · {user.role.toLowerCase()}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <nav
-              aria-label="Dashboard"
-              className="flex items-center gap-3 text-sm font-medium text-slate-600"
+    <main className="dashboard-theme relative min-h-screen overflow-x-hidden bg-[#071019]">
+      <Image
+        alt=""
+        className="object-cover opacity-15"
+        fill
+        priority
+        sizes="100vw"
+        src={loginBackground}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_82%_0%,rgba(35,119,153,0.36),transparent_34%),radial-gradient(circle_at_8%_100%,rgba(15,72,95,0.25),transparent_30%)]" />
+      <header className="fixed right-4 top-4 z-30 max-w-[calc(100vw-2rem)] sm:right-6 sm:top-6">
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-slate-200/20 bg-[#0b1a24]/90 p-1.5 shadow-xl shadow-black/35 backdrop-blur-xl">
+          <Link
+            aria-label="Supernizo dashboard"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-[#0b1a24]"
+            href="/dashboard"
+            prefetch={false}
+          >
+            S
+          </Link>
+          <nav aria-label="Dashboard" className="flex shrink-0 items-center gap-0.5 text-sm font-medium text-slate-200">
+            <Link
+              className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
+              href="/dashboard"
+              prefetch={false}
             >
-              <Link className="hover:text-slate-950" href="/dashboard" prefetch={false}>
-                Sites
-              </Link>
-              <Link className="hover:text-slate-950" href="/dashboard/live">
-                Live visitors
-              </Link>
-              <Link className="hover:text-slate-950" href="/dashboard/analytics">
-                Analytics
-              </Link>
-            </nav>
+              Events
+            </Link>
+            <Link
+              className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
+              href="/dashboard/live"
+            >
+              Live
+            </Link>
+            <Link
+              className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
+              href="/dashboard/calls"
+            >
+              Calls
+            </Link>
+            <Link
+              className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
+              href="/dashboard/analytics"
+            >
+              Analytics
+            </Link>
+          </nav>
+          <div className="hidden h-7 w-px shrink-0 bg-sky-100/20 xl:block" />
+          <div className="hidden shrink-0 xl:block">
+            {user.role === 'ADMIN' || user.role === 'AGENT' ? <AgentAvailabilityControl /> : null}
+          </div>
+          <div className="hidden shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0b1a24] 2xl:block">
+            {user.name ?? user.email}
+          </div>
+          <div className="shrink-0">
             <LogoutButton />
           </div>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">{children}</div>
+      <div className="dashboard-content relative mx-auto w-full max-w-7xl px-6 py-8 sm:px-10 sm:py-10">
+        {children}
+      </div>
     </main>
   );
 }

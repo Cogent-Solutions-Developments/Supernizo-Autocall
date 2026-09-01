@@ -18,6 +18,7 @@ import { getEnvironmentReadiness } from '@/server/env';
 import { getPresenceRepository } from '@/server/presence/presence-repository';
 import { UpstashRealtimeProvider } from '@/server/realtime';
 
+import { assertAgentCanStartCall, markAgentBusy, releaseAgent } from './agent-presence-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 const terminalStatuses: CallStatus[] = ['REJECTED', 'ENDED', 'MISSED', 'FAILED', 'CANCELLED'];
@@ -50,6 +51,8 @@ const allowedTransitions: Readonly<Record<CallStatus, readonly CallAction[]>> = 
 
 const callSelect = {
   agent: { select: { displayName: true } },
+  agentId: true,
+  failureCode: true,
   id: true,
   requestedAt: true,
   roomName: true,
@@ -107,6 +110,11 @@ export function transitionCallStatus(current: CallStatus, action: CallAction): C
     throw new ConflictError(`A call in ${current} state cannot be ${action}ed.`);
   }
   return target;
+}
+
+export function staleCallAction(status: CallStatus): CallAction | null {
+  if (status === 'RINGING') return 'timeout';
+  return status === 'ACCEPTED' || status === 'CONNECTING' || status === 'ACTIVE' ? 'fail' : null;
 }
 
 function roomName(): string {
@@ -192,7 +200,11 @@ async function expireStalePendingCalls(
     const terminalStatus = staleCall.status === 'RINGING' ? 'MISSED' : 'FAILED';
     const result = await transaction.call.updateMany({
       where: { id: staleCall.id, status: staleCall.status },
-      data: { endedAt: new Date(), status: terminalStatus },
+      data: {
+        endedAt: new Date(),
+        failureCode: terminalStatus === 'MISSED' ? 'RING_TIMEOUT' : 'CONNECTION_TIMEOUT',
+        status: terminalStatus,
+      },
     });
     if (result.count === 1) expiredCalls.push({ id: staleCall.id, status: terminalStatus });
   }
@@ -221,7 +233,7 @@ async function expireCallIfNeeded(callId: string): Promise<Call | null> {
   const updated = await getDatabaseClient().$transaction(async (transaction) => {
     const result = await transaction.call.updateMany({
       where: { id: callId, status: 'RINGING' },
-      data: { endedAt: new Date(), status: 'MISSED' },
+      data: { endedAt: new Date(), failureCode: 'RING_TIMEOUT', status: 'MISSED' },
     });
     if (result.count === 0) return null;
     await transaction.callEvent.create({ data: { callId, type: 'MISSED' } });
@@ -229,6 +241,7 @@ async function expireCallIfNeeded(callId: string): Promise<Call | null> {
   });
   if (!updated) return getMappedCall(callId);
   const typedCall = mapCall(updated);
+  await releaseAgentIfAvailable(updated.agentId);
   await emitCallStatus(typedCall);
   return typedCall;
 }
@@ -241,6 +254,7 @@ export async function createCall(
     visitorId: string;
   }>,
 ): Promise<Call> {
+  await assertAgentCanStartCall(input.agentId);
   await assertCallEnabled(input.siteId, input.type);
   const presence = await getPresenceRepository().get(input.siteId, input.visitorId);
   if (!presence) throw new ConflictError('The visitor is no longer online.');
@@ -289,9 +303,15 @@ export async function createCall(
     return { call, expiredCalls };
   });
 
-  await Promise.all(expiredCalls.map((expiredCall) => emitCallStatus(mapCall(expiredCall))));
+  await Promise.all(
+    expiredCalls.map(async (expiredCall) => {
+      await releaseAgentIfAvailable(expiredCall.agentId);
+      await emitCallStatus(mapCall(expiredCall));
+    }),
+  );
 
   const typedCall = mapCall(call);
+  await markAgentBusy(call.agentId);
   const visitor = await database.visitor.findUnique({
     where: { id: typedCall.visitorId },
     select: { anonymousId: true },
@@ -319,7 +339,11 @@ export async function getCallScope(
   });
 }
 
-export async function transitionCall(callId: string, action: CallAction): Promise<Call> {
+export async function transitionCall(
+  callId: string,
+  action: CallAction,
+  failureCode?: string,
+): Promise<Call> {
   await expireCallIfNeeded(callId);
   const existing = await getSelectedCall(callId);
   if (!existing) throw new NotFoundError('The requested call does not exist.');
@@ -333,7 +357,9 @@ export async function transitionCall(callId: string, action: CallAction): Promis
       where: { id: callId, status: current as PrismaCallStatus },
       data: {
         ...(target === 'ACCEPTED' ? { respondedAt: now } : {}),
+        ...(target === 'ACTIVE' ? { startedAt: now } : {}),
         ...(isTerminal(target) ? { endedAt: now } : {}),
+        ...(failureCode && (target === 'FAILED' || target === 'MISSED') ? { failureCode } : {}),
         status: target as PrismaCallStatus,
       },
     });
@@ -345,8 +371,48 @@ export async function transitionCall(callId: string, action: CallAction): Promis
   });
   if (!updated) throw new NotFoundError('The requested call does not exist.');
   const typedCall = mapCall(updated);
+  if (target === 'CONNECTING' || target === 'ACTIVE') await markAgentBusy(updated.agentId);
+  if (isTerminal(target)) await releaseAgentIfAvailable(updated.agentId);
   await emitCallStatus(typedCall);
   return typedCall;
+}
+
+async function releaseAgentIfAvailable(agentId: string | null): Promise<void> {
+  if (!agentId) return;
+  const activeCalls = await getDatabaseClient().call.count({
+    where: { agentId, status: { notIn: terminalStatuses } },
+  });
+  if (activeCalls === 0) await releaseAgent(agentId);
+}
+
+export async function reconcileStaleCallsForAgent(agentId: string): Promise<number> {
+  const now = Date.now();
+  const ringingCutoff = new Date(now - getRingTimeoutSeconds() * 1_000);
+  const connectionCutoff = new Date(now - getConnectionTimeoutSeconds() * 1_000);
+  const calls = await getDatabaseClient().call.findMany({
+    where: {
+      agentId,
+      OR: [
+        { requestedAt: { lte: ringingCutoff }, status: 'RINGING' },
+        { requestedAt: { lte: connectionCutoff }, status: { in: ['ACCEPTED', 'CONNECTING'] } },
+        { startedAt: { lte: connectionCutoff }, status: 'ACTIVE' },
+      ],
+    },
+    select: { id: true, status: true },
+  });
+  for (const call of calls) {
+    const status = CallStatusSchema.parse(call.status);
+    const action = staleCallAction(status);
+    if (action) {
+      await transitionCall(
+        call.id,
+        action,
+        action === 'timeout' ? 'RING_TIMEOUT' : 'CONNECTION_TIMEOUT',
+      );
+    }
+  }
+  await releaseAgentIfAvailable(agentId);
+  return calls.length;
 }
 
 export async function acceptVisitorCall(
