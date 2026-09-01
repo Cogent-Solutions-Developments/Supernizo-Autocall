@@ -1,14 +1,33 @@
 import { LiveVisitorDashboard } from '@/app/components/live-visitor-dashboard';
+import { IdSchema } from '@supernizo/shared';
+import { notFound } from 'next/navigation';
+
 import { requireUser } from '@/server/auth/access';
 import { listLiveVisitorsForSite } from '@/server/services/live-presence-service';
 import { listSitesForUser } from '@/server/services/site-service';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LivePresencePage() {
-  const user = await requireUser();
+type LivePresencePageProps = Readonly<{
+  searchParams: Promise<{ siteId?: string | string[] }>;
+}>;
+
+function scalar(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+export default async function LivePresencePage({ searchParams }: LivePresencePageProps) {
+  const [user, query] = await Promise.all([requireUser(), searchParams]);
   const sites = await listSitesForUser(user.id, user.role);
-  const initialVisitors = sites[0] ? await listLiveVisitorsForSite(sites[0].id) : [];
+  const requestedSiteId = scalar(query.siteId);
+  const selectedSite = requestedSiteId
+    ? sites.find((site) => site.id === requestedSiteId)
+    : sites.at(0);
+
+  if (requestedSiteId && !IdSchema.safeParse(requestedSiteId).success) notFound();
+  if (requestedSiteId && !selectedSite) notFound();
+
+  const initialVisitors = selectedSite ? await listLiveVisitorsForSite(selectedSite.id) : [];
 
   return (
     <div className="grid gap-8">
@@ -23,7 +42,7 @@ export default async function LivePresencePage() {
       </section>
       <LiveVisitorDashboard
         canSendChat={user.role === 'ADMIN' || user.role === 'AGENT'}
-        initialSiteId={sites[0]?.id}
+        initialSiteId={selectedSite?.id}
         initialVisitors={initialVisitors}
         sites={sites}
       />

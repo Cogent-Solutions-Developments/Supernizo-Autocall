@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 
 import { SiteSettingsSchema, type SiteSettings } from '@supernizo/shared';
@@ -223,6 +224,7 @@ function SiteForm({
 }
 
 export function SiteManagement({ canManage, initialSites }: SiteManagementProps) {
+  const router = useRouter();
   const [sites, setSites] = useState(initialSites);
   const [selectedSiteId, setSelectedSiteId] = useState(initialSites[0]?.id ?? null);
   const selectedSite = useMemo(
@@ -242,6 +244,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
       [...currentSites, site].sort((left, right) => left.name.localeCompare(right.name)),
     );
     setSelectedSiteId(site.id);
+    router.refresh();
   }
 
   async function updateSelectedSite(payload: SitePayload): Promise<void> {
@@ -259,6 +262,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
     setSites((currentSites) =>
       currentSites.map((site) => (site.id === updatedSite.id ? updatedSite : site)),
     );
+    router.refresh();
   }
 
   async function deactivateSelectedSite(): Promise<void> {
@@ -274,6 +278,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
     setSites((currentSites) =>
       currentSites.map((site) => (site.id === deactivatedSite.id ? deactivatedSite : site)),
     );
+    router.refresh();
   }
 
   return (

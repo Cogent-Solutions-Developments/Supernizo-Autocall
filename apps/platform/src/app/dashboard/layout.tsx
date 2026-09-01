@@ -30,7 +30,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               aria-label="Dashboard"
               className="flex items-center gap-3 text-sm font-medium text-slate-600"
             >
-              <Link className="hover:text-slate-950" href="/dashboard">
+              <Link className="hover:text-slate-950" href="/dashboard" prefetch={false}>
                 Sites
               </Link>
               <Link className="hover:text-slate-950" href="/dashboard/live">

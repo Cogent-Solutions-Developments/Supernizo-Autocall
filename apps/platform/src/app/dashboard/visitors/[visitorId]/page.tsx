@@ -55,7 +55,7 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
         <div>
           <Link
             className="text-sm font-medium text-blue-700 hover:text-blue-800"
-            href="/dashboard/live"
+            href={`/dashboard/live?siteId=${siteId.data}`}
           >
             ← Back to live visitors
           </Link>
