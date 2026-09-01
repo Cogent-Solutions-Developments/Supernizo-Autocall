@@ -9,7 +9,7 @@ type PrismaGlobal = typeof globalThis & {
   prisma?: PrismaClient;
 };
 
-const SERVERLESS_CONNECTION_LIMIT = 2;
+const SERVERLESS_CONNECTION_LIMIT = 4;
 const SERVERLESS_IDLE_TIMEOUT_SECONDS = 60;
 
 export function configureDatabaseUrlForServerless(databaseUrl: string): string {
@@ -23,8 +23,9 @@ export function createDatabaseClient(
   databaseUrl = getDatabaseEnvironment().DATABASE_URL,
 ): PrismaClient {
   return new PrismaClient({
-    // Each Vercel runtime has its own pool. A small pool avoids exhausting the
-    // database's connection limit when the application scales horizontally.
+    // Fluid Compute can serve several concurrent requests in one runtime. Four
+    // connections avoids a per-instance bottleneck while remaining conservative
+    // when Vercel scales horizontally.
     adapter: new PrismaMariaDb(configureDatabaseUrlForServerless(databaseUrl)),
   });
 }

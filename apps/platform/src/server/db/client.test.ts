@@ -12,7 +12,7 @@ describe('database client', () => {
       configureDatabaseUrlForServerless('mysql://user:password@db.example.com:3306/app?ssl=true'),
     );
 
-    expect(configured.searchParams.get('connectionLimit')).toBe('2');
+    expect(configured.searchParams.get('connectionLimit')).toBe('4');
     expect(configured.searchParams.get('idleTimeout')).toBe('60');
     expect(configured.searchParams.get('ssl')).toBe('true');
   });

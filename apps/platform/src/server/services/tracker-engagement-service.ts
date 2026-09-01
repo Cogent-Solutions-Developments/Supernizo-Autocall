@@ -20,6 +20,40 @@ export type ResolvedTrackingContext = Readonly<{
   visitorId: string;
 }>;
 
+const TRACKING_WRITE_RETRY_DELAYS_MS = [25, 75] as const;
+
+type Delay = (milliseconds: number) => Promise<void>;
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export function isRetryableTrackingWriteError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as Error & { code?: unknown }).code === 'P2034'
+  );
+}
+
+export async function retryTrackingWrite<T>(
+  operation: () => Promise<T>,
+  wait: Delay = delay,
+): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error: unknown) {
+      const retryDelay = TRACKING_WRITE_RETRY_DELAYS_MS[attempt];
+      if (retryDelay === undefined || !isRetryableTrackingWriteError(error)) {
+        throw error;
+      }
+
+      await wait(retryDelay);
+    }
+  }
+}
+
 async function publishCurrentPresence(context: ResolvedTrackingContext): Promise<void> {
   const session = await getDatabaseClient().session.findUniqueOrThrow({
     where: { id: context.sessionId },
@@ -132,15 +166,19 @@ export async function recordTrackerPage(input: {
     throw new ConflictError('The tracking page view does not belong to this session.');
   }
 
-  await database.$transaction([
+  await retryTrackingWrite(() =>
     database.session.update({
       data: { currentUrl: input.payload.url, lastSeenAt: now },
       where: { id: context.sessionId },
     }),
+  );
+  await retryTrackingWrite(() =>
     database.visitor.update({
       data: { lastSeenAt: now },
       where: { id: context.visitorId },
     }),
+  );
+  await retryTrackingWrite(() =>
     database.pageView.upsert({
       create: {
         anonymousPageViewId: input.payload.pageViewId,
@@ -153,7 +191,7 @@ export async function recordTrackerPage(input: {
       update: {},
       where: { anonymousPageViewId: input.payload.pageViewId },
     }),
-  ]);
+  );
   await publishCurrentPresence(context);
 }
 
@@ -167,7 +205,7 @@ async function applyPageMetrics(
   const database = getDatabaseClient();
   const now = new Date();
 
-  await database.$transaction([
+  await retryTrackingWrite(() =>
     database.session.update({
       data: {
         activeDurationSeconds: { increment: payload.activeSecondsDelta },
@@ -175,10 +213,14 @@ async function applyPageMetrics(
       },
       where: { id: context.sessionId },
     }),
+  );
+  await retryTrackingWrite(() =>
     database.visitor.update({
       data: { lastSeenAt: now },
       where: { id: context.visitorId },
     }),
+  );
+  await retryTrackingWrite(() =>
     database.pageView.update({
       data: {
         activeDurationSeconds: { increment: payload.activeSecondsDelta },
@@ -187,7 +229,7 @@ async function applyPageMetrics(
       },
       where: { id: pageViewId },
     }),
-  ]);
+  );
 
   return context;
 }
@@ -218,11 +260,13 @@ export async function recordTrackerEvent(input: {
     await requirePageView(input.payload.pageViewId, context.sessionId);
   }
 
-  await database.$transaction([
+  await retryTrackingWrite(() =>
     database.session.update({
       data: { lastSeenAt: new Date() },
       where: { id: context.sessionId },
     }),
+  );
+  await retryTrackingWrite(() =>
     database.visitorEvent.create({
       data: {
         name: input.payload.name,
@@ -235,5 +279,5 @@ export async function recordTrackerEvent(input: {
         visitorId: context.visitorId,
       },
     }),
-  ]);
+  );
 }

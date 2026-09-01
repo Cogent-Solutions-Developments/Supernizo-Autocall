@@ -4,6 +4,7 @@ import {
   ActiveTimeAccumulator,
   hasNavigationChanged,
   sanitizeEventMetadata,
+  SerialRequestQueue,
   sendAfterPageRegistration,
   serializeBeaconPayload,
 } from './engagement';
@@ -54,6 +55,41 @@ describe('engagement helpers', () => {
     resolveRegistration?.(true);
     await expect(queued).resolves.toBe(true);
     expect(sent).toEqual(['heartbeat']);
+  });
+
+  it('serializes requests even when several are queued together', async () => {
+    const queue = new SerialRequestQueue();
+    let releaseFirst: (() => void) | undefined;
+    const firstBlocked = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const sent: string[] = [];
+
+    const first = queue.enqueue(async () => {
+      sent.push('first:start');
+      await firstBlocked;
+      sent.push('first:end');
+    });
+    const second = queue.enqueue(async () => {
+      sent.push('second');
+    });
+
+    await Promise.resolve();
+    expect(sent).toEqual(['first:start']);
+    releaseFirst?.();
+    await Promise.all([first, second]);
+    expect(sent).toEqual(['first:start', 'first:end', 'second']);
+  });
+
+  it('continues processing after a queued request fails', async () => {
+    const queue = new SerialRequestQueue();
+    const first = queue.enqueue(async () => {
+      throw new Error('Request failed');
+    });
+    const second = queue.enqueue(async () => 'sent');
+
+    await expect(first).rejects.toThrow('Request failed');
+    await expect(second).resolves.toBe('sent');
   });
 
   it('serializes a text/plain beacon payload', async () => {
