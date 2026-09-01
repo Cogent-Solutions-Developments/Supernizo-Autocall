@@ -13,13 +13,15 @@ export default async function DashboardPage() {
   return (
     <div className="grid gap-8">
       <section>
-        <p className="text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">Dashboard</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-          Site management
+        <p className="text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">
+          Operations dashboard
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+          Your events, all in one place.
         </h1>
-        <p className="mt-2 max-w-2xl text-slate-600">
-          Register approved website origins and configure which visitor-engagement capabilities are
-          available for each site.
+        <p className="mt-3 max-w-2xl leading-7 text-slate-600">
+          Start by choosing an event. From there you can watch live visitor activity, handle calls
+          and review performance.
         </p>
       </section>
       <SiteManagement canManage={user.role === 'ADMIN'} initialSites={sites} />

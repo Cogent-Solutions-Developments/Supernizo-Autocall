@@ -1,6 +1,7 @@
 import type { TrackingContext } from '@supernizo/shared';
 
 type Call = Readonly<{
+  agentAvatarUrl?: string | null;
   agentDisplayName: string | null;
   id: string;
   requestedAt: string;

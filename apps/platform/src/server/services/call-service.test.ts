@@ -6,6 +6,7 @@ import {
   getConnectionTimeoutSeconds,
   getRingTimeoutSeconds,
   isRingingCallExpired,
+  staleCallAction,
   transitionCallStatus,
 } from './call-service';
 
@@ -47,5 +48,12 @@ describe('call state machine', () => {
     const requestedAt = new Date('2026-08-31T10:00:00.000Z');
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 29_999, 30)).toBe(false);
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 30_000, 30)).toBe(true);
+  });
+
+  it('reconciles stale ringing and media-connection states into terminal outcomes', () => {
+    expect(staleCallAction('RINGING')).toBe('timeout');
+    expect(staleCallAction('CONNECTING')).toBe('fail');
+    expect(staleCallAction('ACTIVE')).toBe('fail');
+    expect(staleCallAction('ENDED')).toBeNull();
   });
 });
