@@ -37,7 +37,10 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           >
             S
           </Link>
-          <nav aria-label="Dashboard" className="flex shrink-0 items-center gap-0.5 text-sm font-medium text-slate-200">
+          <nav
+            aria-label="Dashboard"
+            className="flex shrink-0 items-center gap-0.5 text-sm font-medium text-slate-200"
+          >
             <Link
               className="whitespace-nowrap rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
               href="/dashboard"
