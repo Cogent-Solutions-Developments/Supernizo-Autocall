@@ -19,3 +19,78 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Shared authenticated dashboard surface. Existing feature components retain their structure,
+   while this scope applies the same navy, teal, translucent appearance as the sign-in screen. */
+.dashboard-theme {
+  color: #dcebf1;
+}
+
+.dashboard-theme .bg-white {
+  background-color: rgb(13 28 38 / 78%);
+  backdrop-filter: blur(16px);
+}
+
+.dashboard-theme .bg-slate-50 {
+  background-color: rgb(15 34 45 / 84%);
+}
+
+.dashboard-theme .bg-slate-100 {
+  background-color: rgb(35 62 75 / 68%);
+}
+
+.dashboard-theme .bg-blue-50 {
+  background-color: rgb(17 65 84 / 72%);
+}
+
+.dashboard-theme .border-slate-100,
+.dashboard-theme .border-slate-200,
+.dashboard-theme .border-slate-300 {
+  border-color: rgb(172 211 227 / 22%);
+}
+
+.dashboard-theme .text-slate-950,
+.dashboard-theme .text-slate-900,
+.dashboard-theme .text-slate-800 {
+  color: #f1f7fa;
+}
+
+.dashboard-theme .text-slate-700 {
+  color: #d8e7ed;
+}
+
+.dashboard-theme .text-slate-600 {
+  color: #b5c9d2;
+}
+
+.dashboard-theme .text-slate-500 {
+  color: #91aab5;
+}
+
+.dashboard-theme input,
+.dashboard-theme select,
+.dashboard-theme textarea {
+  background-color: rgb(5 18 27 / 88%);
+  color: #f1f7fa;
+}
+
+.dashboard-theme input::placeholder,
+.dashboard-theme textarea::placeholder {
+  color: #718b97;
+}
+
+.dashboard-theme .hover\:bg-slate-50:hover,
+.dashboard-theme .hover\:bg-slate-100:hover {
+  background-color: rgb(32 76 95 / 76%);
+}
+
+@media (width >= 64rem) {
+  .dashboard-content {
+    padding-left: 6rem;
+    transition: padding 300ms ease;
+  }
+
+  .dashboard-content:has(.event-sidebar-expanded) {
+    padding-left: 17rem;
+  }
+}
