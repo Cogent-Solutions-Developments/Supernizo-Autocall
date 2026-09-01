@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 deploy_root=/home/deploy/app/autocall
 env_file="${deploy_root}/.env.production"
+image_state_file="${deploy_root}/.deployment/current-images.env"
 backup_root="${deploy_root}/backups/postgres"
 lock_file="${deploy_root}/.deployment/backup.lock"
 retention_days="${BACKUP_RETENTION_DAYS:-14}"
@@ -18,6 +19,10 @@ retention_days="${BACKUP_RETENTION_DAYS:-14}"
 
 cd "$deploy_root"
 bash ./scripts/validate-production-env.sh "$env_file" >/dev/null
+[[ -r "$image_state_file" ]] || {
+  printf 'Deployment image state is missing: %s\n' "$image_state_file" >&2
+  exit 1
+}
 
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./production-env.sh
@@ -34,7 +39,12 @@ flock -n 9 || {
 
 timestamp="$(date -u +'%Y%m%dT%H%M%SZ')"
 backup_file="${backup_root}/${POSTGRES_DB:-autocall_prod}-${timestamp}.dump"
-compose=(docker compose --env-file "$env_file" --file docker-compose.production.yml)
+compose=(
+  docker compose
+  --env-file "$env_file"
+  --env-file "$image_state_file"
+  --file docker-compose.production.yml
+)
 
 umask 077
 "${compose[@]}" exec -T --user postgres postgres \

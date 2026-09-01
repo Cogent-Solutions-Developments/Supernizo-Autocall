@@ -2,24 +2,40 @@
 set -Eeuo pipefail
 
 usage() {
-  printf 'Usage: %s COMMIT_SHA\n' "$0"
+  printf 'Usage: %s COMMIT_SHA APP_IMAGE@DIGEST MIGRATOR_IMAGE@DIGEST\n' "$0"
 }
 
-[[ $# -eq 1 ]] || {
+[[ $# -eq 3 ]] || {
   usage >&2
   exit 2
 }
 
 release_sha="$1"
+app_image="$2"
+migrator_image="$3"
+
+app_image_pattern='^ghcr\.io/cogent-solutions-developments/supernizo-autocall-app@sha256:[0-9a-f]{64}$'
+migrator_image_pattern='^ghcr\.io/cogent-solutions-developments/supernizo-autocall-migrator@sha256:[0-9a-f]{64}$'
+
 [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || {
   printf 'Commit SHA must contain 40 lowercase hexadecimal characters.\n' >&2
+  exit 1
+}
+[[ "$app_image" =~ $app_image_pattern ]] || {
+  printf 'Application image must be the approved GHCR repository pinned by sha256 digest.\n' >&2
+  exit 1
+}
+[[ "$migrator_image" =~ $migrator_image_pattern ]] || {
+  printf 'Migrator image must be the approved GHCR repository pinned by sha256 digest.\n' >&2
   exit 1
 }
 
 deploy_root=/home/deploy/app/autocall
 env_file="${deploy_root}/.env.production"
-lock_file="${deploy_root}/.deployment/deploy.lock"
-state_file="${deploy_root}/.deployment/current-commit"
+state_dir="${deploy_root}/.deployment"
+lock_file="${state_dir}/deploy.lock"
+commit_state_file="${state_dir}/current-commit"
+image_state_file="${state_dir}/current-images.env"
 
 for command in curl docker flock git; do
   command -v "$command" >/dev/null 2>&1 || {
@@ -37,7 +53,8 @@ done
   exit 1
 }
 
-mkdir -p "${deploy_root}/.deployment"
+umask 077
+mkdir -p "$state_dir"
 exec 9>"$lock_file"
 flock -n 9 || {
   printf 'Another deployment is already running.\n' >&2
@@ -57,19 +74,41 @@ git merge-base --is-ancestor "$release_sha" origin/main || {
   exit 1
 }
 
-previous_sha=""
-[[ -f "$state_file" ]] && previous_sha="$(<"$state_file")"
+previous_app_image=""
+previous_migrator_image=""
+if [[ -f "$image_state_file" ]]; then
+  while IFS='=' read -r name value; do
+    case "$name" in
+      APP_IMAGE) previous_app_image="$value" ;;
+      MIGRATOR_IMAGE) previous_migrator_image="$value" ;;
+    esac
+  done <"$image_state_file"
+fi
 
 git checkout --detach "$release_sha"
 bash ./scripts/validate-production-env.sh "$env_file"
 
-export APP_IMAGE="supernizo-autocall-app:${release_sha}"
-export MIGRATOR_IMAGE="supernizo-autocall-migrator:${release_sha}"
+export APP_IMAGE="$app_image"
+export MIGRATOR_IMAGE="$migrator_image"
 compose=(docker compose --env-file "$env_file" --file docker-compose.production.yml)
 
 "${compose[@]}" config --quiet
-"${compose[@]}" build app migrate
-"${compose[@]}" up -d postgres
+docker pull "$app_image"
+docker pull "$migrator_image"
+"${compose[@]}" pull postgres
+
+app_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$app_image")"
+migrator_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$migrator_image")"
+[[ "$app_revision" == "$release_sha" ]] || {
+  printf 'Application image revision label does not match the requested commit.\n' >&2
+  exit 1
+}
+[[ "$migrator_revision" == "$release_sha" ]] || {
+  printf 'Migrator image revision label does not match the requested commit.\n' >&2
+  exit 1
+}
+
+"${compose[@]}" up -d --no-build postgres
 "${compose[@]}" run --rm migrate
 "${compose[@]}" up -d --no-build --remove-orphans app postgres
 
@@ -85,18 +124,29 @@ done
 
 if [[ "$healthy" != true ]]; then
   printf 'New application did not become healthy.\n' >&2
-  if [[ "$previous_sha" =~ ^[0-9a-f]{40}$ ]] \
-    && docker image inspect "supernizo-autocall-app:${previous_sha}" >/dev/null 2>&1; then
+  if [[ "$previous_app_image" =~ $app_image_pattern ]] \
+    && [[ "$previous_migrator_image" =~ $migrator_image_pattern ]]; then
     printf 'Restoring the previous application image; database migrations are not reversed.\n' >&2
-    export APP_IMAGE="supernizo-autocall-app:${previous_sha}"
-    export MIGRATOR_IMAGE="supernizo-autocall-migrator:${previous_sha}"
+    docker image inspect "$previous_app_image" >/dev/null 2>&1 \
+      || docker pull "$previous_app_image"
+    export APP_IMAGE="$previous_app_image"
+    export MIGRATOR_IMAGE="$previous_migrator_image"
     docker compose --env-file "$env_file" --file docker-compose.production.yml \
       up -d --no-build app postgres
+  else
+    "${compose[@]}" stop app || true
   fi
   exit 1
 fi
 
-printf '%s\n' "$release_sha" >"$state_file"
-chmod 0600 "$state_file"
+images_state_tmp="${image_state_file}.tmp.$$"
+commit_state_tmp="${commit_state_file}.tmp.$$"
+printf 'APP_IMAGE=%s\nMIGRATOR_IMAGE=%s\n' "$app_image" "$migrator_image" >"$images_state_tmp"
+printf '%s\n' "$release_sha" >"$commit_state_tmp"
+chmod 0600 "$images_state_tmp" "$commit_state_tmp"
+mv -f "$images_state_tmp" "$image_state_file"
+mv -f "$commit_state_tmp" "$commit_state_file"
+
 "${compose[@]}" ps
-printf 'Deployment completed: %s\n' "$release_sha"
+printf 'Deployment completed: %s\nApplication image: %s\nMigrator image: %s\n' \
+  "$release_sha" "$app_image" "$migrator_image"

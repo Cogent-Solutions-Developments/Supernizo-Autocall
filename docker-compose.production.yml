@@ -47,11 +47,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   migrate:
-    image: ${MIGRATOR_IMAGE:-supernizo-autocall-migrator:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: migrator
+    image: ${MIGRATOR_IMAGE:?Set MIGRATOR_IMAGE to the approved GHCR digest}
     environment:
       <<: *database-environment
     depends_on:
@@ -70,11 +66,7 @@ services:
       - no-new-privileges:true
 
   app:
-    image: ${APP_IMAGE:-supernizo-autocall-app:local}
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
+    image: ${APP_IMAGE:?Set APP_IMAGE to the approved GHCR digest}
     restart: unless-stopped
     cap_drop:
       - ALL
