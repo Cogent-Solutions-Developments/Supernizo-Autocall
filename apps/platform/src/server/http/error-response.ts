@@ -23,6 +23,11 @@ function knownErrorResponse(error: AppError, requestId: string): ErrorEnvelope {
   };
 }
 
+function getErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object' || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
+}
+
 export function toHttpErrorResponse(
   error: unknown,
   requestId: string,
@@ -39,6 +44,8 @@ export function toHttpErrorResponse(
   }
 
   logger.log('error', 'request_failed', {
+    errorCode: getErrorCode(error),
+    errorMessage: error instanceof Error ? error.message.slice(0, 1_000) : undefined,
     errorName: error instanceof Error ? error.name : 'UnknownError',
     requestId,
     statusCode: 500,

@@ -9,11 +9,23 @@ type PrismaGlobal = typeof globalThis & {
   prisma?: PrismaClient;
 };
 
+const SERVERLESS_CONNECTION_LIMIT = 2;
+const SERVERLESS_IDLE_TIMEOUT_SECONDS = 60;
+
+export function configureDatabaseUrlForServerless(databaseUrl: string): string {
+  const url = new URL(databaseUrl);
+  url.searchParams.set('connectionLimit', String(SERVERLESS_CONNECTION_LIMIT));
+  url.searchParams.set('idleTimeout', String(SERVERLESS_IDLE_TIMEOUT_SECONDS));
+  return url.toString();
+}
+
 export function createDatabaseClient(
   databaseUrl = getDatabaseEnvironment().DATABASE_URL,
 ): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaMariaDb(databaseUrl),
+    // Each Vercel runtime has its own pool. A small pool avoids exhausting the
+    // database's connection limit when the application scales horizontally.
+    adapter: new PrismaMariaDb(configureDatabaseUrlForServerless(databaseUrl)),
   });
 }
 

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import {
+  ApiErrorEnvelopeSchema,
   CallSchema,
   type Call,
   type CallType,
@@ -53,15 +54,21 @@ export function LiveVisitorCallModal({
       method: 'POST',
     })
       .then(async (response) => {
-        if (!response.ok) throw new Error('The call could not be started.');
+        if (!response.ok) {
+          const error = ApiErrorEnvelopeSchema.safeParse(await response.json().catch(() => null));
+          if (error.success) {
+            throw new Error(`${error.data.error.message} (request ${error.data.error.requestId})`);
+          }
+          throw new Error('The call could not be started.');
+        }
         return CallResponseSchema.parse(await response.json());
       })
       .then((response) => {
         setCall(response.data);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         callRequestStarted.current = false;
-        setError('The call could not be started. The visitor may be offline.');
+        setError(error instanceof Error ? error.message : 'The call could not be started.');
       });
   }, [callType, canCall, siteId, visitor.visitorId]);
 
