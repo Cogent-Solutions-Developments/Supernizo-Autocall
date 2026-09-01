@@ -1,0 +1,126 @@
+name: Test and deploy to Hetzner
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supernizo-autocall-production
+  cancel-in-progress: false
+
+env:
+  CI: 'true'
+  NODE_VERSION: '24'
+  PNPM_VERSION: '10.34.5'
+
+jobs:
+  quality:
+    name: Quality checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:17.11-bookworm
+        env:
+          POSTGRES_DB: autocall_ci
+          POSTGRES_PASSWORD: ci-postgres-password
+          POSTGRES_USER: autocall_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U autocall_ci -d autocall_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      APP_URL: http://localhost:3000/autocall-db
+      AUTH_SECRET: ci-only-auth-secret-with-at-least-32-characters
+      DATABASE_URL: postgresql://autocall_ci:ci-postgres-password@127.0.0.1:5432/autocall_ci
+      LIVEKIT_API_KEY: ci-api-key
+      LIVEKIT_API_SECRET: ci-api-secret
+      LIVEKIT_URL: wss://ci.invalid
+      TRACKING_IP_HASH_SECRET: ci-only-tracking-secret-with-at-least-32-characters
+      UPSTASH_REDIS_REST_TOKEN: ci-token
+      UPSTASH_REDIS_REST_URL: https://ci.invalid
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Prisma and apply migrations
+        run: |
+          pnpm exec prisma validate
+          pnpm prisma:generate
+          pnpm prisma:deploy
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Test PostgreSQL repositories
+        run: pnpm test:db
+
+      - name: Build production application
+        run: pnpm build
+
+  deploy:
+    name: Deploy application and PostgreSQL stack
+    needs: quality
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - name: Configure pinned SSH access
+        env:
+          SSH_HOST_KEY: ${{ secrets.HETZNER_SSH_HOST_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.HETZNER_SSH_PRIVATE_KEY }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          mkdir -p "${HOME}/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" >"${HOME}/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_HOST_KEY" >"${HOME}/.ssh/known_hosts"
+
+      - name: Deploy reviewed commit on Hetzner
+        env:
+          DEPLOY_HOST: ${{ secrets.HETZNER_HOST }}
+          DEPLOY_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          ssh \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "deploy ${GITHUB_SHA}"
+
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f "${HOME}/.ssh/id_ed25519"
