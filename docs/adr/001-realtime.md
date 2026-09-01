@@ -7,7 +7,7 @@
 
 V1 needs low-latency application notifications for live visitor presence, visitor timeline/dashboard changes, chat delivery, and agent-initiated call invitations/ringing. These are control-plane events, not audio/video media.
 
-The application must avoid vendor-specific calls throughout business services and must preserve a separation between durable history in MySQL and transient online state in Redis.
+The application must avoid vendor-specific calls throughout business services and must preserve a separation between durable history in PostgreSQL and transient online state in Redis.
 
 ## Decision
 
@@ -15,7 +15,7 @@ Use Upstash Realtime/SSE as the realtime push transport. Encapsulate it behind a
 
 The provider contract will expose application-oriented operations such as publishing tenant/site/session/conversation/call events and creating authorized subscriptions. Services publish typed domain events to the abstraction; dashboard and visitor-facing clients subscribe only to scoped channels authorized by server-side code.
 
-Upstash Redis is the separate store for ephemeral presence, heartbeats, and expiry. MySQL through Prisma remains the source of truth for durable records and history.
+Upstash Redis is the separate store for ephemeral presence, heartbeats, and expiry. PostgreSQL through Prisma remains the source of truth for durable records and history.
 
 ## Consequences
 

@@ -6,7 +6,7 @@ Phase 13 uses LiveKit for browser-to-browser WebRTC. Next.js only authorizes cal
 
 - Set `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` in `.env.local`.
 - In LiveKit Cloud, add `http://localhost:3000` to the development allowlist if required by the project settings.
-- Configure a LiveKit webhook to `https://<public-platform-url>/api/livekit/webhook`. For local verification, expose the platform with an HTTPS tunnel and register that tunnel URL.
+- Configure the LiveKit webhook as `https://api.infrastructuresg.com/autocall-db/api/livekit/webhook`. For local verification, expose the application with an HTTPS tunnel and preserve the `/autocall-db` base path.
 - Ensure the demo Site enables audio/video calling and allows the fixture origin.
 
 ## Chrome-to-Chrome or Chrome-to-Edge walkthrough
