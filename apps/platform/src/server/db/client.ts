@@ -22,9 +22,9 @@ const prismaGlobal = globalThis as PrismaGlobal;
 export function getDatabaseClient(): PrismaClient {
   const client = prismaGlobal.prisma ?? createDatabaseClient();
 
-  if (process.env.NODE_ENV !== 'production') {
-    prismaGlobal.prisma = client;
-  }
+  // A dashboard render makes several database calls. Reusing one client per
+  // Node.js runtime prevents each call from creating a separate MariaDB pool.
+  prismaGlobal.prisma = client;
 
   return client;
 }
