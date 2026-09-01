@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 enum UserRole {
@@ -48,8 +48,8 @@ model User {
   displayName     String?       @db.VarChar(191)
   passwordHash    String?       @db.VarChar(255)
   globalRole      UserRole      @default(VIEWER)
-  createdAt       DateTime      @default(now()) @db.DateTime(3)
-  updatedAt       DateTime      @updatedAt @db.DateTime(3)
+  createdAt       DateTime      @default(now()) @db.Timestamp(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamp(3)
   siteMemberships SiteMember[]
   assignedThreads ChatThread[]  @relation("ChatThreadAssignedAgent")
   chatMessages    ChatMessage[] @relation("ChatMessageAgent")
@@ -72,8 +72,8 @@ model Site {
   videoCallEnabled     Boolean               @default(true)
   consentMode          String?               @db.VarChar(32)
   eventRetentionDays   Int?
-  createdAt            DateTime              @default(now()) @db.DateTime(3)
-  updatedAt            DateTime              @updatedAt @db.DateTime(3)
+  createdAt            DateTime              @default(now()) @db.Timestamp(3)
+  updatedAt            DateTime              @updatedAt @db.Timestamp(3)
   members              SiteMember[]
   visitors             Visitor[]
   sessions             Session[]
@@ -89,8 +89,8 @@ model SiteMember {
   siteId    String   @db.VarChar(30)
   userId    String   @db.VarChar(30)
   role      UserRole @default(VIEWER)
-  createdAt DateTime @default(now()) @db.DateTime(3)
-  updatedAt DateTime @updatedAt @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+  updatedAt DateTime @updatedAt @db.Timestamp(3)
   site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -102,10 +102,10 @@ model Visitor {
   id                   String                @id @default(cuid()) @db.VarChar(30)
   siteId               String                @db.VarChar(30)
   anonymousId          String                @db.VarChar(191)
-  firstSeenAt          DateTime              @default(now()) @db.DateTime(3)
-  lastSeenAt           DateTime              @default(now()) @db.DateTime(3)
-  createdAt            DateTime              @default(now()) @db.DateTime(3)
-  updatedAt            DateTime              @updatedAt @db.DateTime(3)
+  firstSeenAt          DateTime              @default(now()) @db.Timestamp(3)
+  lastSeenAt           DateTime              @default(now()) @db.Timestamp(3)
+  createdAt            DateTime              @default(now()) @db.Timestamp(3)
+  updatedAt            DateTime              @updatedAt @db.Timestamp(3)
   site                 Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
   identities           VisitorIdentity[]
   sessions             Session[]
@@ -125,7 +125,7 @@ model VisitorIdentity {
   externalId  String   @db.VarChar(191)
   displayName String?  @db.VarChar(191)
   email       String?  @db.VarChar(191)
-  linkedAt    DateTime @default(now()) @db.DateTime(3)
+  linkedAt    DateTime @default(now()) @db.Timestamp(3)
   visitor     Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
 
   @@unique([visitorId, provider, externalId])
@@ -133,37 +133,37 @@ model VisitorIdentity {
 }
 
 model Session {
-  id                   String                @id @default(cuid()) @db.VarChar(30)
-  siteId               String                @db.VarChar(30)
-  visitorId            String                @db.VarChar(30)
-  anonymousSessionId   String                @unique @db.VarChar(191)
-  currentUrl           String?               @db.VarChar(2048)
-  referrerUrl          String?               @db.VarChar(2048)
-  utmSource            String?               @db.VarChar(191)
-  utmMedium            String?               @db.VarChar(191)
-  utmCampaign          String?               @db.VarChar(191)
-  utmTerm              String?               @db.VarChar(191)
-  utmContent           String?               @db.VarChar(191)
-  geoCountry           String?               @db.VarChar(2)
-  geoRegion            String?               @db.VarChar(191)
-  geoCity              String?               @db.VarChar(191)
-  geoTimezone          String?               @db.VarChar(64)
-  deviceType           String?               @db.VarChar(32)
-  browserName          String?               @db.VarChar(64)
-  operatingSystem      String?               @db.VarChar(64)
-  startedAt            DateTime              @default(now()) @db.DateTime(3)
-  lastSeenAt           DateTime              @default(now()) @db.DateTime(3)
-  activeDurationSeconds Int                  @default(0)
-  endedAt              DateTime?             @db.DateTime(3)
-  createdAt            DateTime              @default(now()) @db.DateTime(3)
-  updatedAt            DateTime              @updatedAt @db.DateTime(3)
-  site                 Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  visitor              Visitor               @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  pageViews            PageView[]
-  visitorEvents        VisitorEvent[]
-  chatThreads          ChatThread[]
-  calls                Call[]
-  intentScoreSnapshots IntentScoreSnapshot[]
+  id                    String                @id @default(cuid()) @db.VarChar(30)
+  siteId                String                @db.VarChar(30)
+  visitorId             String                @db.VarChar(30)
+  anonymousSessionId    String                @unique @db.VarChar(191)
+  currentUrl            String?               @db.VarChar(2048)
+  referrerUrl           String?               @db.VarChar(2048)
+  utmSource             String?               @db.VarChar(191)
+  utmMedium             String?               @db.VarChar(191)
+  utmCampaign           String?               @db.VarChar(191)
+  utmTerm               String?               @db.VarChar(191)
+  utmContent            String?               @db.VarChar(191)
+  geoCountry            String?               @db.VarChar(2)
+  geoRegion             String?               @db.VarChar(191)
+  geoCity               String?               @db.VarChar(191)
+  geoTimezone           String?               @db.VarChar(64)
+  deviceType            String?               @db.VarChar(32)
+  browserName           String?               @db.VarChar(64)
+  operatingSystem       String?               @db.VarChar(64)
+  startedAt             DateTime              @default(now()) @db.Timestamp(3)
+  lastSeenAt            DateTime              @default(now()) @db.Timestamp(3)
+  activeDurationSeconds Int                   @default(0)
+  endedAt               DateTime?             @db.Timestamp(3)
+  createdAt             DateTime              @default(now()) @db.Timestamp(3)
+  updatedAt             DateTime              @updatedAt @db.Timestamp(3)
+  site                  Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor               Visitor               @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  pageViews             PageView[]
+  visitorEvents         VisitorEvent[]
+  chatThreads           ChatThread[]
+  calls                 Call[]
+  intentScoreSnapshots  IntentScoreSnapshot[]
 
   @@index([siteId, lastSeenAt])
   @@index([visitorId, lastSeenAt])
@@ -176,8 +176,8 @@ model PageView {
   path                  String    @db.VarChar(2048)
   url                   String    @db.VarChar(2048)
   title                 String?   @db.VarChar(512)
-  enteredAt             DateTime  @default(now()) @db.DateTime(3)
-  leftAt                DateTime? @db.DateTime(3)
+  enteredAt             DateTime  @default(now()) @db.Timestamp(3)
+  leftAt                DateTime? @db.Timestamp(3)
   activeDurationSeconds Int       @default(0)
   maxScrollPercent      Int       @default(0)
   session               Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -193,7 +193,7 @@ model VisitorEvent {
   type      String   @db.VarChar(64)
   name      String   @db.VarChar(128)
   payload   Json?
-  createdAt DateTime @default(now()) @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
   site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   visitor   Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
@@ -210,9 +210,9 @@ model ChatThread {
   sessionId       String?       @db.VarChar(30)
   assignedAgentId String?       @db.VarChar(30)
   status          String        @default("OPEN") @db.VarChar(32)
-  createdAt       DateTime      @default(now()) @db.DateTime(3)
-  updatedAt       DateTime      @updatedAt @db.DateTime(3)
-  lastMessageAt   DateTime?     @db.DateTime(3)
+  createdAt       DateTime      @default(now()) @db.Timestamp(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamp(3)
+  lastMessageAt   DateTime?     @db.Timestamp(3)
   site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
   visitor         Visitor       @relation(fields: [visitorId], references: [id], onDelete: Cascade)
   session         Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -231,7 +231,7 @@ model ChatMessage {
   agentId    String?        @db.VarChar(30)
   content    String         @db.Text
   metadata   Json?
-  sentAt     DateTime       @default(now()) @db.DateTime(3)
+  sentAt     DateTime       @default(now()) @db.Timestamp(3)
   thread     ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
   agent      User?          @relation("ChatMessageAgent", fields: [agentId], references: [id], onDelete: SetNull)
 
@@ -247,13 +247,13 @@ model Call {
   type        CallType
   status      CallStatus  @default(RINGING)
   roomName    String?     @unique @db.VarChar(191)
-  requestedAt DateTime    @default(now()) @db.DateTime(3)
-  respondedAt DateTime?   @db.DateTime(3)
-  startedAt   DateTime?   @db.DateTime(3)
-  endedAt     DateTime?   @db.DateTime(3)
+  requestedAt DateTime    @default(now()) @db.Timestamp(3)
+  respondedAt DateTime?   @db.Timestamp(3)
+  startedAt   DateTime?   @db.Timestamp(3)
+  endedAt     DateTime?   @db.Timestamp(3)
   failureCode String?     @db.VarChar(64)
-  createdAt   DateTime    @default(now()) @db.DateTime(3)
-  updatedAt   DateTime    @updatedAt @db.DateTime(3)
+  createdAt   DateTime    @default(now()) @db.Timestamp(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamp(3)
   site        Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
   visitor     Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade)
   session     Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -271,7 +271,7 @@ model CallEvent {
   callId    String   @db.VarChar(30)
   type      String   @db.VarChar(64)
   payload   Json?
-  createdAt DateTime @default(now()) @db.DateTime(3)
+  createdAt DateTime @default(now()) @db.Timestamp(3)
   call      Call     @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@index([callId, createdAt])
@@ -284,7 +284,7 @@ model IntentScoreSnapshot {
   sessionId  String?  @db.VarChar(30)
   score      Int
   reasons    Json?
-  capturedAt DateTime @default(now()) @db.DateTime(3)
+  capturedAt DateTime @default(now()) @db.Timestamp(3)
   site       Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   visitor    Visitor  @relation(fields: [visitorId], references: [id], onDelete: Cascade)
   session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
@@ -302,7 +302,7 @@ model AuditLog {
   entityType  String   @db.VarChar(64)
   entityId    String?  @db.VarChar(191)
   metadata    Json?
-  createdAt   DateTime @default(now()) @db.DateTime(3)
+  createdAt   DateTime @default(now()) @db.Timestamp(3)
   site        Site?    @relation(fields: [siteId], references: [id], onDelete: SetNull)
   actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 

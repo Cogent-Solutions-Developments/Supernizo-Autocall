@@ -11,6 +11,8 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 import {
   defaultLiveVisitorFilters,
   displayPath,
@@ -109,7 +111,9 @@ export function LiveVisitorDashboard({
 
     let active = true;
     const refresh = () => {
-      void fetch(`/api/dashboard/sites/${siteId}/live`, { credentials: 'same-origin' })
+      void fetch(withAppBasePath(`/api/dashboard/sites/${siteId}/live`), {
+        credentials: 'same-origin',
+      })
         .then(async (response) => {
           if (!response.ok) throw new Error('Live visitors could not be loaded.');
           return LiveResponseSchema.parse(await response.json());

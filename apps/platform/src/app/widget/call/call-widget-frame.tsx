@@ -18,6 +18,7 @@ import {
 } from '@supernizo/shared';
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
+import { withAppBasePath } from '@/lib/app-path';
 
 import { callCopy, callHeading } from './call-display';
 import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
@@ -155,7 +156,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     <RealtimeProvider
       key={config?.token ?? 'unauthenticated'}
       api={{
-        url: config ? `/api/realtime/${encodeURIComponent(config.token)}` : '/api/realtime',
+        url: config
+          ? withAppBasePath(`/api/realtime/${encodeURIComponent(config.token)}`)
+          : withAppBasePath('/api/realtime'),
         withCredentials: false,
       }}
     >

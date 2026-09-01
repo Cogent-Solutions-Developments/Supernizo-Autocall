@@ -5,6 +5,8 @@ import { z } from 'zod';
 
 import { ChatThreadSchema, type VisitorPresenceSnapshot } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 import { DashboardChatPane } from './dashboard-chat-pane';
 
 const ChatThreadResponseSchema = z.object({ data: ChatThreadSchema });
@@ -29,7 +31,7 @@ export function LiveVisitorChatModal({
     if (!canSend) return;
 
     let active = true;
-    void fetch('/api/chat/threads', {
+    void fetch(withAppBasePath('/api/chat/threads'), {
       body: JSON.stringify({ siteId, visitorId: visitor.visitorId }),
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },

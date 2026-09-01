@@ -1,31 +1,33 @@
 import 'server-only';
 
-import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaPg } from '@prisma/adapter-pg';
+import type { PoolConfig } from 'pg';
 
 import { PrismaClient } from '@generated/prisma/client';
-import { getDatabaseEnvironment } from '@/server/env';
+import { getDatabaseEnvironment, type DatabaseEnvironment } from '@/server/env';
 
 type PrismaGlobal = typeof globalThis & {
   prisma?: PrismaClient;
 };
 
-const SERVERLESS_CONNECTION_LIMIT = 2;
-const SERVERLESS_IDLE_TIMEOUT_SECONDS = 60;
+const CONNECTION_LIMIT = 10;
+const CONNECTION_TIMEOUT_MILLISECONDS = 5_000;
+const IDLE_TIMEOUT_MILLISECONDS = 30_000;
 
-export function configureDatabaseUrlForServerless(databaseUrl: string): string {
-  const url = new URL(databaseUrl);
-  url.searchParams.set('connectionLimit', String(SERVERLESS_CONNECTION_LIMIT));
-  url.searchParams.set('idleTimeout', String(SERVERLESS_IDLE_TIMEOUT_SECONDS));
-  return url.toString();
+export function configurePostgresPool(environment: DatabaseEnvironment): PoolConfig {
+  return {
+    allowExitOnIdle: true,
+    connectionString: environment.DATABASE_URL,
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MILLISECONDS,
+    idleTimeoutMillis: IDLE_TIMEOUT_MILLISECONDS,
+    max: CONNECTION_LIMIT,
+    ssl: false,
+  };
 }
 
-export function createDatabaseClient(
-  databaseUrl = getDatabaseEnvironment().DATABASE_URL,
-): PrismaClient {
+export function createDatabaseClient(environment = getDatabaseEnvironment()): PrismaClient {
   return new PrismaClient({
-    // Each Vercel runtime has its own pool. A small pool avoids exhausting the
-    // database's connection limit when the application scales horizontally.
-    adapter: new PrismaMariaDb(configureDatabaseUrlForServerless(databaseUrl)),
+    adapter: new PrismaPg(configurePostgresPool(environment)),
   });
 }
 
@@ -34,8 +36,8 @@ const prismaGlobal = globalThis as PrismaGlobal;
 export function getDatabaseClient(): PrismaClient {
   const client = prismaGlobal.prisma ?? createDatabaseClient();
 
-  // A dashboard render makes several database calls. Reusing one client per
-  // Node.js runtime prevents each call from creating a separate MariaDB pool.
+  // The self-hosted process serves multiple requests, so reuse one pool for the
+  // lifetime of the process instead of creating a client for every request.
   prismaGlobal.prisma = client;
 
   return client;

@@ -9,6 +9,8 @@ import {
   type LiveKitTokenResponse,
 } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 import { LiveKitMediaRoom } from './livekit-media-room';
 
 const TokenResponseSchema = z.object({ data: LiveKitTokenResponseSchema });
@@ -34,7 +36,7 @@ export function DashboardCallMediaRoom({
 
   useEffect(() => {
     let active = true;
-    void fetch('/api/livekit/token', {
+    void fetch(withAppBasePath('/api/livekit/token'), {
       body: JSON.stringify({ callId: call.id, participantRole: 'AGENT' }),
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
@@ -54,7 +56,10 @@ export function DashboardCallMediaRoom({
   }, [call.id]);
 
   async function endCall(): Promise<void> {
-    await fetch(`/api/calls/${call.id}/end`, { credentials: 'same-origin', method: 'POST' });
+    await fetch(withAppBasePath(`/api/calls/${call.id}/end`), {
+      credentials: 'same-origin',
+      method: 'POST',
+    });
     onEnded();
   }
 

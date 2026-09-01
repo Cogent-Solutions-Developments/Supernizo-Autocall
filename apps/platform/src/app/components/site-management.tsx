@@ -10,6 +10,7 @@ import { SiteSettingsSchema, type SiteSettings } from '@supernizo/shared';
 
 import { CopyPublicKeyButton } from '@/app/components/copy-public-key-button';
 import supernizoLogo from '@/assets/logo-transparent.png';
+import { withAppBasePath } from '@/lib/app-path';
 
 const SiteResponseSchema = z.object({ data: SiteSettingsSchema });
 const ErrorResponseSchema = z.object({
@@ -305,7 +306,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   const displayedSites = isSidebarCollapsed ? sites : visibleSites;
 
   async function createSite(payload: SitePayload): Promise<void> {
-    const response = await fetch('/api/dashboard/sites', {
+    const response = await fetch(withAppBasePath('/api/dashboard/sites'), {
       body: JSON.stringify(payload),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
@@ -323,7 +324,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   async function updateSelectedSite(payload: SitePayload): Promise<void> {
     if (!selectedSite) return;
 
-    const response = await fetch(`/api/dashboard/sites/${selectedSite.id}`, {
+    const response = await fetch(withAppBasePath(`/api/dashboard/sites/${selectedSite.id}`), {
       body: JSON.stringify(payload),
       headers: { 'content-type': 'application/json' },
       method: 'PATCH',
@@ -340,9 +341,12 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   async function deactivateSelectedSite(): Promise<void> {
     if (!selectedSite) return;
 
-    const response = await fetch(`/api/dashboard/sites/${selectedSite.id}/deactivate`, {
-      method: 'POST',
-    });
+    const response = await fetch(
+      withAppBasePath(`/api/dashboard/sites/${selectedSite.id}/deactivate`),
+      {
+        method: 'POST',
+      },
+    );
     const deactivatedSite = await readSiteResponse(response);
 
     setSites((currentSites) =>

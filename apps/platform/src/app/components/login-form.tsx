@@ -4,6 +4,8 @@ import { useState, type FormEvent } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 export function LoginForm() {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export function LoginForm() {
     const email = formData.get('email');
     const password = formData.get('password');
     const result = await signIn('credentials', {
-      callbackUrl: '/dashboard',
+      callbackUrl: withAppBasePath('/dashboard'),
       email: typeof email === 'string' ? email : '',
       password: typeof password === 'string' ? password : '',
       redirect: false,
@@ -32,7 +34,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace(result.url ?? '/dashboard');
+    router.replace(result.url ?? withAppBasePath('/dashboard'));
     router.refresh();
   }
 

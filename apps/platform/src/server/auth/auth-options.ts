@@ -5,6 +5,7 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { z } from 'zod';
 
+import { withAppBasePath } from '@/lib/app-path';
 import { getDatabaseClient } from '@/server/db/client';
 import { getAuthenticationEnvironment } from '@/server/env';
 
@@ -39,7 +40,7 @@ export function getAuthOptions(): NextAuthOptions {
       },
     },
     pages: {
-      signIn: '/login',
+      signIn: withAppBasePath('/login'),
     },
     providers: [
       CredentialsProvider({
