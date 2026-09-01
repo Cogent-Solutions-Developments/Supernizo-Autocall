@@ -56,6 +56,7 @@ const callSelect = {
   id: true,
   requestedAt: true,
   roomName: true,
+  site: { select: { widgetAvatarUrl: true } },
   siteId: true,
   status: true,
   type: true,
@@ -66,6 +67,7 @@ type SelectedCall = Prisma.CallGetPayload<{ select: typeof callSelect }>;
 
 function mapCall(call: SelectedCall): Call {
   return CallSchema.parse({
+    agentAvatarUrl: call.site.widgetAvatarUrl,
     agentDisplayName: call.agent?.displayName ?? null,
     id: call.id,
     requestedAt: call.requestedAt.toISOString(),

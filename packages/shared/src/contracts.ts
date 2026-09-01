@@ -67,7 +67,13 @@ export const SiteFeatureFlagsSchema = z.object({
   videoCallEnabled: z.boolean().default(true),
 });
 
-const OptionalHttpUrlSchema = z.url().max(2048).nullable().optional();
+const HttpUrlSchema = z
+  .url()
+  .max(2048)
+  .refine((value) => ['http:', 'https:'].includes(new URL(value).protocol), {
+    message: 'Must be an http or https URL.',
+  });
+const OptionalHttpUrlSchema = HttpUrlSchema.nullable().optional();
 
 export const SiteCreateSchema = z
   .object({
@@ -250,6 +256,7 @@ export const CallStatusSchema = z.enum([
 ]);
 
 export const CallSchema = z.object({
+  agentAvatarUrl: OptionalHttpUrlSchema,
   agentDisplayName: z.string().trim().min(1).max(191).nullable(),
   id: IdSchema,
   requestedAt: UtcDateTimeSchema,

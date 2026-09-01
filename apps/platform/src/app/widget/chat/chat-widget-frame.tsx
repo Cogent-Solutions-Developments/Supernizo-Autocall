@@ -63,8 +63,13 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
         const parsed = ChatMessageSchema.safeParse(data.message);
         if (parsed.success) setMessages((current) => mergeChatMessage(current, parsed.data));
       }
+      if (data.type === 'supernizo-chat-open') {
+        setIsOpen(true);
+        setUnread(0);
+      }
     };
     window.addEventListener('message', receive);
+    window.parent.postMessage({ type: 'supernizo-chat-ready' }, hostOrigin);
     return () => window.removeEventListener('message', receive);
   }, [hostOrigin]);
 
@@ -88,6 +93,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
     setContent('');
   }
 
+  function closeChat(): void {
+    setIsOpen(false);
+    window.parent.postMessage({ type: 'supernizo-chat-close' }, hostOrigin);
+  }
+
   return (
     <>
       <RealtimeProvider
@@ -104,7 +114,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           <section aria-label="Chat conversation" className="conversation">
             <header>
               <strong>{agentName}</strong>
-              <button aria-label="Close chat" onClick={() => setIsOpen(false)} type="button">
+              <button aria-label="Close chat" onClick={closeChat} type="button">
                 ×
               </button>
             </header>
@@ -280,6 +290,143 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           overflow: hidden;
           position: absolute;
           width: 1px;
+        }
+      `}</style>
+      <style jsx>{`
+        .widget-shell {
+          display: block;
+        }
+        .launcher {
+          display: none;
+        }
+        .conversation {
+          background: linear-gradient(145deg, rgba(11, 37, 52, 0.98), rgba(3, 20, 33, 0.99));
+          border: 1px solid rgba(170, 229, 241, 0.32);
+          border-radius: 22px;
+          box-shadow:
+            0 24px 60px rgba(1, 14, 25, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.09);
+          color: #eaf8fc;
+          grid-template-rows: auto minmax(190px, 1fr) auto;
+          height: 536px;
+        }
+        header {
+          background: transparent;
+          padding: 18px 18px 16px;
+        }
+        header strong {
+          align-items: center;
+          display: flex;
+          font:
+            700 15px/1.2 Arial,
+            sans-serif;
+          gap: 10px;
+        }
+        header strong::before {
+          align-items: center;
+          background: linear-gradient(145deg, #43d5cf, #117b9c);
+          border: 1px solid rgba(206, 255, 253, 0.46);
+          border-radius: 50%;
+          box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.46);
+          color: #fff;
+          content: 'S';
+          display: flex;
+          font:
+            700 16px/1 Arial,
+            sans-serif;
+          height: 37px;
+          justify-content: center;
+          width: 37px;
+        }
+        header strong::after {
+          color: #a8c2cc;
+          content: 'Usually replies quickly';
+          font:
+            12px/1.4 Arial,
+            sans-serif;
+          font-weight: 400;
+          margin-left: -3px;
+        }
+        header button {
+          align-items: center;
+          background: rgba(168, 217, 229, 0.09);
+          border: 1px solid rgba(183, 229, 239, 0.14);
+          border-radius: 50%;
+          color: #bed9e2;
+          cursor: pointer;
+          display: flex;
+          height: 31px;
+          justify-content: center;
+          padding: 0;
+          width: 31px;
+        }
+        .messages {
+          background: linear-gradient(180deg, rgba(8, 30, 44, 0.18), rgba(6, 29, 42, 0.45));
+          border-bottom: 1px solid rgba(165, 220, 232, 0.1);
+          border-top: 1px solid rgba(165, 220, 232, 0.1);
+          padding: 16px 18px;
+        }
+        article {
+          border: 1px solid rgba(172, 228, 238, 0.12);
+          border-radius: 14px 14px 14px 4px;
+          color: #eaf8fc;
+          font-size: 13px;
+          padding: 10px 12px;
+        }
+        article strong {
+          color: #9cc4cf;
+          font-size: 10px;
+          font-weight: 500;
+          letter-spacing: 0.02em;
+        }
+        .agent {
+          background: rgba(112, 176, 192, 0.11);
+        }
+        .visitor {
+          background: linear-gradient(135deg, #147e9c, #176182);
+          border-color: rgba(135, 233, 239, 0.25);
+          border-radius: 14px 14px 4px 14px;
+        }
+        .visitor strong {
+          color: #d2f7f5;
+        }
+        .empty {
+          align-self: center;
+          color: #a7c2cb;
+          font-size: 13px;
+          text-align: center;
+        }
+        form {
+          align-items: end;
+          border-top: 0;
+          gap: 9px;
+          grid-template-columns: 1fr auto;
+          padding: 13px 14px 15px;
+        }
+        textarea {
+          background: rgba(0, 12, 23, 0.58);
+          border: 1px solid rgba(166, 219, 230, 0.18);
+          border-radius: 13px;
+          box-sizing: border-box;
+          color: #ecf9fc;
+          min-height: 44px;
+          padding: 12px 13px;
+          resize: none;
+          width: 100%;
+        }
+        textarea:focus {
+          border-color: rgba(79, 213, 207, 0.72);
+          box-shadow: 0 0 0 3px rgba(79, 213, 207, 0.1);
+          outline: none;
+        }
+        textarea::placeholder {
+          color: #7898a4;
+        }
+        form button {
+          background: linear-gradient(145deg, #45d4ca, #1589a5);
+          border-radius: 12px;
+          height: 44px;
+          padding: 0 15px;
         }
       `}</style>
     </>
