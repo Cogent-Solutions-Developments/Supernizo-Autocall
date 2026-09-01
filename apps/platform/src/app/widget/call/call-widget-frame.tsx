@@ -13,7 +13,7 @@ import {
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 
-import { mediaConstraintsForCall } from './media-permissions';
+import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
 
 const CallWidgetConfigSchema = z.object({
   channel: z.string().min(1),
@@ -98,19 +98,18 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     setIsRequestingPermission(true);
     setPermissionError(null);
     try {
-      const previewStream = await navigator.mediaDevices.getUserMedia(
-        mediaConstraintsForCall(call.type),
+      await requestMediaPermissions(call.type, (constraints) =>
+        navigator.mediaDevices.getUserMedia(constraints),
       );
-      previewStream.getTracks().forEach((track) => track.stop());
       window.parent.postMessage(
         { action: 'accept', call, type: 'supernizo-call-action' },
         hostOrigin,
       );
-    } catch {
+    } catch (error: unknown) {
       setPermissionError(
-        call.type === 'VIDEO'
-          ? 'Camera and microphone access are required to accept this video call.'
-          : 'Microphone access is required to accept this audio call.',
+        error instanceof MediaPermissionError && error.permission === 'camera'
+          ? 'Camera access is required to accept this video call. Allow camera access and try again.'
+          : 'Microphone access is required to accept this call. Allow microphone access and try again.',
       );
     } finally {
       setIsRequestingPermission(false);
