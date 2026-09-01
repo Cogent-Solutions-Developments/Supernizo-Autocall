@@ -20,6 +20,11 @@ export const defaultLiveVisitorFilters: LiveVisitorFilters = {
   source: 'all',
 };
 
+export function stableTimeText(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Unknown' : `${date.toISOString().slice(11, 19)} UTC`;
+}
+
 export function mergeLiveVisitorEvent(
   visitors: readonly VisitorPresenceSnapshot[],
   event: LiveVisitorEvent,

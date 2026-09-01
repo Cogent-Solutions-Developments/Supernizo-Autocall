@@ -2,7 +2,7 @@
 
 import { createRealtime } from '@upstash/realtime/client';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { z } from 'zod';
 
 import {
@@ -16,6 +16,7 @@ import {
   displayPath,
   filterAndSortLiveVisitors,
   mergeLiveVisitorEvent,
+  stableTimeText,
   type LiveVisitorFilters,
 } from './live-visitor-state';
 import { LiveVisitorChatModal } from './live-visitor-chat-modal';
@@ -43,6 +44,23 @@ function formatSeconds(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+}
+
+function subscribeToHydration(): () => void {
+  return () => undefined;
+}
+
+function LocalTime({ value }: Readonly<{ value: string }>) {
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
+  const date = new Date(value);
+  const text =
+    hydrated && !Number.isNaN(date.getTime()) ? date.toLocaleTimeString() : stableTimeText(value);
+
+  return <time dateTime={value}>{text}</time>;
 }
 
 function updateFilter(
@@ -276,7 +294,7 @@ export function LiveVisitorDashboard({
                   {visitor.deviceType ?? visitor.browserName ?? 'Unknown'}
                 </td>
                 <td className="px-4 py-4 text-slate-500">
-                  {new Date(visitor.lastSeenAt).toLocaleTimeString()}
+                  <LocalTime value={visitor.lastSeenAt} />
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">

@@ -4,6 +4,7 @@ import {
   defaultLiveVisitorFilters,
   filterAndSortLiveVisitors,
   mergeLiveVisitorEvent,
+  stableTimeText,
 } from './live-visitor-state';
 
 const visitor = {
@@ -24,6 +25,11 @@ const visitor = {
 } as const;
 
 describe('live visitor state', () => {
+  it('formats the hydration-safe initial activity time in UTC', () => {
+    expect(stableTimeText('2026-08-31T12:00:00.000Z')).toBe('12:00:00 UTC');
+    expect(stableTimeText('not-a-date')).toBe('Unknown');
+  });
+
   it('replaces an existing visitor on an update and removes offline visitors', () => {
     const updatedVisitor = { ...visitor, activeDurationSeconds: 45 };
     const updated = mergeLiveVisitorEvent([visitor], {
