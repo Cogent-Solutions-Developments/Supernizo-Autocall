@@ -6,6 +6,8 @@ import { z } from 'zod';
 
 import { ChatMessageSchema, ChatThreadSchema, type ChatMessage } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 import { mergeChatMessage } from './chat-state';
 
 const { useRealtime } = createRealtime<{
@@ -51,7 +53,9 @@ export function DashboardChatPane({
   useEffect(() => {
     if (!threadId) return;
     let active = true;
-    void fetch(`/api/chat/threads/${threadId}/messages`, { credentials: 'same-origin' })
+    void fetch(withAppBasePath(`/api/chat/threads/${threadId}/messages`), {
+      credentials: 'same-origin',
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error('Chat history could not be loaded.');
         return ChatHistoryResponseSchema.parse(await response.json());
@@ -68,7 +72,7 @@ export function DashboardChatPane({
   async function startChat(): Promise<void> {
     setError(null);
     try {
-      const response = await fetch('/api/chat/threads', {
+      const response = await fetch(withAppBasePath('/api/chat/threads'), {
         body: JSON.stringify({ siteId, visitorId }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },
@@ -90,7 +94,7 @@ export function DashboardChatPane({
     setError(null);
     setIsSending(true);
     try {
-      const response = await fetch(`/api/chat/threads/${threadId}/messages`, {
+      const response = await fetch(withAppBasePath(`/api/chat/threads/${threadId}/messages`), {
         body: JSON.stringify({ content }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },

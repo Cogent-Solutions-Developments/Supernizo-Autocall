@@ -1,0 +1,14 @@
+[Unit]
+Description=Back up the Supernizo Autocall PostgreSQL database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/app/autocall
+ExecStart=/usr/bin/bash /home/deploy/app/autocall/scripts/backup-postgres.sh
+Nice=10
+NoNewPrivileges=true
+UMask=0077

@@ -4,32 +4,40 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": "24.x"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "bcryptjs": "latest",
+    "dotenv": "latest",
+    "pg": "8.16.3",
+    "prisma": "7.10.0",
+    "tsx": "latest"
+  },
   "scripts": {
     "dev": "pnpm --filter platform dev",
     "build": "pnpm prisma:generate && pnpm --filter @supernizo/shared build && pnpm --filter @supernizo/tracker-sdk build && pnpm --filter platform build",
     "lint": "pnpm --filter platform lint && pnpm --filter @supernizo/shared lint && pnpm --filter @supernizo/tracker-sdk lint && prettier --check .",
-    "typecheck": "pnpm --filter platform typecheck && pnpm --filter @supernizo/shared typecheck && pnpm --filter @supernizo/tracker-sdk typecheck",
+    "typecheck": "pnpm --filter @supernizo/shared build && pnpm --filter @supernizo/shared typecheck && pnpm --filter @supernizo/tracker-sdk typecheck && pnpm --filter platform typecheck",
     "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:provision-admin": "tsx prisma/provision-admin.ts",
     "prisma:seed": "prisma db seed",
     "test:db": "vitest run apps/platform/src/server/repositories/visitor-session-repository.smoke.test.ts"
   },
   "devDependencies": {
-    "@prisma/adapter-mariadb": "7.10.0",
-    "@prisma/client": "7.10.0",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "latest",
     "@types/node": "latest",
-    "bcryptjs": "latest",
     "eslint": "^9.0.0",
-    "dotenv": "latest",
     "pnpm": "10.34.5",
     "prettier": "latest",
-    "prisma": "7.10.0",
     "tsup": "latest",
-    "tsx": "latest",
+    "@types/pg": "8.23.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "latest",
     "vitest": "latest"

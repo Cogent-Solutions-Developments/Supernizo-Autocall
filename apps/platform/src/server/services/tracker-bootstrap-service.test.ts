@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 
-import { assertTrackingSiteAccess } from './tracker-bootstrap-service';
+import { assertTrackingSiteAccess, readApproximateGeo } from './tracker-bootstrap-service';
 
 describe('assertTrackingSiteAccess', () => {
   const activeSite = {
@@ -23,5 +23,31 @@ describe('assertTrackingSiteAccess', () => {
 
   it('allows the normalized, registered origin', () => {
     expect(() => assertTrackingSiteAccess(activeSite, 'https://example.com/')).not.toThrow();
+  });
+});
+
+describe('readApproximateGeo', () => {
+  it('reads optional location headers supplied by a trusted reverse proxy', () => {
+    const request = new Request('https://api.infrastructuresg.com/autocall-db', {
+      headers: {
+        'x-geo-city': 'Colombo',
+        'x-geo-country': 'lk',
+        'x-geo-region': 'Western',
+      },
+    });
+
+    expect(readApproximateGeo(request)).toEqual({
+      geoCity: 'Colombo',
+      geoCountry: 'LK',
+      geoRegion: 'Western',
+    });
+  });
+
+  it('does not invent location data when the proxy provides none', () => {
+    expect(readApproximateGeo(new Request('http://localhost'))).toEqual({
+      geoCity: null,
+      geoCountry: null,
+      geoRegion: null,
+    });
   });
 });

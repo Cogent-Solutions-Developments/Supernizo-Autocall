@@ -10,6 +10,7 @@ import { SiteSettingsSchema, type SiteSettings } from '@supernizo/shared';
 
 import { CopyPublicKeyButton } from '@/app/components/copy-public-key-button';
 import supernizoLogo from '@/assets/logo-transparent.png';
+import { withAppBasePath } from '@/lib/app-path';
 
 const SiteResponseSchema = z.object({ data: SiteSettingsSchema });
 const ErrorResponseSchema = z.object({
@@ -201,7 +202,10 @@ function SiteForm({
         </div>
       </fieldset>
 
-      <details className="rounded-xl border border-slate-200 bg-slate-50 p-4" open={Boolean(defaultSite)}>
+      <details
+        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+        open={Boolean(defaultSite)}
+      >
         <summary className="cursor-pointer text-sm font-semibold text-slate-800">
           Widget appearance and consent settings
         </summary>
@@ -305,7 +309,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   const displayedSites = isSidebarCollapsed ? sites : visibleSites;
 
   async function createSite(payload: SitePayload): Promise<void> {
-    const response = await fetch('/api/dashboard/sites', {
+    const response = await fetch(withAppBasePath('/api/dashboard/sites'), {
       body: JSON.stringify(payload),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
@@ -323,7 +327,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   async function updateSelectedSite(payload: SitePayload): Promise<void> {
     if (!selectedSite) return;
 
-    const response = await fetch(`/api/dashboard/sites/${selectedSite.id}`, {
+    const response = await fetch(withAppBasePath(`/api/dashboard/sites/${selectedSite.id}`), {
       body: JSON.stringify(payload),
       headers: { 'content-type': 'application/json' },
       method: 'PATCH',
@@ -340,9 +344,12 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
   async function deactivateSelectedSite(): Promise<void> {
     if (!selectedSite) return;
 
-    const response = await fetch(`/api/dashboard/sites/${selectedSite.id}/deactivate`, {
-      method: 'POST',
-    });
+    const response = await fetch(
+      withAppBasePath(`/api/dashboard/sites/${selectedSite.id}/deactivate`),
+      {
+        method: 'POST',
+      },
+    );
     const deactivatedSite = await readSiteResponse(response);
 
     setSites((currentSites) =>
@@ -357,20 +364,29 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
         <aside
           className={`event-sidebar flex flex-col rounded-[1.5rem] border border-sky-100/15 bg-[#0b1a24]/90 shadow-xl shadow-black/25 backdrop-blur-xl lg:fixed lg:inset-y-4 lg:left-4 lg:z-20 lg:transition-[width] lg:duration-300 ${
             isSidebarCollapsed ? '' : 'event-sidebar-expanded'
-          } ${
-            isSidebarCollapsed ? 'p-2 lg:w-[4.75rem]' : 'p-3 lg:w-64'
-          }`}
+          } ${isSidebarCollapsed ? 'p-2 lg:w-[4.75rem]' : 'p-3 lg:w-64'}`}
           onMouseEnter={() => setIsSidebarCollapsed(false)}
           onMouseLeave={() => setIsSidebarCollapsed(true)}
         >
-          <div className={`flex items-center py-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-3'}`}>
+          <div
+            className={`flex items-center py-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-3'}`}
+          >
             {isSidebarCollapsed ? (
-              <span className="grid size-9 place-items-center rounded-full bg-sky-300/15 text-xs font-bold text-sky-100">S</span>
+              <span className="grid size-9 place-items-center rounded-full bg-sky-300/15 text-xs font-bold text-sky-100">
+                S
+              </span>
             ) : (
               <div>
-                <Image alt="Supernizo Autocall" className="h-auto w-44" priority src={supernizoLogo} />
+                <Image
+                  alt="Supernizo Autocall"
+                  className="h-auto w-44"
+                  priority
+                  src={supernizoLogo}
+                />
                 <div>
-                  <p className="mt-4 text-xs font-bold tracking-[0.18em] text-sky-200 uppercase">Events</p>
+                  <p className="mt-4 text-xs font-bold tracking-[0.18em] text-sky-200 uppercase">
+                    Events
+                  </p>
                 </div>
               </div>
             )}
@@ -388,7 +404,9 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
             </label>
           ) : null}
           {sites.length > 0 ? (
-            <div className={`mt-5 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto ${isSidebarCollapsed ? 'justify-items-center' : ''}`}>
+            <div
+              className={`mt-5 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto ${isSidebarCollapsed ? 'justify-items-center' : ''}`}
+            >
               {displayedSites.map((site) => {
                 const selected = selectedSiteId === site.id;
                 return (
@@ -418,11 +436,15 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
                     {isSidebarCollapsed ? (
                       <>
                         <span className="text-xs font-bold uppercase">{site.name.slice(0, 1)}</span>
-                        <span className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-[#0b1a24] ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-[#0b1a24] ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-300'}`}
+                        />
                       </>
                     ) : (
                       <span className="flex items-center gap-3">
-                        <span className={`size-2 shrink-0 rounded-full ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+                        <span
+                          className={`size-2 shrink-0 rounded-full ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-400'}`}
+                        />
                         <span className="min-w-0 truncate text-sm font-semibold">{site.name}</span>
                       </span>
                     )}
@@ -434,19 +456,21 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
               ) : null}
             </div>
           ) : (
-            <p className="min-h-0 flex-1 px-3 pt-7 text-sm leading-6 text-white/75">No events have been registered yet.</p>
+            <p className="min-h-0 flex-1 px-3 pt-7 text-sm leading-6 text-white/75">
+              No events have been registered yet.
+            </p>
           )}
           {canManage ? (
-            <div className={`mt-4 border-t border-white/15 pt-4 ${isSidebarCollapsed ? 'flex justify-center' : 'px-1'}`}>
+            <div
+              className={`mt-4 border-t border-white/15 pt-4 ${isSidebarCollapsed ? 'flex justify-center' : 'px-1'}`}
+            >
               <button
                 aria-label="Register event"
                 className={`text-sm font-semibold transition ${
                   isSidebarCollapsed
                     ? 'grid size-14 place-items-center rounded-full bg-sky-100/20 p-0 text-2xl'
                     : 'w-full rounded-xl border border-sky-100/15 bg-white/10 px-3 py-2.5 text-left hover:bg-white/15'
-                } ${
-                  isRegistering ? 'bg-white text-[#0b3345]' : 'text-white'
-                }`}
+                } ${isRegistering ? 'bg-white text-[#0b3345]' : 'text-white'}`}
                 onClick={() => {
                   setIsRegistering(true);
                   setIsEditing(false);
@@ -461,118 +485,140 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
 
         <div className="min-w-0">
           {isRegistering && canManage ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-            <div className="border-b border-slate-100 pb-6">
-              <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">New event</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Register an event</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                Connect the event website and choose which visitor-engagement tools are available.
-              </p>
-            </div>
-            <div className="mt-6">
-              <p className="mb-5 text-sm text-slate-600">
-                The generated public key identifies tracker requests. It is not a dashboard secret.
-              </p>
-              <SiteForm
-                onCancel={() => setIsRegistering(false)}
-                onSubmit={createSite}
-                submitLabel="Create event"
-              />
-            </div>
-          </section>
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+              <div className="border-b border-slate-100 pb-6">
+                <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">
+                  New event
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                  Register an event
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  Connect the event website and choose which visitor-engagement tools are available.
+                </p>
+              </div>
+              <div className="mt-6">
+                <p className="mb-5 text-sm text-slate-600">
+                  The generated public key identifies tracker requests. It is not a dashboard
+                  secret.
+                </p>
+                <SiteForm
+                  onCancel={() => setIsRegistering(false)}
+                  onSubmit={createSite}
+                  submitLabel="Create event"
+                />
+              </div>
+            </section>
           ) : selectedSite ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-6">
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">Selected event</p>
-                <EventStatus status={selectedSite.status} />
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-6">
+                <div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">
+                      Selected event
+                    </p>
+                    <EventStatus status={selectedSite.status} />
+                  </div>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                    {selectedSite.name}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Open the tools below or update this event’s website connection.
+                  </p>
+                </div>
+                {canManage ? (
+                  <button
+                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    onClick={() => setIsEditing((current) => !current)}
+                    type="button"
+                  >
+                    {isEditing ? 'Close settings' : 'Event settings'}
+                  </button>
+                ) : null}
               </div>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">{selectedSite.name}</h2>
-              <p className="mt-2 text-sm text-slate-600">Open the tools below or update this event’s website connection.</p>
-            </div>
-            {canManage ? (
-              <button
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                onClick={() => setIsEditing((current) => !current)}
-                type="button"
-              >
-                {isEditing ? 'Close settings' : 'Event settings'}
-              </button>
-            ) : null}
-          </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <Link
-              className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
-              href={`/dashboard/live?siteId=${selectedSite.id}`}
-            >
-              <p className="text-sm font-semibold text-slate-950">Live visitors</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">See who is active and respond in real time.</p>
-            </Link>
-            <Link
-              className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
-              href={`/dashboard/calls?siteId=${selectedSite.id}`}
-            >
-              <p className="text-sm font-semibold text-slate-950">Call history</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">Review call outcomes and missed-call reasons.</p>
-            </Link>
-            <Link
-              className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
-              href={`/dashboard/analytics?siteId=${selectedSite.id}`}
-            >
-              <p className="text-sm font-semibold text-slate-950">Analytics</p>
-              <p className="mt-1 text-sm leading-5 text-slate-600">Understand visitors, activity and campaigns.</p>
-            </Link>
-          </div>
-
-          <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-            <p className="text-sm font-semibold text-slate-800">Tracker public key</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Use this key in the event website’s tracker snippet. It is safe to expose publicly.</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <code className="max-w-full overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
-                {selectedSite.publicKey}
-              </code>
-              <CopyPublicKeyButton publicKey={selectedSite.publicKey} />
-            </div>
-          </div>
-
-          {isEditing && canManage ? (
-            <div className="mt-7 border-t border-slate-100 pt-7">
-              <div className="mb-5">
-                <h3 className="text-lg font-semibold text-slate-950">Event settings</h3>
-                <p className="mt-1 text-sm text-slate-600">Changes apply only to {selectedSite.name}.</p>
-              </div>
-              <SiteForm
-                defaultSite={selectedSite}
-                key={selectedSite.id}
-                onCancel={() => setIsEditing(false)}
-                onSubmit={updateSelectedSite}
-                submitLabel="Save changes"
-              />
-              {selectedSite.status === 'ACTIVE' ? (
-                <button
-                  className="mt-6 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
-                  onClick={() => void deactivateSelectedSite()}
-                  type="button"
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <Link
+                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  href={`/dashboard/live?siteId=${selectedSite.id}`}
                 >
-                  Deactivate event
-                </button>
+                  <p className="text-sm font-semibold text-slate-950">Live visitors</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    See who is active and respond in real time.
+                  </p>
+                </Link>
+                <Link
+                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  href={`/dashboard/calls?siteId=${selectedSite.id}`}
+                >
+                  <p className="text-sm font-semibold text-slate-950">Call history</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    Review call outcomes and missed-call reasons.
+                  </p>
+                </Link>
+                <Link
+                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  href={`/dashboard/analytics?siteId=${selectedSite.id}`}
+                >
+                  <p className="text-sm font-semibold text-slate-950">Analytics</p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    Understand visitors, activity and campaigns.
+                  </p>
+                </Link>
+              </div>
+
+              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-800">Tracker public key</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Use this key in the event website’s tracker snippet. It is safe to expose
+                  publicly.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <code className="max-w-full overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
+                    {selectedSite.publicKey}
+                  </code>
+                  <CopyPublicKeyButton publicKey={selectedSite.publicKey} />
+                </div>
+              </div>
+
+              {isEditing && canManage ? (
+                <div className="mt-7 border-t border-slate-100 pt-7">
+                  <div className="mb-5">
+                    <h3 className="text-lg font-semibold text-slate-950">Event settings</h3>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Changes apply only to {selectedSite.name}.
+                    </p>
+                  </div>
+                  <SiteForm
+                    defaultSite={selectedSite}
+                    key={selectedSite.id}
+                    onCancel={() => setIsEditing(false)}
+                    onSubmit={updateSelectedSite}
+                    submitLabel="Save changes"
+                  />
+                  {selectedSite.status === 'ACTIVE' ? (
+                    <button
+                      className="mt-6 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                      onClick={() => void deactivateSelectedSite()}
+                      type="button"
+                    >
+                      Deactivate event
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
-            </div>
-          ) : null}
-          </section>
+            </section>
           ) : (
-          <section className="grid min-h-80 place-items-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-950">No event selected</h2>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
-                {canManage
-                  ? 'Register the first event above to connect its website and begin receiving visitor activity.'
-                  : 'Ask an administrator to add you to an event workspace.'}
-              </p>
-            </div>
-          </section>
+            <section className="grid min-h-80 place-items-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">No event selected</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                  {canManage
+                    ? 'Register the first event above to connect its website and begin receiving visitor activity.'
+                    : 'Ask an administrator to add you to an event workspace.'}
+                </p>
+              </div>
+            </section>
           )}
         </div>
       </section>

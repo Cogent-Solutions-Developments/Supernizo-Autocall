@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 
 import { mergeChatMessage } from '@/app/components/chat-state';
+import { withAppBasePath } from '@/lib/app-path';
 
 const WidgetConfigSchema = z.object({
   messages: z.array(ChatMessageSchema),
@@ -103,7 +104,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
       <RealtimeProvider
         key={config?.token ?? 'unauthenticated'}
         api={{
-          url: config ? `/api/realtime/${encodeURIComponent(config.token)}` : '/api/realtime',
+          url: config
+            ? withAppBasePath(`/api/realtime/${encodeURIComponent(config.token)}`)
+            : withAppBasePath('/api/realtime'),
           withCredentials: false,
         }}
       >

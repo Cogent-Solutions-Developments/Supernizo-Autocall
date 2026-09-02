@@ -1,4 +1,4 @@
-import { PrismaMariaDb } from '@prisma/adapter-mariadb';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { hash } from 'bcryptjs';
 import { config } from 'dotenv';
 
@@ -21,7 +21,7 @@ if (!localAdminPassword || localAdminPassword.length < 12) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaMariaDb(databaseUrl),
+  adapter: new PrismaPg({ connectionString: databaseUrl }),
 });
 
 async function seed(): Promise<void> {

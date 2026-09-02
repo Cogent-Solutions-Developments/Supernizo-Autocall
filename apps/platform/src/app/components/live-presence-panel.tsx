@@ -10,6 +10,8 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 type ClientRealtimeSchema = {
   visitor: {
     online: z.ZodObject<{ visitor: typeof VisitorPresenceSnapshotSchema }>;
@@ -49,7 +51,9 @@ export function LivePresencePanel({ initialSiteId, sites }: LivePresencePanelPro
     }
 
     let active = true;
-    void fetch(`/api/dashboard/sites/${siteId}/live`, { credentials: 'same-origin' })
+    void fetch(withAppBasePath(`/api/dashboard/sites/${siteId}/live`), {
+      credentials: 'same-origin',
+    })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error('Could not load live visitors.');

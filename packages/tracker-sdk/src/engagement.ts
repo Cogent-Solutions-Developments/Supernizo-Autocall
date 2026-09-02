@@ -1,3 +1,5 @@
+import { resolveApplicationEndpoint } from './platform-url';
+
 export const HEARTBEAT_INTERVAL_MS = 15_000;
 export const IDLE_THRESHOLD_MS = 60_000;
 
@@ -174,7 +176,7 @@ export class EngagementManager {
   }
 
   private endpoint(path: 'event' | 'heartbeat' | 'page' | 'page/leave'): string {
-    return new URL(`/api/track/${path}`, this.bootstrapEndpoint).toString();
+    return resolveApplicationEndpoint(this.bootstrapEndpoint, `/api/track/${path}`);
   }
 
   private startPage(): void {
