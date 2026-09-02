@@ -7,15 +7,20 @@ import { z } from 'zod';
 import {
   ApiErrorEnvelopeSchema,
   CallSchema,
+  LiveKitTokenResponseSchema,
   type Call,
   type CallType,
+  type LiveKitTokenResponse,
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
 import { shouldIgnoreCallUpdate } from '../widget/call/call-end-state';
 import { DashboardCallMediaRoom } from './dashboard-call-media-room';
 
-const CallResponseSchema = z.object({ data: CallSchema });
+const CallResponseSchema = z.object({
+  data: CallSchema,
+  media: LiveKitTokenResponseSchema.optional(),
+});
 const { useRealtime } = createRealtime<{
   call: { status: z.ZodObject<{ call: typeof CallSchema }> };
 }>();
@@ -36,6 +41,7 @@ export function LiveVisitorCallModal({
   visitor,
 }: LiveVisitorCallModalProps) {
   const [call, setCall] = useState<Call | null>(null);
+  const [agentMedia, setAgentMedia] = useState<LiveKitTokenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
   const callRequestStarted = useRef(false);
@@ -70,6 +76,7 @@ export function LiveVisitorCallModal({
       })
       .then((response) => {
         setCall(response.data);
+        setAgentMedia(response.media ?? null);
       })
       .catch((error: unknown) => {
         callRequestStarted.current = false;
@@ -117,8 +124,16 @@ export function LiveVisitorCallModal({
       return;
     }
     const parsed = CallResponseSchema.safeParse(await response.json());
-    if (parsed.success) setCall(parsed.data.data);
+    if (parsed.success) {
+      setCall(parsed.data.data);
+      if (parsed.data.data.status === 'CANCELLED') setAgentMedia(null);
+    }
   }
+
+  const callIsTerminal =
+    call !== null && ['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(call.status);
+  const callMediaActive =
+    call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
 
   return (
     <div
@@ -157,13 +172,16 @@ export function LiveVisitorCallModal({
               </p>
             </>
           ) : null}
-          {call && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status) ? (
+          {call && !callIsTerminal ? (
             <DashboardCallMediaRoom
+              active={callMediaActive}
               call={call}
+              initialMedia={agentMedia}
               onConnected={() => setConnectedMediaCallId(call.id)}
               onEnded={() => {
                 endingCallId.current = call.id;
                 setConnectedMediaCallId(null);
+                setAgentMedia(null);
                 setCall(null);
                 setError('Call ended.');
               }}

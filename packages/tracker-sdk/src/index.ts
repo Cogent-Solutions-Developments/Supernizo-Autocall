@@ -352,6 +352,7 @@ export const Tracker: TrackerRuntime = {
         return refreshed
           ? {
               channel: refreshed.realtime.channel,
+              ...(refreshed.calling ? { livekitUrl: refreshed.calling.url } : {}),
               token: refreshed.realtime.authorizationToken,
             }
           : undefined;
@@ -392,6 +393,7 @@ export const Tracker: TrackerRuntime = {
               bootstrapEndpoint,
               {
                 channel: responseBody.realtime.channel,
+                ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                 token: responseBody.realtime.authorizationToken,
               },
               renewCallWidgetConfig,

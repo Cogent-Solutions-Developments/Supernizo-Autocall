@@ -17,7 +17,7 @@ import {
   VideoCameraIcon,
   VideoCameraSlashIcon,
 } from '@phosphor-icons/react';
-import { Track } from 'livekit-client';
+import { Track, type LocalTrack, type Room } from 'livekit-client';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Call, LiveKitTokenResponse } from '@supernizo/shared';
@@ -26,9 +26,11 @@ import { deriveLiveKitMediaState, getLiveKitMediaErrorMessage } from './livekit-
 
 type LiveKitMediaRoomProps = Readonly<{
   call: Call;
+  localTracks: readonly LocalTrack[];
   media: LiveKitTokenResponse;
   onConnected?: () => void;
   onEnd: () => void;
+  room: Room;
 }>;
 
 function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
@@ -250,13 +252,58 @@ function MediaConnectionStatus({
   );
 }
 
-export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMediaRoomProps) {
+export function LiveKitMediaRoom({
+  call,
+  localTracks,
+  media,
+  onConnected,
+  onEnd,
+  room,
+}: LiveKitMediaRoomProps) {
   const videoEnabled = call.type === 'VIDEO';
   const [error, setError] = useState<string | null>(null);
   const [transportConnected, setTransportConnected] = useState(false);
   const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(videoEnabled);
   const ended = useRef(false);
+  const publishedTracks = useRef(new Set<LocalTrack>());
+
+  useEffect(() => {
+    publishedTracks.current.clear();
+  }, [call.id, room]);
+
+  useEffect(() => {
+    if (!transportConnected) return;
+    const hasMicrophone = localTracks.some((track) => track.kind === Track.Kind.Audio);
+    const hasCamera = localTracks.some((track) => track.kind === Track.Kind.Video);
+    if (!hasMicrophone || (videoEnabled && !hasCamera)) return;
+
+    let active = true;
+    const unpublishedTracks = localTracks.filter((track) => !publishedTracks.current.has(track));
+    if (unpublishedTracks.length === 0) return;
+
+    // Reserve each track before the asynchronous publish starts. React can rerun
+    // this effect while publication is in flight; reserving avoids a duplicate
+    // publish request for the same camera or microphone track.
+    unpublishedTracks.forEach((track) => publishedTracks.current.add(track));
+
+    void Promise.all(
+      unpublishedTracks.map(async (track) => {
+        try {
+          await room.localParticipant.publishTrack(track);
+        } catch (publishError: unknown) {
+          publishedTracks.current.delete(track);
+          throw publishError;
+        }
+      }),
+    ).catch((publishError: unknown) => {
+      if (active) setError(getLiveKitMediaErrorMessage(publishError));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [localTracks, room, transportConnected, videoEnabled]);
 
   function endOnce(): void {
     if (ended.current) return;
@@ -266,7 +313,7 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
 
   return (
     <LiveKitRoom
-      audio
+      audio={false}
       className="supernizo-livekit-room"
       connect
       onConnected={() => {
@@ -279,9 +326,10 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
       }}
       onError={(mediaError) => setError(getLiveKitMediaErrorMessage(mediaError))}
       onMediaDeviceFailure={(failure) => setError(getLiveKitMediaErrorMessage(failure))}
+      room={room}
       serverUrl={media.url}
       token={media.token}
-      video={videoEnabled}
+      video={false}
     >
       <div className="media-room">
         <MediaConnectionStatus

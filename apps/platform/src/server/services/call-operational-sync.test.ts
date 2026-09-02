@@ -53,6 +53,7 @@ const selectedCall = {
   siteId: 'site_123',
   status: 'ACTIVE',
   type: 'AUDIO',
+  visitor: { anonymousId: 'anonymous_visitor_123' },
   visitorId: 'visitor_123',
 } as const;
 
@@ -82,7 +83,7 @@ describe('deferred call operational synchronization', () => {
 
     expect(result.status).toBe('ENDED');
     expect(scheduler).toHaveBeenCalledOnce();
-    expect(mocks.terminateLiveKitRoom).toHaveBeenCalledWith('call_room');
+    expect(mocks.terminateLiveKitRoom).not.toHaveBeenCalled();
     expect(mocks.releaseAgent).not.toHaveBeenCalled();
     expect(mocks.callFindUnique).toHaveBeenCalledOnce();
 
@@ -90,6 +91,7 @@ describe('deferred call operational synchronization', () => {
     await scheduledTask();
 
     expect(mocks.releaseAgent).toHaveBeenCalledWith('agent_123');
+    expect(mocks.terminateLiveKitRoom).toHaveBeenCalledWith('call_room');
     expect(mocks.callFindUnique).toHaveBeenCalledTimes(2);
   });
 

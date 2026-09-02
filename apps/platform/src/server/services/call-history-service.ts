@@ -29,6 +29,15 @@ export function getCallFailureReason(
   if (failureCode === 'MEDIA_CONNECTION_ABORTED') {
     return 'The browser could not establish the media connection.';
   }
+  if (failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED') {
+    return 'The visitor did not grant camera access.';
+  }
+  if (failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED') {
+    return 'The visitor did not grant microphone access.';
+  }
+  if (failureCode === 'MEDIA_DEVICE_UNAVAILABLE') {
+    return 'A required camera or microphone was unavailable.';
+  }
   if (failureCode === 'MEDIA_PARTICIPANT_LEFT') {
     return 'A participant left before the media connection was ready.';
   }

@@ -14,17 +14,20 @@ import {
   CallSchema,
   LiveKitTokenResponseSchema,
   type Call,
+  type CallMediaFailureCode,
   type LiveKitTokenResponse,
 } from '@supernizo/shared';
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
+import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
 
 import { callCopy, callHeading } from './call-display';
 import { optimisticallyEndCall, shouldIgnoreCallUpdate } from './call-end-state';
-import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
+import { MediaPermissionError } from './media-permissions';
 
 const CallWidgetConfigSchema = z.object({
   channel: z.string().min(1),
+  livekitUrl: z.url().optional(),
   token: z.string().min(1),
 });
 const { useRealtime } = createRealtime<{
@@ -66,17 +69,30 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [config, setConfig] = useState<CallWidgetConfig | null>(null);
   const [call, setCall] = useState<Call | null>(null);
   const [media, setMedia] = useState<LiveKitTokenResponse | null>(null);
-  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
   const endingCallId = useRef<string | null>(null);
+  const mediaFailureCallId = useRef<string | null>(null);
+  const callIsTerminal =
+    call !== null && ['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(call.status);
+  const callMedia = useLiveKitCallSession(
+    call && !callIsTerminal && (config?.livekitUrl || media?.url)
+      ? {
+          callId: call.id,
+          url: config?.livekitUrl ?? media?.url ?? '',
+        }
+      : null,
+  );
+  const releaseLocalTracks = callMedia.releaseLocalTracks;
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
       if (event.origin !== hostOrigin || !event.data || typeof event.data !== 'object') return;
       const data = event.data as {
+        action?: unknown;
         call?: unknown;
+        callId?: unknown;
         config?: unknown;
         media?: unknown;
         type?: unknown;
@@ -89,17 +105,37 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         const parsed = CallSchema.safeParse(data.call);
         if (parsed.success && !shouldIgnoreCallUpdate(parsed.data.id, endingCallId.current)) {
           setCall(parsed.data);
+          if (['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(parsed.data.status)) {
+            setMedia(null);
+          }
         }
       }
       if (data.type === 'supernizo-call-media') {
         const parsed = LiveKitTokenResponseSchema.safeParse(data.media);
-        if (parsed.success) setMedia(parsed.data);
+        if (
+          parsed.success &&
+          typeof data.callId === 'string' &&
+          data.callId === call?.id &&
+          data.callId !== mediaFailureCallId.current
+        ) {
+          setMedia(parsed.data);
+        }
+      }
+      if (
+        data.type === 'supernizo-call-action-error' &&
+        data.action === 'accept' &&
+        typeof data.callId === 'string' &&
+        data.callId === call?.id &&
+        data.callId !== mediaFailureCallId.current
+      ) {
+        releaseLocalTracks();
+        setPermissionError('The call could not be accepted. Please try again.');
       }
     };
     window.addEventListener('message', receive);
     window.parent.postMessage({ type: 'supernizo-call-ready' }, hostOrigin);
     return () => window.removeEventListener('message', receive);
-  }, [hostOrigin]);
+  }, [call?.id, hostOrigin, releaseLocalTracks]);
 
   useEffect(() => {
     const visible =
@@ -115,31 +151,50 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const showAvatar = Boolean(call?.agentAvatarUrl && call.agentAvatarUrl !== failedAvatarUrl);
   const mediaConnected = call?.id === connectedMediaCallId;
 
-  async function acceptCall(): Promise<void> {
-    if (!call || !navigator.mediaDevices?.getUserMedia) {
+  function acceptCall(): void {
+    if (!call) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
       setPermissionError('This browser cannot request microphone or camera access for the call.');
+      window.parent.postMessage(
+        {
+          call,
+          failureCode: 'MEDIA_DEVICE_UNAVAILABLE' satisfies CallMediaFailureCode,
+          type: 'supernizo-call-media-failure',
+        },
+        hostOrigin,
+      );
+      return;
+    }
+    if (!callMedia.room) {
+      setPermissionError('The secure media room is still preparing. Please try again.');
       return;
     }
 
-    setIsRequestingPermission(true);
+    mediaFailureCallId.current = null;
     setPermissionError(null);
-    try {
-      await requestMediaPermissions(call.type, (constraints) =>
-        navigator.mediaDevices.getUserMedia(constraints),
-      );
-      window.parent.postMessage(
-        { action: 'accept', call, type: 'supernizo-call-action' },
-        hostOrigin,
-      );
-    } catch (error: unknown) {
+    const capture = callMedia.captureLocalTracks(call.type);
+    window.parent.postMessage(
+      { action: 'accept', call, type: 'supernizo-call-action' },
+      hostOrigin,
+    );
+    void capture.catch((error: unknown) => {
+      mediaFailureCallId.current = call.id;
+      const failureCode: CallMediaFailureCode =
+        error instanceof MediaPermissionError
+          ? error.permission === 'camera'
+            ? 'MEDIA_CAMERA_PERMISSION_DENIED'
+            : 'MEDIA_MICROPHONE_PERMISSION_DENIED'
+          : 'MEDIA_DEVICE_UNAVAILABLE';
       setPermissionError(
         error instanceof MediaPermissionError && error.permission === 'camera'
           ? 'Camera access is required to accept this video call. Allow camera access and try again.'
           : 'Microphone access is required to accept this call. Allow microphone access and try again.',
       );
-    } finally {
-      setIsRequestingPermission(false);
-    }
+      window.parent.postMessage(
+        { call, failureCode, type: 'supernizo-call-media-failure' },
+        hostOrigin,
+      );
+    });
   }
 
   function declineCall(): void {
@@ -155,6 +210,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     endingCallId.current = call.id;
     setConnectedMediaCallId(null);
     setMedia(null);
+    callMedia.releaseLocalTracks();
     setCall(optimisticallyEndCall(call));
     window.parent.postMessage({ call, type: 'supernizo-call-end' }, hostOrigin);
   }
@@ -170,7 +226,14 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       <CallSubscription
         config={config}
         onCall={(nextCall) => {
-          if (!shouldIgnoreCallUpdate(nextCall.id, endingCallId.current)) setCall(nextCall);
+          if (shouldIgnoreCallUpdate(nextCall.id, endingCallId.current)) return;
+          if (nextCall.status === 'RINGING' && nextCall.id !== call?.id) {
+            mediaFailureCallId.current = null;
+            setConnectedMediaCallId(null);
+            setMedia(null);
+            setPermissionError(null);
+          }
+          setCall(nextCall);
         }}
       />
       {call ? (
@@ -232,24 +295,26 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
               </button>
               <button
                 className="phone-action accept"
-                disabled={isRequestingPermission}
-                onClick={() => void acceptCall()}
+                disabled={callMedia.isCapturing || !callMedia.room}
+                onClick={acceptCall}
                 type="button"
               >
                 <span className="action-icon">
                   <PhoneIncomingIcon aria-hidden="true" size={25} weight="fill" />
                 </span>
-                <span>{isRequestingPermission ? 'Allowing...' : 'Accept'}</span>
+                <span>{callMedia.isCapturing ? 'Allowing...' : 'Accept'}</span>
               </button>
             </div>
           ) : null}
 
-          {hasActiveMedia && media ? (
+          {hasActiveMedia && media && callMedia.room ? (
             <LiveKitMediaRoom
               call={call}
+              localTracks={callMedia.localTracks}
               media={media}
               onConnected={() => setConnectedMediaCallId(call.id)}
               onEnd={endCall}
+              room={callMedia.room}
             />
           ) : null}
 

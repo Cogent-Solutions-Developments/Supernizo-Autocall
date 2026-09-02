@@ -6,6 +6,7 @@ import {
   CallSchema,
   CallStatusSchema,
   type Call,
+  type CallMediaFailureCode,
   type CallStatus,
   type CallType,
   type TrackingContext,
@@ -67,6 +68,7 @@ const callSelect = {
   siteId: true,
   status: true,
   type: true,
+  visitor: { select: { anonymousId: true } },
   visitorId: true,
 } satisfies Prisma.CallSelect;
 
@@ -156,17 +158,32 @@ async function emitCall(
   await new UpstashRealtimeProvider().emitToChannel(channel, { type, call });
 }
 
-async function emitCallStatus(call: Call): Promise<void> {
+async function emitCallStatus(call: Call, visitorAnonymousId?: string): Promise<void> {
+  const anonymousId =
+    visitorAnonymousId ??
+    (
+      await getDatabaseClient().visitor.findUnique({
+        where: { id: call.visitorId },
+        select: { anonymousId: true },
+      })
+    )?.anonymousId;
   await Promise.all([
     emitCall(`call:${call.id}`, 'call.status', call),
-    getDatabaseClient()
-      .visitor.findUnique({ where: { id: call.visitorId }, select: { anonymousId: true } })
-      .then((visitor) =>
-        visitor
-          ? emitCall(`visitor:${call.siteId}:${visitor.anonymousId}`, 'call.status', call)
-          : undefined,
-      ),
+    anonymousId
+      ? emitCall(`visitor:${call.siteId}:${anonymousId}`, 'call.status', call)
+      : Promise.resolve(),
   ]);
+}
+
+async function notifyCallStatus(call: Call, visitorAnonymousId?: string): Promise<void> {
+  try {
+    await emitCallStatus(call, visitorAnonymousId);
+  } catch (error: unknown) {
+    logger.log('error', 'call_status_delivery_failed', {
+      callId: call.id,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
 }
 
 async function getSelectedCall(callId: string): Promise<SelectedCall | null> {
@@ -188,7 +205,9 @@ async function synchronizeCurrentCallOperationalState(callId: string): Promise<v
       : isTerminal(status)
         ? releaseAgentIfAvailable(current.agentId)
         : Promise.resolve(),
-    emitCallStatus(mapCall(current)),
+    isTerminal(status) && current.roomName
+      ? terminateLiveKitRoom(current.roomName)
+      : Promise.resolve(),
   ]);
 }
 
@@ -226,7 +245,7 @@ async function synchronizeCreatedCallOperationalState(
     emitCall(`call:${input.call.id}`, 'call.status', input.call),
     ...input.expiredCalls.map(async (expiredCall) => {
       await releaseAgentIfAvailable(expiredCall.agentId);
-      await emitCallStatus(expiredCall.call);
+      await notifyCallStatus(expiredCall.call);
     }),
   ]);
 }
@@ -323,8 +342,10 @@ async function expireCallIfNeeded(callId: string): Promise<Call | null> {
   });
   if (!updated) return getMappedCall(callId);
   const typedCall = mapCall(updated);
-  await releaseAgentIfAvailable(updated.agentId);
-  await emitCallStatus(typedCall);
+  await Promise.all([
+    releaseAgentIfAvailable(updated.agentId),
+    notifyCallStatus(typedCall, updated.visitor.anonymousId),
+  ]);
   return typedCall;
 }
 
@@ -429,24 +450,32 @@ export async function transitionCall(
   failureCode?: string,
   options?: CallTransitionOptions,
 ): Promise<Call> {
-  let existing = await getSelectedCall(callId);
+  const existing = await getSelectedCall(callId);
   if (!existing) throw new NotFoundError('The requested call does not exist.');
+  return transitionSelectedCall(existing, action, failureCode, options);
+}
+
+async function transitionSelectedCall(
+  selectedCall: SelectedCall,
+  action: CallAction,
+  failureCode?: string,
+  options?: CallTransitionOptions,
+): Promise<Call> {
+  let existing = selectedCall;
   if (existing.status === 'RINGING' && isRingingCallExpired(existing.requestedAt)) {
-    await expireCallIfNeeded(callId);
-    existing = await getSelectedCall(callId);
-    if (!existing) throw new NotFoundError('The requested call does not exist.');
+    await expireCallIfNeeded(existing.id);
+    const refreshedCall = await getSelectedCall(existing.id);
+    if (!refreshedCall) throw new NotFoundError('The requested call does not exist.');
+    existing = refreshedCall;
   }
   const current = CallStatusSchema.parse(existing.status);
   const target = transitionCallStatus(current, action);
   if (target === current) return mapCall(existing);
-  const shouldTerminateMedia =
-    isTerminal(target) &&
-    (current === 'ACCEPTED' || current === 'CONNECTING' || current === 'ACTIVE');
 
   const now = new Date();
   const updated = await getDatabaseClient().$transaction(async (transaction) => {
     const result = await transaction.call.updateMany({
-      where: { id: callId, status: current as PrismaCallStatus },
+      where: { id: existing.id, status: current as PrismaCallStatus },
       data: {
         ...(target === 'ACCEPTED' ? { respondedAt: now } : {}),
         ...(target === 'ACTIVE' ? { startedAt: now } : {}),
@@ -457,17 +486,20 @@ export async function transitionCall(
     });
     if (result.count === 0) throw new ConflictError('The call state changed. Please try again.');
     await transaction.callEvent.create({
-      data: { callId, payload: { from: current, to: target }, type: target },
+      data: { callId: existing.id, payload: { from: current, to: target }, type: target },
     });
-    return transaction.call.findUnique({ where: { id: callId }, select: callSelect });
+    return {
+      ...existing,
+      ...(failureCode && (target === 'FAILED' || target === 'MISSED') ? { failureCode } : {}),
+      status: target as PrismaCallStatus,
+    } satisfies SelectedCall;
   });
-  if (!updated) throw new NotFoundError('The requested call does not exist.');
   const typedCall = mapCall(updated);
-  if (shouldTerminateMedia && updated.roomName) {
-    await terminateLiveKitRoom(updated.roomName);
-  }
   if (options?.scheduleOperationalSync) {
-    await runOrScheduleCallOperationalSync(callId, options.scheduleOperationalSync);
+    // Deliver the peer-visible state before returning. Cleanup and presence can
+    // run after the response, but delaying ACCEPTED/ENDED makes calls feel slow.
+    await notifyCallStatus(typedCall, updated.visitor.anonymousId);
+    await runOrScheduleCallOperationalSync(existing.id, options.scheduleOperationalSync);
   } else {
     await Promise.all([
       target === 'CONNECTING' || target === 'ACTIVE'
@@ -475,7 +507,10 @@ export async function transitionCall(
         : isTerminal(target)
           ? releaseAgentIfAvailable(updated.agentId)
           : Promise.resolve(),
-      emitCallStatus(typedCall),
+      notifyCallStatus(typedCall, updated.visitor.anonymousId),
+      isTerminal(target) && updated.roomName
+        ? terminateLiveKitRoom(updated.roomName)
+        : Promise.resolve(),
     ]);
   }
   return typedCall;
@@ -525,12 +560,14 @@ export async function acceptVisitorCall(
   context: TrackingContext,
   options?: CallTransitionOptions,
 ): Promise<Call> {
-  const resolved = await resolveTrackingContext(context, origin);
-  const call = await getSelectedCall(callId);
+  const [resolved, call] = await Promise.all([
+    resolveTrackingContext(context, origin),
+    getSelectedCall(callId),
+  ]);
   if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
   }
-  return transitionCall(callId, 'accept', undefined, options);
+  return transitionSelectedCall(call, 'accept', undefined, options);
 }
 
 export async function rejectVisitorCall(
@@ -538,12 +575,14 @@ export async function rejectVisitorCall(
   origin: string,
   context: TrackingContext,
 ): Promise<Call> {
-  const resolved = await resolveTrackingContext(context, origin);
-  const call = await getSelectedCall(callId);
+  const [resolved, call] = await Promise.all([
+    resolveTrackingContext(context, origin),
+    getSelectedCall(callId),
+  ]);
   if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
   }
-  return transitionCall(callId, 'reject');
+  return transitionSelectedCall(call, 'reject');
 }
 
 export async function endVisitorCall(
@@ -552,13 +591,29 @@ export async function endVisitorCall(
   context: TrackingContext,
   options?: CallTransitionOptions,
 ): Promise<Call> {
-  const resolved = await resolveTrackingContext(context, origin);
-  const call = await getDatabaseClient().call.findUnique({
-    where: { id: callId },
-    select: { sessionId: true, visitorId: true },
-  });
+  const [resolved, call] = await Promise.all([
+    resolveTrackingContext(context, origin),
+    getSelectedCall(callId),
+  ]);
   if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
   }
-  return transitionCall(callId, 'end', undefined, options);
+  return transitionSelectedCall(call, 'end', undefined, options);
+}
+
+export async function failVisitorCall(
+  callId: string,
+  origin: string,
+  context: TrackingContext,
+  failureCode: CallMediaFailureCode,
+  options?: CallTransitionOptions,
+): Promise<Call> {
+  const [resolved, call] = await Promise.all([
+    resolveTrackingContext(context, origin),
+    getSelectedCall(callId),
+  ]);
+  if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
+    throw new ForbiddenError('The requested call is not available to this visitor session.');
+  }
+  return transitionSelectedCall(call, 'fail', failureCode, options);
 }

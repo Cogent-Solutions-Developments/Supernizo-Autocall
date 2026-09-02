@@ -21,7 +21,7 @@ describe('deriveLiveKitMediaState', () => {
       }),
     ).toMatchObject({
       connected: true,
-      message: 'Connected · waiting for the other participant',
+      message: 'Connected - waiting for the other participant',
     });
   });
 
@@ -31,7 +31,7 @@ describe('deriveLiveKitMediaState', () => {
         ...connectedAudioSnapshot,
         localMicrophonePublished: false,
       }),
-    ).toMatchObject({ connected: true, message: 'Connected · starting microphone' });
+    ).toMatchObject({ connected: true, message: 'Connected - starting microphone' });
   });
 
   it('reports an audio call fully ready when remote audio is subscribed', () => {
@@ -45,7 +45,7 @@ describe('deriveLiveKitMediaState', () => {
   it('keeps a video call usable while clearly reporting a delayed remote camera', () => {
     expect(deriveLiveKitMediaState({ ...connectedAudioSnapshot, videoEnabled: true })).toEqual({
       connected: true,
-      message: 'Connected · waiting for video',
+      message: 'Connected - waiting for video',
       videoReady: false,
     });
   });

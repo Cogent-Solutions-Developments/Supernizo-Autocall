@@ -6,6 +6,7 @@ import {
   CallStatusSchema,
   LiveKitTokenResponseSchema,
   type Call,
+  type CallType,
   type LiveKitParticipantRole,
   type LiveKitTokenResponse,
   type TrackingContext,
@@ -16,7 +17,12 @@ import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getLiveKitServerConfig, type LiveKitServerConfig } from '@/server/livekit/config';
 
-import { acceptVisitorCall, transitionCall, type CallTransitionOptions } from './call-service';
+import {
+  acceptVisitorCall,
+  createCall,
+  transitionCall,
+  type CallTransitionOptions,
+} from './call-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 const MEDIA_TOKEN_TTL_SECONDS = 10 * 60;
@@ -60,6 +66,10 @@ export function getLiveKitParticipantIdentity(
 
 export function canIssueLiveKitToken(status: string): boolean {
   return status === 'ACCEPTED' || status === 'CONNECTING' || status === 'ACTIVE';
+}
+
+export function canIssueAgentLiveKitToken(status: string): boolean {
+  return status === 'RINGING' || canIssueLiveKitToken(status);
 }
 
 export function haveExpectedLiveKitParticipantsJoined(
@@ -129,7 +139,7 @@ export async function issueAgentLiveKitToken(
   if (call.agentId !== userId) {
     throw new ForbiddenError('The requested call is not assigned to this agent.');
   }
-  if (!canIssueLiveKitToken(call.status)) {
+  if (!canIssueAgentLiveKitToken(call.status)) {
     throw new ConflictError('The call has not been accepted or is no longer active.');
   }
   return createLiveKitParticipantToken({
@@ -168,6 +178,27 @@ export async function acceptVisitorCallWithMedia(
   const call = await acceptVisitorCall(callId, origin, context, options);
   const media = await createLiveKitParticipantToken({
     identity: getLiveKitParticipantIdentity('VISITOR', call.visitorId),
+    roomName: call.roomName,
+  });
+  return { call, media };
+}
+
+export async function createCallWithAgentMedia(
+  input: Readonly<{
+    agentId: string;
+    siteId: string;
+    type: CallType;
+    visitorId: string;
+  }>,
+  options?: CallTransitionOptions,
+): Promise<Readonly<{ call: Call; media: LiveKitTokenResponse }>> {
+  // Validate configuration before creating a durable call so a missing LiveKit
+  // secret cannot leave a call ringing without usable media credentials.
+  const config = getLiveKitServerConfig();
+  const call = await createCall(input, options);
+  const media = await createLiveKitParticipantToken({
+    config,
+    identity: getLiveKitParticipantIdentity('AGENT', input.agentId),
     roomName: call.roomName,
   });
   return { call, media };

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CallVisitorMediaFailureRequestSchema,
   CallSchema,
   PaginationSchema,
   RequestIdSchema,
+  TrackerBootstrapResponseSchema,
   UtcDateTimeSchema,
   createApiSuccessEnvelopeSchema,
 } from './contracts';
@@ -46,5 +48,41 @@ describe('shared API contracts', () => {
 
     expect(CallSchema.parse(call).agentAvatarUrl).toBe(call.agentAvatarUrl);
     expect(() => CallSchema.parse({ ...call, agentAvatarUrl: 'javascript:alert(1)' })).toThrow();
+  });
+
+  it('accepts a public LiveKit preparation URL in tracker bootstrap data', () => {
+    const result = TrackerBootstrapResponseSchema.parse({
+      calling: { url: 'wss://example.livekit.cloud' },
+      features: {
+        audioCallEnabled: true,
+        chatEnabled: true,
+        trackingEnabled: true,
+        videoCallEnabled: true,
+      },
+      heartbeatIntervalSeconds: 30,
+      realtime: { authorizationToken: 'token', channel: 'visitor:site:visitor' },
+      sessionId: 'ea83fe17-031e-4e03-902c-65ad60df783d',
+      visitorId: '82dd49cf-8c5d-4f0b-bc8f-f48e3b71d90d',
+    });
+
+    expect(result.calling?.url).toBe('wss://example.livekit.cloud');
+  });
+
+  it('only accepts known visitor media failure codes', () => {
+    const context = {
+      sessionId: 'ea83fe17-031e-4e03-902c-65ad60df783d',
+      sitePublicKey: 'site_12345678',
+      visitorId: '82dd49cf-8c5d-4f0b-bc8f-f48e3b71d90d',
+    };
+
+    expect(
+      CallVisitorMediaFailureRequestSchema.parse({
+        context,
+        failureCode: 'MEDIA_CAMERA_PERMISSION_DENIED',
+      }).failureCode,
+    ).toBe('MEDIA_CAMERA_PERMISSION_DENIED');
+    expect(() =>
+      CallVisitorMediaFailureRequestSchema.parse({ context, failureCode: 'UNSAFE_FAILURE' }),
+    ).toThrow();
   });
 });

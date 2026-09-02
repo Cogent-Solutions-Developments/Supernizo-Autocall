@@ -5,17 +5,18 @@ import { MediaPermissionError, requestMediaPermissions } from './media-permissio
 describe('requestMediaPermissions', () => {
   it('asks only for a microphone for an audio call', async () => {
     const stop = vi.fn();
-    const requestMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });
+    const tracks = [{ stop }];
+    const requestMedia = vi.fn().mockResolvedValue(tracks);
 
-    await requestMediaPermissions('AUDIO', requestMedia);
+    await expect(requestMediaPermissions('AUDIO', requestMedia)).resolves.toBe(tracks);
 
     expect(requestMedia).toHaveBeenCalledWith({ audio: true, video: false });
     expect(requestMedia).toHaveBeenCalledTimes(1);
-    expect(stop).toHaveBeenCalledOnce();
+    expect(stop).not.toHaveBeenCalled();
   });
 
   it('asks for microphone and camera access together for a video call', async () => {
-    const requestMedia = vi.fn().mockResolvedValue({ getTracks: () => [] });
+    const requestMedia = vi.fn().mockResolvedValue([]);
 
     await requestMediaPermissions('VIDEO', requestMedia);
 

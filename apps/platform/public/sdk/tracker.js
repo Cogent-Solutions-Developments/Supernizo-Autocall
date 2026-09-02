@@ -740,6 +740,13 @@ class CallWidgetController {
         if (data.type === 'supernizo-call-end' && isCall(data.call)) {
             void this.respond(data.call, 'end');
         }
+        if (data.type === 'supernizo-call-media-failure' &&
+            isCall(data.call) &&
+            (data.failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED' ||
+                data.failureCode === 'MEDIA_DEVICE_UNAVAILABLE' ||
+                data.failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED')) {
+            void this.reportMediaFailure(data.call, data.failureCode);
+        }
     };
     refreshConfigWhenVisible = () => {
         if (document.visibilityState === 'visible')
@@ -787,6 +794,39 @@ class CallWidgetController {
                 method: 'POST',
                 mode: 'cors',
             });
+            if (!response.ok) {
+                this.postActionError(call, action);
+                return;
+            }
+            const body = await response.json();
+            const actionResponse = readCallActionResponse(body);
+            if (!actionResponse) {
+                this.postActionError(call, action);
+                return;
+            }
+            this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
+            if (action === 'accept' && actionResponse.media) {
+                this.postMedia(actionResponse.call.id, actionResponse.media);
+                return;
+            }
+            if (action === 'accept')
+                await this.requestMedia(actionResponse.call);
+        }
+        catch {
+            this.postActionError(call, action);
+            // The host page remains unaffected when the calling API is unavailable.
+        }
+    }
+    async reportMediaFailure(call, failureCode) {
+        try {
+            const response = await fetch(new URL(`/api/calls/${call.id}/fail`, this.endpoint), {
+                body: JSON.stringify({ context: this.context, failureCode }),
+                credentials: 'omit',
+                headers: { 'content-type': 'text/plain;charset=UTF-8' },
+                keepalive: true,
+                method: 'POST',
+                mode: 'cors',
+            });
             if (!response.ok)
                 return;
             const body = await response.json();
@@ -794,16 +834,13 @@ class CallWidgetController {
             if (!actionResponse)
                 return;
             this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
-            if (action === 'accept' && actionResponse.media) {
-                this.postMedia(actionResponse.media);
-                return;
-            }
-            if (action === 'accept')
-                await this.requestMedia(actionResponse.call);
         }
         catch {
-            // The host page remains unaffected when the calling API is unavailable.
+            // Media failure reporting is best-effort and must not affect the host page.
         }
+    }
+    postActionError(call, action) {
+        this.frame?.contentWindow?.postMessage({ action, callId: call.id, type: 'supernizo-call-action-error' }, new URL(this.endpoint).origin);
     }
     async requestMedia(call) {
         try {
@@ -824,14 +861,14 @@ class CallWidgetController {
             const body = await response.json();
             if (!body || typeof body !== 'object' || !('data' in body) || !isLiveKitMedia(body.data))
                 return;
-            this.postMedia(body.data);
+            this.postMedia(call.id, body.data);
         }
         catch {
             // A token failure must not affect the tracked website.
         }
     }
-    postMedia(media) {
-        this.frame?.contentWindow?.postMessage({ media, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
+    postMedia(callId, media) {
+        this.frame?.contentWindow?.postMessage({ callId, media, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
     }
 }
 exports.CallWidgetController = CallWidgetController;
@@ -1103,6 +1140,7 @@ exports.Tracker = {
                 return refreshed
                     ? {
                         channel: refreshed.realtime.channel,
+                        ...(refreshed.calling ? { livekitUrl: refreshed.calling.url } : {}),
                         token: refreshed.realtime.authorizationToken,
                     }
                     : undefined;
@@ -1132,6 +1170,7 @@ exports.Tracker = {
                         visitorId: responseBody.visitorId,
                     }, bootstrapEndpoint, {
                         channel: responseBody.realtime.channel,
+                        ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                         token: responseBody.realtime.authorizationToken,
                     }, renewCallWidgetConfig)
                     : undefined;

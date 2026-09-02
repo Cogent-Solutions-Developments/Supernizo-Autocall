@@ -9,5 +9,12 @@ describe('getCallFailureReason', () => {
     );
     expect(getCallFailureReason('FAILED', 'MEDIA_PARTICIPANT_LEFT')).toContain('left before');
     expect(getCallFailureReason('FAILED', 'MEDIA_ROOM_FINISHED')).toContain('closed before');
+    expect(getCallFailureReason('FAILED', 'MEDIA_CAMERA_PERMISSION_DENIED')).toContain(
+      'camera access',
+    );
+    expect(getCallFailureReason('FAILED', 'MEDIA_MICROPHONE_PERMISSION_DENIED')).toContain(
+      'microphone access',
+    );
+    expect(getCallFailureReason('FAILED', 'MEDIA_DEVICE_UNAVAILABLE')).toContain('unavailable');
   });
 });

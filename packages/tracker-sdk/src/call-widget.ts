@@ -12,7 +12,11 @@ type Call = Readonly<{
   visitorId: string;
 }>;
 
-export type CallWidgetConfig = Readonly<{ channel: string; token: string }>;
+export type CallWidgetConfig = Readonly<{
+  channel: string;
+  livekitUrl?: string | undefined;
+  token: string;
+}>;
 type LiveKitMedia = Readonly<{ token: string; url: string }>;
 
 const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
@@ -146,6 +150,7 @@ export class CallWidgetController {
     const data = event.data as {
       action?: unknown;
       call?: unknown;
+      failureCode?: unknown;
       type?: unknown;
       visible?: unknown;
     };
@@ -166,6 +171,15 @@ export class CallWidgetController {
     }
     if (data.type === 'supernizo-call-end' && isCall(data.call)) {
       void this.respond(data.call, 'end');
+    }
+    if (
+      data.type === 'supernizo-call-media-failure' &&
+      isCall(data.call) &&
+      (data.failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED' ||
+        data.failureCode === 'MEDIA_DEVICE_UNAVAILABLE' ||
+        data.failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED')
+    ) {
+      void this.reportMediaFailure(data.call, data.failureCode);
     }
   };
 
@@ -220,6 +234,47 @@ export class CallWidgetController {
         method: 'POST',
         mode: 'cors',
       });
+      if (!response.ok) {
+        this.postActionError(call, action);
+        return;
+      }
+      const body: unknown = await response.json();
+      const actionResponse = readCallActionResponse(body);
+      if (!actionResponse) {
+        this.postActionError(call, action);
+        return;
+      }
+      this.frame?.contentWindow?.postMessage(
+        { call: actionResponse.call, type: 'supernizo-call-status' },
+        new URL(this.endpoint).origin,
+      );
+      if (action === 'accept' && actionResponse.media) {
+        this.postMedia(actionResponse.call.id, actionResponse.media);
+        return;
+      }
+      if (action === 'accept') await this.requestMedia(actionResponse.call);
+    } catch {
+      this.postActionError(call, action);
+      // The host page remains unaffected when the calling API is unavailable.
+    }
+  }
+
+  private async reportMediaFailure(
+    call: Call,
+    failureCode:
+      | 'MEDIA_CAMERA_PERMISSION_DENIED'
+      | 'MEDIA_DEVICE_UNAVAILABLE'
+      | 'MEDIA_MICROPHONE_PERMISSION_DENIED',
+  ): Promise<void> {
+    try {
+      const response = await fetch(new URL(`/api/calls/${call.id}/fail`, this.endpoint), {
+        body: JSON.stringify({ context: this.context, failureCode }),
+        credentials: 'omit',
+        headers: { 'content-type': 'text/plain;charset=UTF-8' },
+        keepalive: true,
+        method: 'POST',
+        mode: 'cors',
+      });
       if (!response.ok) return;
       const body: unknown = await response.json();
       const actionResponse = readCallActionResponse(body);
@@ -228,14 +283,16 @@ export class CallWidgetController {
         { call: actionResponse.call, type: 'supernizo-call-status' },
         new URL(this.endpoint).origin,
       );
-      if (action === 'accept' && actionResponse.media) {
-        this.postMedia(actionResponse.media);
-        return;
-      }
-      if (action === 'accept') await this.requestMedia(actionResponse.call);
     } catch {
-      // The host page remains unaffected when the calling API is unavailable.
+      // Media failure reporting is best-effort and must not affect the host page.
     }
+  }
+
+  private postActionError(call: Call, action: 'accept' | 'end' | 'reject'): void {
+    this.frame?.contentWindow?.postMessage(
+      { action, callId: call.id, type: 'supernizo-call-action-error' },
+      new URL(this.endpoint).origin,
+    );
   }
 
   private async requestMedia(call: Call): Promise<void> {
@@ -256,15 +313,15 @@ export class CallWidgetController {
       const body: unknown = await response.json();
       if (!body || typeof body !== 'object' || !('data' in body) || !isLiveKitMedia(body.data))
         return;
-      this.postMedia(body.data);
+      this.postMedia(call.id, body.data);
     } catch {
       // A token failure must not affect the tracked website.
     }
   }
 
-  private postMedia(media: LiveKitMedia): void {
+  private postMedia(callId: string, media: LiveKitMedia): void {
     this.frame?.contentWindow?.postMessage(
-      { media, type: 'supernizo-call-media' },
+      { callId, media, type: 'supernizo-call-media' },
       new URL(this.endpoint).origin,
     );
   }
