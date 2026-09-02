@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  MicrophoneIcon,
   PhoneIncomingIcon,
   PhoneXIcon,
   ShieldCheckIcon,
@@ -73,6 +74,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [call, setCall] = useState<Call | null>(null);
   const [media, setMedia] = useState<LiveKitTokenResponse | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [isPermissionPromptOpen, setIsPermissionPromptOpen] = useState(false);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
   const endingCallId = useRef<string | null>(null);
@@ -202,6 +204,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
 
   function declineCall(): void {
     if (!call) return;
+    setIsPermissionPromptOpen(false);
     window.parent.postMessage(
       { action: 'reject', call, type: 'supernizo-call-action' },
       hostOrigin,
@@ -212,6 +215,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     if (!call) return;
     endingCallId.current = call.id;
     setConnectedMediaCallId(null);
+    setIsPermissionPromptOpen(false);
     setMedia(null);
     callMedia.releaseLocalTracks();
     setCall(optimisticallyEndCall(call));
@@ -235,6 +239,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             setConnectedMediaCallId(null);
             setMedia(null);
             setPermissionError(null);
+            setIsPermissionPromptOpen(false);
           }
           setCall(nextCall);
         }}
@@ -294,38 +299,72 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                   : 'flex min-h-0 flex-1 flex-col items-center justify-center text-center'
               }
             >
-              <Image
-                alt="Cogent Solutions Dubai"
-                className={`h-auto max-w-full ${hasActiveMedia ? 'w-32' : 'w-44'}`}
-                priority
-                sizes={hasActiveMedia ? '128px' : '176px'}
-                src={companyLogo}
-              />
-              <p
-                className={`m-0 text-[10px] font-bold tracking-[0.16em] text-slate-500 uppercase ${
-                  hasActiveMedia ? 'mt-3' : 'mt-5'
-                }`}
-              >
-                Official event call
-              </p>
-              {!isRinging ? (
-                <h1 className="!m-0 mt-2 !text-lg !font-semibold !leading-tight text-slate-900">
-                  {callHeading(call, mediaConnected)}
-                </h1>
-              ) : null}
-              <p className="m-0 mt-2 max-w-[265px] text-sm leading-5 text-slate-600">
-                {isRinging
-                  ? 'Cogent Solutions Dubai is calling to share event details with you.'
-                  : callCopy(call, Boolean(media), mediaConnected)}
-              </p>
-              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-600">
-                {call.type === 'VIDEO' ? (
-                  <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
-                ) : (
-                  <PhoneIncomingIcon aria-hidden="true" size={15} weight="fill" />
-                )}
-                {call.type === 'VIDEO' ? 'Video call' : 'Audio call'}
-              </span>
+              {isRinging && isPermissionPromptOpen ? (
+                <>
+                  <Image
+                    alt="Cogent Solutions Dubai"
+                    className="h-auto w-32 max-w-full"
+                    priority
+                    sizes="128px"
+                    src={companyLogo}
+                  />
+                  <p className="m-0 mt-3 text-[10px] font-bold tracking-[0.16em] text-slate-500 uppercase">
+                    Permission required
+                  </p>
+                  <span className="mt-4 flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-[#18324d]">
+                    {call.type === 'VIDEO' ? (
+                      <VideoCameraIcon aria-hidden="true" size={22} weight="fill" />
+                    ) : (
+                      <MicrophoneIcon aria-hidden="true" size={22} weight="fill" />
+                    )}
+                  </span>
+                  <h1 className="!m-0 mt-3 !text-lg !font-semibold !leading-tight text-slate-900">
+                    {call.type === 'VIDEO'
+                      ? 'Allow camera and microphone'
+                      : 'Allow microphone access'}
+                  </h1>
+                  <p className="m-0 mt-2 max-w-[265px] text-sm leading-5 text-slate-600">
+                    {call.type === 'VIDEO'
+                      ? 'To join this official event call, allow camera and microphone access in your browser.'
+                      : 'To join this official event call, allow microphone access in your browser.'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Image
+                    alt="Cogent Solutions Dubai"
+                    className={`h-auto max-w-full ${hasActiveMedia ? 'w-32' : 'w-44'}`}
+                    priority
+                    sizes={hasActiveMedia ? '128px' : '176px'}
+                    src={companyLogo}
+                  />
+                  <p
+                    className={`m-0 text-[10px] font-bold tracking-[0.16em] text-slate-500 uppercase ${
+                      hasActiveMedia ? 'mt-3' : 'mt-5'
+                    }`}
+                  >
+                    Official event call
+                  </p>
+                  {!isRinging ? (
+                    <h1 className="!m-0 mt-2 !text-lg !font-semibold !leading-tight text-slate-900">
+                      {callHeading(call, mediaConnected)}
+                    </h1>
+                  ) : null}
+                  <p className="m-0 mt-2 max-w-[265px] text-sm leading-5 text-slate-600">
+                    {isRinging
+                      ? 'Cogent Solutions Dubai is calling to share event details with you.'
+                      : callCopy(call, Boolean(media), mediaConnected)}
+                  </p>
+                  <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-600">
+                    {call.type === 'VIDEO' ? (
+                      <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
+                    ) : (
+                      <PhoneIncomingIcon aria-hidden="true" size={15} weight="fill" />
+                    )}
+                    {call.type === 'VIDEO' ? 'Video call' : 'Audio call'}
+                  </span>
+                </>
+              )}
               {!isRinging && hasActiveMedia && media && callMedia.room ? (
                 <div className="mt-3 w-full">
                   <LiveKitMediaRoom
@@ -347,25 +386,44 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             ) : null}
 
             {isRinging ? (
-              <div className="grid grid-cols-2 gap-3">
+              isPermissionPromptOpen ? (
                 <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
-                  onClick={declineCall}
-                  type="button"
-                >
-                  <PhoneXIcon aria-hidden="true" size={18} weight="fill" />
-                  Decline
-                </button>
-                <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#18324d] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f2740] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d] disabled:cursor-wait disabled:opacity-60"
+                  className="inline-flex min-h-11 self-center items-center justify-center gap-2 rounded-full bg-[#18324d] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f2740] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d] disabled:cursor-wait disabled:opacity-60"
                   disabled={callMedia.isCapturing || !callMedia.room}
                   onClick={acceptCall}
                   type="button"
                 >
-                  <PhoneIncomingIcon aria-hidden="true" size={18} weight="fill" />
-                  {callMedia.isCapturing ? 'Allowing…' : 'Accept call'}
+                  {call.type === 'VIDEO' ? (
+                    <VideoCameraIcon aria-hidden="true" size={18} weight="fill" />
+                  ) : (
+                    <MicrophoneIcon aria-hidden="true" size={18} weight="fill" />
+                  )}
+                  {callMedia.isCapturing ? 'Requesting access…' : 'Allow access'}
                 </button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                    onClick={declineCall}
+                    type="button"
+                  >
+                    <PhoneXIcon aria-hidden="true" size={18} weight="fill" />
+                    Decline
+                  </button>
+                  <button
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#18324d] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f2740] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d] disabled:cursor-wait disabled:opacity-60"
+                    disabled={callMedia.isCapturing || !callMedia.room}
+                    onClick={() => {
+                      setPermissionError(null);
+                      setIsPermissionPromptOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <PhoneIncomingIcon aria-hidden="true" size={18} weight="fill" />
+                    Accept call
+                  </button>
+                </div>
+              )
             ) : null}
 
             <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-slate-100 pt-4 text-[10px] font-medium tracking-[0.08em] text-slate-400 uppercase">
