@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { AgentAvailabilityControl } from '@/app/components/agent-availability-control';
+import { AuthClientProvider } from '@/app/components/auth-client-provider';
 import { LogoutButton } from '@/app/components/logout-button';
 import loginBackground from '@/assets/loging  background.webp';
 import { requireDashboardUser } from '@/server/auth/access';
@@ -75,7 +76,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             {user.name ?? user.email}
           </div>
           <div className="shrink-0">
-            <LogoutButton />
+            <AuthClientProvider>
+              <LogoutButton />
+            </AuthClientProvider>
           </div>
         </div>
       </header>
