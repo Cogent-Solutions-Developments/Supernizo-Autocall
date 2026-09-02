@@ -4,6 +4,7 @@ import {
   canIssueLiveKitToken,
   createLiveKitParticipantToken,
   getLiveKitParticipantIdentity,
+  haveExpectedLiveKitParticipantsJoined,
 } from './livekit-token-service';
 
 describe('LiveKit token authorization helpers', () => {
@@ -18,6 +19,25 @@ describe('LiveKit token authorization helpers', () => {
     expect(canIssueLiveKitToken('CONNECTING')).toBe(true);
     expect(canIssueLiveKitToken('ACTIVE')).toBe(true);
     expect(canIssueLiveKitToken('ENDED')).toBe(false);
+  });
+
+  it('only considers the room active after the expected agent and visitor join', () => {
+    const expected = ['agent:user_123', 'visitor:visitor_123'];
+
+    expect(haveExpectedLiveKitParticipantsJoined(expected, ['agent:user_123'])).toBe(false);
+    expect(
+      haveExpectedLiveKitParticipantsJoined(expected, [
+        'visitor:visitor_123',
+        'agent:user_123',
+        'agent:user_123',
+      ]),
+    ).toBe(true);
+    expect(
+      haveExpectedLiveKitParticipantsJoined(expected, [
+        'agent:another-user',
+        'visitor:visitor_123',
+      ]),
+    ).toBe(false);
   });
 
   it('issues a short-lived token bound to exactly one generated room', async () => {

@@ -3,8 +3,11 @@
 import {
   LiveKitRoom,
   RoomAudioRenderer,
+  StartAudio,
   TrackToggle,
   VideoTrack,
+  isTrackReference,
+  useRemoteParticipants,
   useTracks,
 } from '@livekit/components-react';
 import {
@@ -19,6 +22,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { Call, LiveKitTokenResponse } from '@supernizo/shared';
 
+import { deriveLiveKitMediaState, getLiveKitMediaErrorMessage } from './livekit-media-state';
+
 type LiveKitMediaRoomProps = Readonly<{
   call: Call;
   media: LiveKitTokenResponse;
@@ -28,17 +33,21 @@ type LiveKitMediaRoomProps = Readonly<{
 
 function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
-  const remoteTrack =
-    tracks.find((track) => !track.participant.isLocal && track.publication) ??
-    tracks.find((track) => !track.participant.isLocal);
-  const localTrack =
-    tracks.find((track) => track.participant.isLocal && track.publication) ??
-    tracks.find((track) => track.participant.isLocal);
+  const remoteTrack = tracks.find(
+    (track) =>
+      !track.participant.isLocal &&
+      isTrackReference(track) &&
+      track.publication.isSubscribed &&
+      track.publication.track,
+  );
+  const localTrack = tracks.find(
+    (track) => track.participant.isLocal && isTrackReference(track) && track.publication.track,
+  );
 
   return (
     <div className="video-stage">
       <div className="remote-video">
-        {remoteTrack?.publication ? (
+        {remoteTrack && isTrackReference(remoteTrack) ? (
           <VideoTrack className="supernizo-remote-video" trackRef={remoteTrack} />
         ) : (
           <div className="remote-placeholder">
@@ -53,7 +62,7 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
       </div>
 
       <div className="local-video">
-        {localTrack?.publication ? (
+        {localTrack && isTrackReference(localTrack) ? (
           <VideoTrack className="supernizo-local-video" trackRef={localTrack} />
         ) : (
           <div className="local-placeholder">
@@ -168,28 +177,86 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
   );
 }
 
-export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMediaRoomProps) {
-  const videoEnabled = call.type === 'VIDEO';
-  const [error, setError] = useState<string | null>(null);
-  const [connectionMessage, setConnectionMessage] = useState('Connecting...');
-  const [connectedAt, setConnectedAt] = useState<number | null>(null);
+function MediaConnectionStatus({
+  onConnected,
+  transportConnected,
+  videoEnabled,
+}: Readonly<{
+  onConnected: (() => void) | undefined;
+  transportConnected: boolean;
+  videoEnabled: boolean;
+}>) {
+  const remoteParticipants = useRemoteParticipants();
+  const audioTracks = useTracks([Track.Source.Microphone]);
+  const cameraTracks = useTracks([Track.Source.Camera]);
+  const localMicrophonePublished = audioTracks.some(
+    (track) => track.participant.isLocal && Boolean(track.publication.track),
+  );
+  const remoteMicrophoneSubscribed = audioTracks.some(
+    (track) =>
+      !track.participant.isLocal &&
+      track.publication.isSubscribed &&
+      Boolean(track.publication.track),
+  );
+  const remoteCameraSubscribed = cameraTracks.some(
+    (track) =>
+      !track.participant.isLocal &&
+      track.publication.isSubscribed &&
+      Boolean(track.publication.track),
+  );
+  const mediaState = deriveLiveKitMediaState({
+    localMicrophonePublished,
+    remoteCameraSubscribed,
+    remoteMicrophoneSubscribed,
+    remoteParticipantPresent: remoteParticipants.length > 0,
+    transportConnected,
+    videoEnabled,
+  });
+  const connectedAt = useRef<number | null>(null);
+  const connectedNotified = useRef(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(videoEnabled);
-  const ended = useRef(false);
 
   useEffect(() => {
-    if (connectedAt === null) return;
-    const timer = window.setInterval(
-      () => setElapsedSeconds(Math.floor((Date.now() - connectedAt) / 1_000)),
-      1_000,
-    );
+    if (!mediaState.connected) return;
+    if (connectedAt.current === null) connectedAt.current = Date.now();
+    if (!connectedNotified.current) {
+      connectedNotified.current = true;
+      onConnected?.();
+    }
+    const timer = window.setInterval(() => {
+      if (connectedAt.current !== null) {
+        setElapsedSeconds(Math.floor((Date.now() - connectedAt.current) / 1_000));
+      }
+    }, 1_000);
     return () => window.clearInterval(timer);
-  }, [connectedAt]);
+  }, [mediaState.connected, onConnected]);
 
   const duration = `${Math.floor(elapsedSeconds / 60)
     .toString()
     .padStart(2, '0')}:${(elapsedSeconds % 60).toString().padStart(2, '0')}`;
+
+  return (
+    <>
+      <div className="connection-status">
+        <span
+          aria-hidden="true"
+          className={mediaState.connected ? 'status-dot connected' : 'status-dot'}
+        />
+        <span>{mediaState.message}</span>
+        {mediaState.connected ? <time>{duration}</time> : null}
+      </div>
+      <StartAudio className="enable-audio" label="Enable call audio" />
+    </>
+  );
+}
+
+export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMediaRoomProps) {
+  const videoEnabled = call.type === 'VIDEO';
+  const [error, setError] = useState<string | null>(null);
+  const [transportConnected, setTransportConnected] = useState(false);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [cameraEnabled, setCameraEnabled] = useState(videoEnabled);
+  const ended = useRef(false);
 
   function endOnce(): void {
     if (ended.current) return;
@@ -203,33 +270,25 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
       className="supernizo-livekit-room"
       connect
       onConnected={() => {
-        setConnectionMessage('Connected');
-        setConnectedAt(Date.now());
-        onConnected?.();
+        setError(null);
+        setTransportConnected(true);
       }}
       onDisconnected={() => {
-        setConnectionMessage('Disconnected');
+        setTransportConnected(false);
         endOnce();
       }}
-      onError={() => setError('The media connection failed. Check your network and try again.')}
-      onMediaDeviceFailure={() =>
-        setError(
-          'Camera or microphone permission was denied, or no compatible device is available.',
-        )
-      }
+      onError={(mediaError) => setError(getLiveKitMediaErrorMessage(mediaError))}
+      onMediaDeviceFailure={(failure) => setError(getLiveKitMediaErrorMessage(failure))}
       serverUrl={media.url}
       token={media.token}
       video={videoEnabled}
     >
       <div className="media-room">
-        <div className="connection-status">
-          <span
-            aria-hidden="true"
-            className={connectedAt ? 'status-dot connected' : 'status-dot'}
-          />
-          <span>{connectionMessage}</span>
-          {connectedAt ? <time>{duration}</time> : null}
-        </div>
+        <MediaConnectionStatus
+          onConnected={onConnected}
+          transportConnected={transportConnected}
+          videoEnabled={videoEnabled}
+        />
         {error ? <p className="media-error">{error}</p> : null}
         {videoEnabled ? <VideoTiles agentName={call.agentDisplayName || 'Event team'} /> : null}
         <RoomAudioRenderer />
@@ -291,7 +350,7 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
           position: relative;
           z-index: 2;
         }
-        .connection-status {
+        :global(.connection-status) {
           align-items: center;
           border-bottom: 1px solid rgba(162, 221, 232, 0.12);
           color: #8fadb7;
@@ -302,19 +361,19 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
           gap: 7px;
           padding: 0 2px 11px;
         }
-        .connection-status time {
+        :global(.connection-status time) {
           color: #d7eaee;
           font-variant-numeric: tabular-nums;
           margin-left: auto;
         }
-        .status-dot {
+        :global(.status-dot) {
           background: #e5aa4d;
           border-radius: 50%;
           box-shadow: 0 0 0 3px rgba(229, 170, 77, 0.1);
           height: 7px;
           width: 7px;
         }
-        .status-dot.connected {
+        :global(.status-dot.connected) {
           background: #35e0ac;
           box-shadow: 0 0 0 3px rgba(53, 224, 172, 0.1);
         }
@@ -328,6 +387,20 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
             sans-serif;
           margin: 0;
           padding: 8px 10px;
+        }
+        :global(button.enable-audio) {
+          appearance: none;
+          background: linear-gradient(135deg, #44dbc9, #25a9c4);
+          border: 0;
+          border-radius: 999px;
+          box-shadow: 0 8px 20px rgba(39, 185, 190, 0.22);
+          color: #02121d;
+          cursor: pointer;
+          font:
+            700 11px/1 Arial,
+            sans-serif;
+          justify-self: center;
+          padding: 10px 16px;
         }
         .media-controls {
           display: flex;

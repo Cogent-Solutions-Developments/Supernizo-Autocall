@@ -20,9 +20,21 @@ export type CallHistoryEntry = Readonly<{
   visitorId: string;
 }>;
 
-function failureReason(status: CallStatus, failureCode: string | null): string | null {
+export function getCallFailureReason(
+  status: CallStatus,
+  failureCode: string | null,
+): string | null {
   if (failureCode === 'RING_TIMEOUT') return 'Visitor did not answer before the ring timed out.';
   if (failureCode === 'CONNECTION_TIMEOUT') return 'The media connection did not complete in time.';
+  if (failureCode === 'MEDIA_CONNECTION_ABORTED') {
+    return 'The browser could not establish the media connection.';
+  }
+  if (failureCode === 'MEDIA_PARTICIPANT_LEFT') {
+    return 'A participant left before the media connection was ready.';
+  }
+  if (failureCode === 'MEDIA_ROOM_FINISHED') {
+    return 'The media room closed before the call connected.';
+  }
   if (status === 'MISSED') return 'The visitor did not answer.';
   if (status === 'FAILED') return 'The call could not be completed.';
   if (status === 'REJECTED') return 'The visitor declined the call.';
@@ -52,7 +64,7 @@ function mapCall(call: {
     callId: call.id,
     durationSeconds,
     endedAt: call.endedAt?.toISOString() ?? null,
-    failureReason: failureReason(call.status, call.failureCode),
+    failureReason: getCallFailureReason(call.status, call.failureCode),
     requestedAt: call.requestedAt.toISOString(),
     siteId: call.siteId,
     siteName: call.site.name,
