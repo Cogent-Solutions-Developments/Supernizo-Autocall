@@ -7,23 +7,9 @@ import './globals.css';
 import '@livekit/components-styles';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.APP_URL ?? 'http://localhost:3000'),
-  title: 'Supernizo Autocall | Turn live traffic into real conversation',
+  title: 'Supernizo Autocall | Your visitor coworker',
   description:
-    'See visitor intent in real time, then chat or start a browser call at exactly the right moment.',
-  openGraph: {
-    title: 'Supernizo Autocall | Turn live traffic into real conversation',
-    description:
-      'See visitor intent in real time, then chat or start a browser call at exactly the right moment.',
-    images: [{ alt: 'Supernizo Autocall', height: 1024, url: '/og.png', width: 1792 }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Supernizo Autocall | Turn live traffic into real conversation',
-    description:
-      'See visitor intent in real time, then chat or start a browser call at exactly the right moment.',
-    images: ['/og.png'],
-  },
+    'Spot live visitor intent, start conversations, and turn the right moments into real connections.',
 };
 
 type RootLayoutProps = Readonly<{
