@@ -103,10 +103,24 @@ export async function sendAfterPageRegistration<T>(
   return (await pageRegistered) ? send() : undefined;
 }
 
+export class SerialRequestQueue {
+  private tail: Promise<void> = Promise.resolve();
+
+  public enqueue<T>(request: () => Promise<T>): Promise<T> {
+    const pending = this.tail.then(request);
+    this.tail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+}
+
 export class EngagementManager {
   private accumulator: ActiveTimeAccumulator;
   private currentPage: PageState | undefined;
   private pageRegistered: Promise<boolean> = Promise.resolve(false);
+  private readonly requestQueue = new SerialRequestQueue();
   private heartbeatTimer: number | undefined;
   private scrollSampleTimer: number | undefined;
   private readonly observedScrollThresholds = new Set<number>();
@@ -186,7 +200,9 @@ export class EngagementManager {
       document.visibilityState === 'visible',
     );
 
-    this.pageRegistered = this.send('page', { ...this.context, ...page, pageViewId: page.id });
+    this.pageRegistered = this.requestQueue.enqueue(() =>
+      this.send('page', { ...this.context, ...page, pageViewId: page.id }),
+    );
   }
 
   private finishPage(useBeacon: boolean): void {
@@ -238,12 +254,16 @@ export class EngagementManager {
   ): void {
     const pageRegistered = this.pageRegistered;
 
-    void sendAfterPageRegistration(pageRegistered, async () => {
-      if (requireCurrentPage && this.currentPage?.id !== page.id) {
-        return false;
-      }
+    void this.requestQueue.enqueue(async () => {
+      return (
+        (await sendAfterPageRegistration(pageRegistered, async () => {
+          if (requireCurrentPage && this.currentPage?.id !== page.id) {
+            return false;
+          }
 
-      return this.send(path, payload, useBeacon);
+          return this.send(path, payload, useBeacon);
+        })) ?? false
+      );
     });
   }
 

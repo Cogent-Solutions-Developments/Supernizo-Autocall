@@ -13,7 +13,7 @@
   modules['./engagement'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EngagementManager = exports.ActiveTimeAccumulator = exports.IDLE_THRESHOLD_MS = exports.HEARTBEAT_INTERVAL_MS = void 0;
+exports.EngagementManager = exports.SerialRequestQueue = exports.ActiveTimeAccumulator = exports.IDLE_THRESHOLD_MS = exports.HEARTBEAT_INTERVAL_MS = void 0;
 exports.serializeBeaconPayload = serializeBeaconPayload;
 exports.sanitizeEventMetadata = sanitizeEventMetadata;
 exports.hasNavigationChanged = hasNavigationChanged;
@@ -89,6 +89,15 @@ function hasNavigationChanged(previousUrl, nextUrl) {
 async function sendAfterPageRegistration(pageRegistered, send) {
     return (await pageRegistered) ? send() : undefined;
 }
+class SerialRequestQueue {
+    tail = Promise.resolve();
+    enqueue(request) {
+        const pending = this.tail.then(request);
+        this.tail = pending.then(() => undefined, () => undefined);
+        return pending;
+    }
+}
+exports.SerialRequestQueue = SerialRequestQueue;
 class EngagementManager {
     context;
     bootstrapEndpoint;
@@ -96,6 +105,7 @@ class EngagementManager {
     accumulator;
     currentPage;
     pageRegistered = Promise.resolve(false);
+    requestQueue = new SerialRequestQueue();
     heartbeatTimer;
     scrollSampleTimer;
     observedScrollThresholds = new Set();
@@ -157,7 +167,7 @@ class EngagementManager {
         this.currentPage = page;
         this.observedScrollThresholds.clear();
         this.accumulator = new ActiveTimeAccumulator(Date.now(), document.visibilityState === 'visible');
-        this.pageRegistered = this.send('page', { ...this.context, ...page, pageViewId: page.id });
+        this.pageRegistered = this.requestQueue.enqueue(() => this.send('page', { ...this.context, ...page, pageViewId: page.id }));
     }
     finishPage(useBeacon) {
         if (!this.currentPage) {
@@ -190,11 +200,13 @@ class EngagementManager {
     }
     queuePageRequest(page, path, payload, useBeacon = false, requireCurrentPage = true) {
         const pageRegistered = this.pageRegistered;
-        void sendAfterPageRegistration(pageRegistered, async () => {
-            if (requireCurrentPage && this.currentPage?.id !== page.id) {
-                return false;
-            }
-            return this.send(path, payload, useBeacon);
+        void this.requestQueue.enqueue(async () => {
+            return ((await sendAfterPageRegistration(pageRegistered, async () => {
+                if (requireCurrentPage && this.currentPage?.id !== page.id) {
+                    return false;
+                }
+                return this.send(path, payload, useBeacon);
+            })) ?? false);
         });
     }
     async send(path, payload, useBeacon = false) {
