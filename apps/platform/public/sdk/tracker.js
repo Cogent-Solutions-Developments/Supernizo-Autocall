@@ -608,7 +608,15 @@ exports.ChatWidgetController = ChatWidgetController;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CallWidgetController = exports.CALL_WIDGET_PERMISSIONS_POLICY = void 0;
+exports.isCallWidgetConfigRefreshDue = isCallWidgetConfigRefreshDue;
 exports.callWidgetFrameStyles = callWidgetFrameStyles;
+exports.readCallActionResponse = readCallActionResponse;
+const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
+const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
+const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
+function isCallWidgetConfigRefreshDue(lastRefreshAt, lastAttemptAt, now = Date.now()) {
+    return (now - lastRefreshAt >= CONFIG_REFRESH_AFTER_MS && now - lastAttemptAt >= CONFIG_REFRESH_RETRY_MS);
+}
 // The call interface runs in a cross-origin iframe. The host page must
 // explicitly delegate these features before that interface can request them.
 exports.CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
@@ -642,16 +650,33 @@ function isLiveKitMedia(value) {
     const candidate = value;
     return typeof candidate.token === 'string' && typeof candidate.url === 'string';
 }
+function readCallActionResponse(value) {
+    if (!value || typeof value !== 'object')
+        return undefined;
+    const candidate = value;
+    if (!isCall(candidate.data))
+        return undefined;
+    return {
+        call: candidate.data,
+        ...(isLiveKitMedia(candidate.media) ? { media: candidate.media } : {}),
+    };
+}
 class CallWidgetController {
     context;
     endpoint;
     config;
+    renewConfig;
     frame;
+    configRefreshTimer;
+    configRefreshInFlight = false;
+    lastConfigRefreshAt = Date.now();
+    lastConfigRefreshAttemptAt = 0;
     syncTimer;
-    constructor(context, endpoint, config) {
+    constructor(context, endpoint, config, renewConfig) {
         this.context = context;
         this.endpoint = endpoint;
         this.config = config;
+        this.renewConfig = renewConfig;
     }
     start() {
         try {
@@ -670,6 +695,8 @@ class CallWidgetController {
             (document.body ?? document.documentElement).append(frame);
             this.frame = frame;
             this.syncTimer = window.setInterval(() => this.postConfig(), 3_000);
+            this.configRefreshTimer = window.setInterval(() => void this.refreshConfigIfDue(), CONFIG_REFRESH_TICK_MS);
+            document.addEventListener('visibilitychange', this.refreshConfigWhenVisible);
         }
         catch {
             // The optional call UI must not interrupt the tracked website.
@@ -680,6 +707,11 @@ class CallWidgetController {
             window.clearInterval(this.syncTimer);
             this.syncTimer = undefined;
         }
+        if (this.configRefreshTimer !== undefined) {
+            window.clearInterval(this.configRefreshTimer);
+            this.configRefreshTimer = undefined;
+        }
+        document.removeEventListener('visibilitychange', this.refreshConfigWhenVisible);
         window.removeEventListener('message', this.receiveMessage);
         this.frame?.remove();
         this.frame = undefined;
@@ -708,7 +740,42 @@ class CallWidgetController {
         if (data.type === 'supernizo-call-end' && isCall(data.call)) {
             void this.respond(data.call, 'end');
         }
+        if (data.type === 'supernizo-call-media-failure' &&
+            isCall(data.call) &&
+            (data.failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED' ||
+                data.failureCode === 'MEDIA_DEVICE_UNAVAILABLE' ||
+                data.failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED')) {
+            void this.reportMediaFailure(data.call, data.failureCode);
+        }
     };
+    refreshConfigWhenVisible = () => {
+        if (document.visibilityState === 'visible')
+            void this.refreshConfigIfDue();
+    };
+    async refreshConfigIfDue() {
+        const now = Date.now();
+        if (!this.renewConfig ||
+            this.configRefreshInFlight ||
+            !isCallWidgetConfigRefreshDue(this.lastConfigRefreshAt, this.lastConfigRefreshAttemptAt, now)) {
+            return;
+        }
+        this.configRefreshInFlight = true;
+        this.lastConfigRefreshAttemptAt = now;
+        try {
+            const refreshed = await this.renewConfig();
+            if (!refreshed)
+                return;
+            this.config = refreshed;
+            this.lastConfigRefreshAt = Date.now();
+            this.postConfig();
+        }
+        catch {
+            // Credential renewal retries after a short backoff without affecting the host page.
+        }
+        finally {
+            this.configRefreshInFlight = false;
+        }
+    }
     postConfig() {
         this.frame?.contentWindow?.postMessage({ config: this.config, type: 'supernizo-call-config' }, new URL(this.endpoint).origin);
     }
@@ -727,18 +794,53 @@ class CallWidgetController {
                 method: 'POST',
                 mode: 'cors',
             });
+            if (!response.ok) {
+                this.postActionError(call, action);
+                return;
+            }
+            const body = await response.json();
+            const actionResponse = readCallActionResponse(body);
+            if (!actionResponse) {
+                this.postActionError(call, action);
+                return;
+            }
+            this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
+            if (action === 'accept' && actionResponse.media) {
+                this.postMedia(actionResponse.call.id, actionResponse.media);
+                return;
+            }
+            if (action === 'accept')
+                await this.requestMedia(actionResponse.call);
+        }
+        catch {
+            this.postActionError(call, action);
+            // The host page remains unaffected when the calling API is unavailable.
+        }
+    }
+    async reportMediaFailure(call, failureCode) {
+        try {
+            const response = await fetch(new URL(`/api/calls/${call.id}/fail`, this.endpoint), {
+                body: JSON.stringify({ context: this.context, failureCode }),
+                credentials: 'omit',
+                headers: { 'content-type': 'text/plain;charset=UTF-8' },
+                keepalive: true,
+                method: 'POST',
+                mode: 'cors',
+            });
             if (!response.ok)
                 return;
             const body = await response.json();
-            if (!body || typeof body !== 'object' || !('data' in body) || !isCall(body.data))
+            const actionResponse = readCallActionResponse(body);
+            if (!actionResponse)
                 return;
-            this.frame?.contentWindow?.postMessage({ call: body.data, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
-            if (action === 'accept')
-                await this.requestMedia(body.data);
+            this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
         }
         catch {
-            // The host page remains unaffected when the calling API is unavailable.
+            // Media failure reporting is best-effort and must not affect the host page.
         }
+    }
+    postActionError(call, action) {
+        this.frame?.contentWindow?.postMessage({ action, callId: call.id, type: 'supernizo-call-action-error' }, new URL(this.endpoint).origin);
     }
     async requestMedia(call) {
         try {
@@ -759,11 +861,14 @@ class CallWidgetController {
             const body = await response.json();
             if (!body || typeof body !== 'object' || !('data' in body) || !isLiveKitMedia(body.data))
                 return;
-            this.frame?.contentWindow?.postMessage({ media: body.data, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
+            this.postMedia(call.id, body.data);
         }
         catch {
             // A token failure must not affect the tracked website.
         }
+    }
+    postMedia(callId, media) {
+        this.frame?.contentWindow?.postMessage({ callId, media, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
     }
 }
 exports.CallWidgetController = CallWidgetController;
@@ -934,6 +1039,25 @@ function isBootstrapResponse(value) {
         Boolean(response.features) &&
         Boolean(response.realtime));
 }
+async function requestTrackerBootstrap(endpoint, payload) {
+    try {
+        const response = await fetch(endpoint, {
+            body: JSON.stringify(payload),
+            credentials: 'omit',
+            headers: { 'content-type': 'text/plain;charset=UTF-8' },
+            keepalive: true,
+            method: 'POST',
+            mode: 'cors',
+        });
+        if (!response.ok)
+            return undefined;
+        const responseBody = await response.json();
+        return isBootstrapResponse(responseBody) ? responseBody : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
 function readDisabledState() {
     if (typeof window === 'undefined') {
         return true;
@@ -996,25 +1120,31 @@ exports.Tracker = {
                 return undefined;
             }
             const bootstrapEndpoint = resolveEndpoint(script, options.endpoint);
-            const response = await fetch(bootstrapEndpoint, {
-                body: JSON.stringify({
-                    ...identifiers,
-                    browser,
-                    sitePublicKey,
-                }),
-                credentials: 'omit',
-                headers: { 'content-type': 'text/plain;charset=UTF-8' },
-                keepalive: true,
-                method: 'POST',
-                mode: 'cors',
+            const responseBody = await requestTrackerBootstrap(bootstrapEndpoint, {
+                ...identifiers,
+                browser,
+                sitePublicKey,
             });
-            if (!response.ok) {
+            if (!responseBody) {
                 return undefined;
             }
-            const responseBody = await response.json();
-            if (!isBootstrapResponse(responseBody)) {
-                return undefined;
-            }
+            const renewCallWidgetConfig = async () => {
+                const refreshedBrowser = getBrowserMetadata();
+                if (!refreshedBrowser)
+                    return undefined;
+                const refreshed = await requestTrackerBootstrap(bootstrapEndpoint, {
+                    ...identifiers,
+                    browser: refreshedBrowser,
+                    sitePublicKey,
+                });
+                return refreshed
+                    ? {
+                        channel: refreshed.realtime.channel,
+                        ...(refreshed.calling ? { livekitUrl: refreshed.calling.url } : {}),
+                        token: refreshed.realtime.authorizationToken,
+                    }
+                    : undefined;
+            };
             engagementManager?.stop();
             engagementManager = new engagement_1.EngagementManager({
                 sessionId: responseBody.sessionId,
@@ -1040,8 +1170,9 @@ exports.Tracker = {
                         visitorId: responseBody.visitorId,
                     }, bootstrapEndpoint, {
                         channel: responseBody.realtime.channel,
+                        ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                         token: responseBody.realtime.authorizationToken,
-                    })
+                    }, renewCallWidgetConfig)
                     : undefined;
             callWidget?.start();
             return responseBody;

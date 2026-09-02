@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { CallVisitorActionRequestSchema, IdSchema } from '@supernizo/shared';
 
@@ -43,7 +43,11 @@ export async function POST(request: Request, context: CallRouteContext): Promise
       CallVisitorActionRequestSchema,
       'call-end',
       async ({ origin, payload }) =>
-        NextResponse.json({ data: await endVisitorCall(parsedId.data, origin, payload.context) }),
+        NextResponse.json({
+          data: await endVisitorCall(parsedId.data, origin, payload.context, {
+            scheduleOperationalSync: after,
+          }),
+        }),
     );
   }
 
@@ -58,7 +62,12 @@ export async function POST(request: Request, context: CallRouteContext): Promise
       throw new ForbiddenError('The requested call is not available.');
     }
     return withRequestId(
-      NextResponse.json({ data: await transitionCall(call.id, 'end'), requestId }),
+      NextResponse.json({
+        data: await transitionCall(call.id, 'end', undefined, {
+          scheduleOperationalSync: after,
+        }),
+        requestId,
+      }),
       requestId,
     );
   } catch (error: unknown) {

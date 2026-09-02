@@ -105,6 +105,10 @@ export const SitePublicKeySchema = z
   .regex(/^site_[A-Za-z0-9_-]{8,191}$/, 'Must be a valid public site key.');
 export const AnonymousTrackerIdSchema = z.string().uuid();
 
+export const LiveKitPreparationSchema = z.object({
+  url: z.url(),
+});
+
 export const TrackerClientHintsSchema = z
   .object({
     brands: z
@@ -141,6 +145,7 @@ export const TrackerBootstrapRequestSchema = z.object({
 });
 
 export const TrackerBootstrapResponseSchema = z.object({
+  calling: LiveKitPreparationSchema.optional(),
   features: SiteFeatureFlagsSchema,
   heartbeatIntervalSeconds: z.number().int().positive(),
   realtime: z.object({
@@ -277,6 +282,17 @@ export const CallVisitorActionRequestSchema = z.object({
   context: TrackingContextSchema,
 });
 
+export const CallMediaFailureCodeSchema = z.enum([
+  'MEDIA_CAMERA_PERMISSION_DENIED',
+  'MEDIA_DEVICE_UNAVAILABLE',
+  'MEDIA_MICROPHONE_PERMISSION_DENIED',
+]);
+
+export const CallVisitorMediaFailureRequestSchema = z.object({
+  context: TrackingContextSchema,
+  failureCode: CallMediaFailureCodeSchema,
+});
+
 export const CallHistoryQuerySchema = z.object({
   agentId: IdSchema.optional(),
   from: z.iso.date().optional(),
@@ -350,10 +366,12 @@ export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSche
 export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
 export type Call = z.infer<typeof CallSchema>;
 export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
+export type CallMediaFailureCode = z.infer<typeof CallMediaFailureCodeSchema>;
 export type CallStatus = z.infer<typeof CallStatusSchema>;
 export type CallType = z.infer<typeof CallTypeSchema>;
 export type CallVisitorActionRequest = z.infer<typeof CallVisitorActionRequestSchema>;
 export type LiveKitParticipantRole = z.infer<typeof LiveKitParticipantRoleSchema>;
+export type LiveKitPreparation = z.infer<typeof LiveKitPreparationSchema>;
 export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
 export type LiveKitTokenResponse = z.infer<typeof LiveKitTokenResponseSchema>;
 export type Cursor = z.infer<typeof CursorSchema>;
