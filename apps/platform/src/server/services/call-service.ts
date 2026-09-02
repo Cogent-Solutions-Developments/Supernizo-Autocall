@@ -15,6 +15,7 @@ import type { CallStatus as PrismaCallStatus, Prisma } from '@generated/prisma/c
 import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getEnvironmentReadiness } from '@/server/env';
+import { terminateLiveKitRoom } from '@/server/livekit/room-service';
 import { logger } from '@/server/logging/logger';
 import { getPresenceRepository } from '@/server/presence/presence-repository';
 import { UpstashRealtimeProvider } from '@/server/realtime';
@@ -211,6 +212,45 @@ export async function runOrScheduleCallOperationalSync(
   });
 }
 
+type CreatedCallOperationalInput = Readonly<{
+  agentId: string | null;
+  call: Call;
+  expiredCalls: readonly Readonly<{ agentId: string | null; call: Call }>[];
+}>;
+
+async function synchronizeCreatedCallOperationalState(
+  input: CreatedCallOperationalInput,
+): Promise<void> {
+  await Promise.all([
+    markAgentBusy(input.agentId),
+    emitCall(`call:${input.call.id}`, 'call.status', input.call),
+    ...input.expiredCalls.map(async (expiredCall) => {
+      await releaseAgentIfAvailable(expiredCall.agentId);
+      await emitCallStatus(expiredCall.call);
+    }),
+  ]);
+}
+
+export async function runOrScheduleCreatedCallOperationalSync(
+  input: CreatedCallOperationalInput,
+  scheduler?: ((task: () => Promise<void>) => void) | undefined,
+): Promise<void> {
+  if (!scheduler) {
+    await synchronizeCreatedCallOperationalState(input);
+    return;
+  }
+  scheduler(async () => {
+    try {
+      await synchronizeCreatedCallOperationalState(input);
+    } catch (error: unknown) {
+      logger.log('error', 'call_created_operational_sync_failed', {
+        callId: input.call.id,
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+  });
+}
+
 async function expireStalePendingCalls(
   transaction: Prisma.TransactionClient,
   visitorId: string,
@@ -295,76 +335,78 @@ export async function createCall(
     type: CallType;
     visitorId: string;
   }>,
+  options?: CallTransitionOptions,
 ): Promise<Call> {
-  await assertAgentCanStartCall(input.agentId);
-  await assertCallEnabled(input.siteId, input.type);
-  const presence = await getPresenceRepository().get(input.siteId, input.visitorId);
+  const [, , presence] = await Promise.all([
+    assertAgentCanStartCall(input.agentId),
+    assertCallEnabled(input.siteId, input.type),
+    getPresenceRepository().get(input.siteId, input.visitorId),
+  ]);
   if (!presence) throw new ConflictError('The visitor is no longer online.');
 
   const database = getDatabaseClient();
-  const { call, expiredCalls } = await database.$transaction(async (transaction) => {
-    await transaction.$queryRaw`SELECT id FROM \`User\` WHERE id = ${input.agentId} FOR UPDATE`;
-    await transaction.$queryRaw`SELECT id FROM \`Visitor\` WHERE id = ${input.visitorId} FOR UPDATE`;
-    const expiredCalls = await expireStalePendingCalls(transaction, input.visitorId, input.agentId);
-    const [visitor, existingVisitorCall, existingAgentCall, session] = await Promise.all([
-      transaction.visitor.findFirst({
-        where: { id: input.visitorId, siteId: input.siteId },
-        select: { anonymousId: true, id: true },
-      }),
-      transaction.call.findFirst({
-        where: { status: { notIn: terminalStatuses }, visitorId: input.visitorId },
-        select: { id: true },
-      }),
-      transaction.call.findFirst({
-        where: { agentId: input.agentId, status: { notIn: terminalStatuses } },
-        select: { id: true },
-      }),
-      transaction.session.findUnique({
-        where: { anonymousSessionId: presence.sessionId },
-        select: { id: true, visitorId: true },
-      }),
-    ]);
-    if (!visitor || !session || session.visitorId !== visitor.id) {
-      throw new ConflictError('The visitor presence record is no longer valid.');
-    }
-    if (existingVisitorCall) throw new ConflictError('This visitor already has an active call.');
-    if (existingAgentCall) throw new ConflictError('The agent is busy with another call.');
+  const { call, expiredCalls, visitorAnonymousId } = await database.$transaction(
+    async (transaction) => {
+      await transaction.$queryRaw`SELECT id FROM \`User\` WHERE id = ${input.agentId} FOR UPDATE`;
+      await transaction.$queryRaw`SELECT id FROM \`Visitor\` WHERE id = ${input.visitorId} FOR UPDATE`;
+      const expiredCalls = await expireStalePendingCalls(
+        transaction,
+        input.visitorId,
+        input.agentId,
+      );
+      const [visitor, existingVisitorCall, existingAgentCall, session] = await Promise.all([
+        transaction.visitor.findFirst({
+          where: { id: input.visitorId, siteId: input.siteId },
+          select: { anonymousId: true, id: true },
+        }),
+        transaction.call.findFirst({
+          where: { status: { notIn: terminalStatuses }, visitorId: input.visitorId },
+          select: { id: true },
+        }),
+        transaction.call.findFirst({
+          where: { agentId: input.agentId, status: { notIn: terminalStatuses } },
+          select: { id: true },
+        }),
+        transaction.session.findUnique({
+          where: { anonymousSessionId: presence.sessionId },
+          select: { id: true, visitorId: true },
+        }),
+      ]);
+      if (!visitor || !session || session.visitorId !== visitor.id) {
+        throw new ConflictError('The visitor presence record is no longer valid.');
+      }
+      if (existingVisitorCall) throw new ConflictError('This visitor already has an active call.');
+      if (existingAgentCall) throw new ConflictError('The agent is busy with another call.');
 
-    const call = await transaction.call.create({
-      data: {
-        agentId: input.agentId,
-        events: { create: { type: 'RINGING' } },
-        roomName: roomName(),
-        sessionId: session.id,
-        siteId: input.siteId,
-        type: input.type,
-        visitorId: input.visitorId,
-      },
-      select: callSelect,
-    });
-    return { call, expiredCalls };
-  });
-
-  await Promise.all(
-    expiredCalls.map(async (expiredCall) => {
-      await releaseAgentIfAvailable(expiredCall.agentId);
-      await emitCallStatus(mapCall(expiredCall));
-    }),
+      const call = await transaction.call.create({
+        data: {
+          agentId: input.agentId,
+          events: { create: { type: 'RINGING' } },
+          roomName: roomName(),
+          sessionId: session.id,
+          siteId: input.siteId,
+          type: input.type,
+          visitorId: input.visitorId,
+        },
+        select: callSelect,
+      });
+      return { call, expiredCalls, visitorAnonymousId: visitor.anonymousId };
+    },
   );
 
   const typedCall = mapCall(call);
-  await markAgentBusy(call.agentId);
-  const visitor = await database.visitor.findUnique({
-    where: { id: typedCall.visitorId },
-    select: { anonymousId: true },
-  });
-  if (visitor)
-    await emitCall(
-      `visitor:${typedCall.siteId}:${visitor.anonymousId}`,
-      'call.incoming',
-      typedCall,
-    );
-  await emitCall(`call:${typedCall.id}`, 'call.status', typedCall);
+  await runOrScheduleCreatedCallOperationalSync(
+    {
+      agentId: call.agentId,
+      call: typedCall,
+      expiredCalls: expiredCalls.map((expiredCall) => ({
+        agentId: expiredCall.agentId,
+        call: mapCall(expiredCall),
+      })),
+    },
+    options?.scheduleOperationalSync,
+  );
+  await emitCall(`visitor:${typedCall.siteId}:${visitorAnonymousId}`, 'call.incoming', typedCall);
   return typedCall;
 }
 
@@ -397,6 +439,9 @@ export async function transitionCall(
   const current = CallStatusSchema.parse(existing.status);
   const target = transitionCallStatus(current, action);
   if (target === current) return mapCall(existing);
+  const shouldTerminateMedia =
+    isTerminal(target) &&
+    (current === 'ACCEPTED' || current === 'CONNECTING' || current === 'ACTIVE');
 
   const now = new Date();
   const updated = await getDatabaseClient().$transaction(async (transaction) => {
@@ -418,6 +463,9 @@ export async function transitionCall(
   });
   if (!updated) throw new NotFoundError('The requested call does not exist.');
   const typedCall = mapCall(updated);
+  if (shouldTerminateMedia && updated.roomName) {
+    await terminateLiveKitRoom(updated.roomName);
+  }
   if (options?.scheduleOperationalSync) {
     await runOrScheduleCallOperationalSync(callId, options.scheduleOperationalSync);
   } else {

@@ -27,8 +27,9 @@ async function parseTokenResponse(response: Response): Promise<LiveKitTokenRespo
 
 export function DashboardCallMediaRoom({
   call,
+  onConnected,
   onEnded,
-}: Readonly<{ call: Call; onEnded: () => void }>) {
+}: Readonly<{ call: Call; onConnected?: () => void; onEnded: () => void }>) {
   const [media, setMedia] = useState<LiveKitTokenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,5 +65,12 @@ export function DashboardCallMediaRoom({
 
   if (error) return <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>;
   if (!media) return <p className="mt-4 text-sm text-slate-600">Preparing secure media…</p>;
-  return <LiveKitMediaRoom call={call} media={media} onEnd={endCall} />;
+  return (
+    <LiveKitMediaRoom
+      call={call}
+      media={media}
+      {...(onConnected ? { onConnected } : {})}
+      onEnd={endCall}
+    />
+  );
 }

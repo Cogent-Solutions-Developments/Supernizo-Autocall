@@ -18,13 +18,17 @@ export function deriveLiveKitMediaState(snapshot: LiveKitMediaSnapshot): LiveKit
     return { connected: false, message: 'Connecting securely...', videoReady: false };
   }
   if (!snapshot.localMicrophonePublished) {
-    return { connected: false, message: 'Starting microphone...', videoReady: false };
+    return { connected: true, message: 'Connected · starting microphone', videoReady: false };
   }
   if (!snapshot.remoteParticipantPresent) {
-    return { connected: false, message: 'Waiting for the other participant...', videoReady: false };
+    return {
+      connected: true,
+      message: 'Connected · waiting for the other participant',
+      videoReady: false,
+    };
   }
   if (!snapshot.remoteMicrophoneSubscribed) {
-    return { connected: false, message: 'Connecting call audio...', videoReady: false };
+    return { connected: true, message: 'Connected · connecting audio', videoReady: false };
   }
   if (snapshot.videoEnabled && !snapshot.remoteCameraSubscribed) {
     return { connected: true, message: 'Connected · waiting for video', videoReady: false };

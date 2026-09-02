@@ -67,7 +67,44 @@ describe('LiveKit webhook call lifecycle', () => {
       webhookEventId: 'EV_2',
     });
 
-    expect(mocks.transitionCall).toHaveBeenCalledWith('call_123', 'activate');
+    expect(mocks.transitionCall).toHaveBeenCalledWith('call_123', 'activate', undefined, undefined);
+  });
+
+  it('moves an accepted call through connecting when both room participants have joined', async () => {
+    mocks.callFindUnique.mockResolvedValue({
+      agentId: 'user_123',
+      id: 'call_123',
+      status: 'ACCEPTED',
+      visitorId: 'visitor_123',
+    });
+    mocks.callEventFindMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { payload: { identity: 'agent:user_123' } },
+        { payload: { identity: 'visitor:visitor_123' } },
+      ]);
+
+    await handleLiveKitWebhookEvent({
+      event: 'participant_joined',
+      participantIdentity: 'visitor:visitor_123',
+      roomName: 'call_room',
+      webhookEventId: 'EV_accepted',
+    });
+
+    expect(mocks.transitionCall).toHaveBeenNthCalledWith(
+      1,
+      'call_123',
+      'connect',
+      undefined,
+      undefined,
+    );
+    expect(mocks.transitionCall).toHaveBeenNthCalledWith(
+      2,
+      'call_123',
+      'activate',
+      undefined,
+      undefined,
+    );
   });
 
   it('ignores a retried webhook event without adding duplicate durable history', async () => {
@@ -101,7 +138,32 @@ describe('LiveKit webhook call lifecycle', () => {
       'call_123',
       'fail',
       'MEDIA_CONNECTION_ABORTED',
+      undefined,
     );
+  });
+
+  it('defers non-critical operational sync when a participant leaves an active room', async () => {
+    const scheduler = vi.fn();
+    mocks.callFindUnique.mockResolvedValue({
+      agentId: 'user_123',
+      id: 'call_123',
+      status: 'ACTIVE',
+      visitorId: 'visitor_123',
+    });
+
+    await handleLiveKitWebhookEvent(
+      {
+        event: 'participant_left',
+        participantIdentity: 'visitor:visitor_123',
+        roomName: 'call_room',
+        webhookEventId: 'EV_left',
+      },
+      { scheduleOperationalSync: scheduler },
+    );
+
+    expect(mocks.transitionCall).toHaveBeenCalledWith('call_123', 'end', undefined, {
+      scheduleOperationalSync: scheduler,
+    });
   });
 
   it('records but does not fail the call for an unexpected participant abort', async () => {

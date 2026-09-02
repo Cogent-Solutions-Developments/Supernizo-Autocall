@@ -37,6 +37,7 @@ export function LiveVisitorCallModal({
 }: LiveVisitorCallModalProps) {
   const [call, setCall] = useState<Call | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
   const callRequestStarted = useRef(false);
   const endingCallId = useRef<string | null>(null);
 
@@ -148,7 +149,9 @@ export function LiveVisitorCallModal({
           {!call && !error ? <p className="text-sm text-slate-600">Starting secure ring…</p> : null}
           {call ? (
             <>
-              <p className="font-semibold text-slate-950">{call.status}</p>
+              <p className="font-semibold text-slate-950">
+                {connectedMediaCallId === call.id ? 'CONNECTED' : call.status}
+              </p>
               <p className="mt-1 text-sm text-slate-600">
                 The visitor must accept before any media permission is requested.
               </p>
@@ -157,8 +160,10 @@ export function LiveVisitorCallModal({
           {call && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status) ? (
             <DashboardCallMediaRoom
               call={call}
+              onConnected={() => setConnectedMediaCallId(call.id)}
               onEnded={() => {
                 endingCallId.current = call.id;
+                setConnectedMediaCallId(null);
                 setCall(null);
                 setError('Call ended.');
               }}

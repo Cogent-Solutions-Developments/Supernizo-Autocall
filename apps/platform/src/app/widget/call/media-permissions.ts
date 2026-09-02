@@ -31,8 +31,9 @@ export async function requestMediaPermissions(
   type: Call['type'],
   requestMedia: MediaRequester,
 ): Promise<void> {
-  await requestAndRelease({ audio: true, video: false }, requestMedia, 'microphone');
   if (type === 'VIDEO') {
-    await requestAndRelease({ audio: false, video: true }, requestMedia, 'camera');
+    await requestAndRelease({ audio: true, video: true }, requestMedia, 'camera');
+    return;
   }
+  await requestAndRelease({ audio: true, video: false }, requestMedia, 'microphone');
 }

@@ -1,4 +1,5 @@
 import { WebhookReceiver } from 'livekit-server-sdk';
+import { after } from 'next/server';
 import { z } from 'zod';
 
 import { getRequestId, withRequestId } from '@/server/http/request-id';
@@ -86,7 +87,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    await handleLiveKitWebhookEvent(parsedInput.data);
+    await handleLiveKitWebhookEvent(parsedInput.data, { scheduleOperationalSync: after });
     logger.log('info', 'livekit_webhook_processed', {
       livekitEvent: parsedEventName.data,
       requestId,

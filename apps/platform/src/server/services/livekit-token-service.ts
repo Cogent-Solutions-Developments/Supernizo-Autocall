@@ -5,6 +5,7 @@ import { AccessToken, type VideoGrant } from 'livekit-server-sdk';
 import {
   CallStatusSchema,
   LiveKitTokenResponseSchema,
+  type Call,
   type LiveKitParticipantRole,
   type LiveKitTokenResponse,
   type TrackingContext,
@@ -15,7 +16,7 @@ import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getLiveKitServerConfig, type LiveKitServerConfig } from '@/server/livekit/config';
 
-import { transitionCall, type CallTransitionOptions } from './call-service';
+import { acceptVisitorCall, transitionCall, type CallTransitionOptions } from './call-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 const MEDIA_TOKEN_TTL_SECONDS = 10 * 60;
@@ -120,37 +121,20 @@ async function getTokenCall(callId: string): Promise<TokenCall> {
   return call;
 }
 
-async function moveAcceptedCallToConnecting(
-  call: TokenCall,
-  options?: CallTransitionOptions,
-): Promise<TokenCall> {
-  if (call.status !== 'ACCEPTED') return call;
-  try {
-    await transitionCall(call.id, 'connect', undefined, options);
-    return { ...call, status: 'CONNECTING' };
-  } catch (error: unknown) {
-    const refreshedCall = await getTokenCall(call.id);
-    if (refreshedCall.status !== 'CONNECTING' && refreshedCall.status !== 'ACTIVE') throw error;
-    return refreshedCall;
-  }
-}
-
 export async function issueAgentLiveKitToken(
   callId: string,
   userId: string,
-  options?: CallTransitionOptions,
 ): Promise<LiveKitTokenResponse> {
   const call = await getTokenCall(callId);
   if (call.agentId !== userId) {
     throw new ForbiddenError('The requested call is not assigned to this agent.');
   }
-  const eligibleCall = await moveAcceptedCallToConnecting(call, options);
-  if (!canIssueLiveKitToken(eligibleCall.status)) {
+  if (!canIssueLiveKitToken(call.status)) {
     throw new ConflictError('The call has not been accepted or is no longer active.');
   }
   return createLiveKitParticipantToken({
     identity: getLiveKitParticipantIdentity('AGENT', userId),
-    roomName: eligibleCall.roomName!,
+    roomName: call.roomName!,
   });
 }
 
@@ -158,7 +142,6 @@ export async function issueVisitorLiveKitToken(
   callId: string,
   origin: string,
   context: TrackingContext,
-  options?: CallTransitionOptions,
 ): Promise<LiveKitTokenResponse> {
   const [call, resolved] = await Promise.all([
     getTokenCall(callId),
@@ -167,14 +150,27 @@ export async function issueVisitorLiveKitToken(
   if (call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
   }
-  const eligibleCall = await moveAcceptedCallToConnecting(call, options);
-  if (!canIssueLiveKitToken(eligibleCall.status)) {
+  if (!canIssueLiveKitToken(call.status)) {
     throw new ConflictError('The call has not been accepted or is no longer active.');
   }
   return createLiveKitParticipantToken({
     identity: getLiveKitParticipantIdentity('VISITOR', resolved.visitorId),
-    roomName: eligibleCall.roomName!,
+    roomName: call.roomName!,
   });
+}
+
+export async function acceptVisitorCallWithMedia(
+  callId: string,
+  origin: string,
+  context: TrackingContext,
+  options?: CallTransitionOptions,
+): Promise<Readonly<{ call: Call; media: LiveKitTokenResponse }>> {
+  const call = await acceptVisitorCall(callId, origin, context, options);
+  const media = await createLiveKitParticipantToken({
+    identity: getLiveKitParticipantIdentity('VISITOR', call.visitorId),
+    roomName: call.roomName,
+  });
+  return { call, media };
 }
 
 export async function handleLiveKitWebhookEvent(
@@ -189,6 +185,7 @@ export async function handleLiveKitWebhookEvent(
     trackType?: string | undefined;
     webhookEventId?: string | undefined;
   }>,
+  options?: CallTransitionOptions,
 ): Promise<void> {
   const database = getDatabaseClient();
   const call = await database.call.findUnique({
@@ -259,8 +256,10 @@ export async function handleLiveKitWebhookEvent(
     );
     if (bothParticipantsJoined) {
       try {
-        if (status === 'ACCEPTED') await transitionCall(call.id, 'connect');
-        await transitionCall(call.id, 'activate');
+        if (status === 'ACCEPTED') {
+          await transitionCall(call.id, 'connect', undefined, options);
+        }
+        await transitionCall(call.id, 'activate', undefined, options);
       } catch (error: unknown) {
         const refreshedCall = await database.call.findUnique({
           where: { id: call.id },
@@ -279,6 +278,7 @@ export async function handleLiveKitWebhookEvent(
       call.id,
       status === 'ACTIVE' ? 'end' : 'fail',
       status === 'ACTIVE' ? undefined : 'MEDIA_PARTICIPANT_LEFT',
+      options,
     );
   }
   if (
@@ -289,6 +289,7 @@ export async function handleLiveKitWebhookEvent(
       call.id,
       status === 'ACTIVE' ? 'end' : 'fail',
       status === 'ACTIVE' ? undefined : 'MEDIA_ROOM_FINISHED',
+      options,
     );
   }
   if (
@@ -296,6 +297,6 @@ export async function handleLiveKitWebhookEvent(
     isExpectedParticipant &&
     (status === 'ACTIVE' || status === 'CONNECTING' || status === 'ACCEPTED')
   ) {
-    await transitionCall(call.id, 'fail', 'MEDIA_CONNECTION_ABORTED');
+    await transitionCall(call.id, 'fail', 'MEDIA_CONNECTION_ABORTED', options);
   }
 }

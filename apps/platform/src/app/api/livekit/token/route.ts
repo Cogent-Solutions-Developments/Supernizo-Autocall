@@ -1,4 +1,4 @@
-import { after, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { LiveKitTokenRequestSchema } from '@supernizo/shared';
 
@@ -57,9 +57,7 @@ export async function POST(request: Request): Promise<Response> {
           throw new ForbiddenError('The requested participant role is not permitted.');
         }
         return NextResponse.json({
-          data: await issueVisitorLiveKitToken(payload.callId, origin, payload.context, {
-            scheduleOperationalSync: after,
-          }),
+          data: await issueVisitorLiveKitToken(payload.callId, origin, payload.context),
         });
       },
     );
@@ -71,9 +69,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!scope) throw new ForbiddenError('The requested call is not available.');
     const siteAccess = await requireSiteAccess(scope.siteId);
     assertRole(siteAccess.siteRole, ['ADMIN', 'AGENT']);
-    const token = await issueAgentLiveKitToken(parsed.data.callId, user.id, {
-      scheduleOperationalSync: after,
-    });
+    const token = await issueAgentLiveKitToken(parsed.data.callId, user.id);
     return withRequestId(NextResponse.json({ data: token, requestId }), requestId);
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);

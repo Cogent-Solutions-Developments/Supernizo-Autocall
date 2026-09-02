@@ -12,17 +12,29 @@ const connectedAudioSnapshot = {
 } as const;
 
 describe('deriveLiveKitMediaState', () => {
-  it('does not report connected when only signaling is connected', () => {
+  it('reports connected as soon as the LiveKit room transport connects', () => {
     expect(
       deriveLiveKitMediaState({
         ...connectedAudioSnapshot,
         remoteMicrophoneSubscribed: false,
         remoteParticipantPresent: false,
       }),
-    ).toMatchObject({ connected: false, message: 'Waiting for the other participant...' });
+    ).toMatchObject({
+      connected: true,
+      message: 'Connected · waiting for the other participant',
+    });
   });
 
-  it('reports an audio call connected only when remote audio is subscribed', () => {
+  it('keeps the room connected while local microphone publication completes', () => {
+    expect(
+      deriveLiveKitMediaState({
+        ...connectedAudioSnapshot,
+        localMicrophonePublished: false,
+      }),
+    ).toMatchObject({ connected: true, message: 'Connected · starting microphone' });
+  });
+
+  it('reports an audio call fully ready when remote audio is subscribed', () => {
     expect(deriveLiveKitMediaState(connectedAudioSnapshot)).toEqual({
       connected: true,
       message: 'Connected',

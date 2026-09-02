@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { CallCreateRequestSchema } from '@supernizo/shared';
 
@@ -25,7 +25,10 @@ export async function POST(request: Request): Promise<Response> {
     if (!parsed.success) throw new ValidationError('The call payload is invalid.');
     const siteAccess = await requireSiteAccess(parsed.data.siteId);
     assertRole(siteAccess.siteRole, ['ADMIN', 'AGENT']);
-    const call = await createCall({ ...parsed.data, agentId: user.id });
+    const call = await createCall(
+      { ...parsed.data, agentId: user.id },
+      { scheduleOperationalSync: after },
+    );
     return withRequestId(NextResponse.json({ data: call, requestId }), requestId);
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);

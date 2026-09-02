@@ -10,7 +10,7 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 generated/
-
+.windsurf/
 # Local environment files
 .env
 .env.local
