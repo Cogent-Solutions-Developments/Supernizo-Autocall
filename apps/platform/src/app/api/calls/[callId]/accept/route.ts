@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { CallVisitorActionRequestSchema, IdSchema } from '@supernizo/shared';
 
@@ -27,6 +27,10 @@ export async function POST(request: Request, context: CallRouteContext): Promise
     CallVisitorActionRequestSchema,
     'call-accept',
     async ({ origin, payload }) =>
-      NextResponse.json({ data: await acceptVisitorCall(parsedId.data, origin, payload.context) }),
+      NextResponse.json({
+        data: await acceptVisitorCall(parsedId.data, origin, payload.context, {
+          scheduleOperationalSync: after,
+        }),
+      }),
   );
 }

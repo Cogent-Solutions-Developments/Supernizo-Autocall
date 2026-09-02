@@ -15,7 +15,7 @@ import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getLiveKitServerConfig, type LiveKitServerConfig } from '@/server/livekit/config';
 
-import { transitionCall } from './call-service';
+import { transitionCall, type CallTransitionOptions } from './call-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 const MEDIA_TOKEN_TTL_SECONDS = 10 * 60;
@@ -120,26 +120,31 @@ async function getTokenCall(callId: string): Promise<TokenCall> {
   return call;
 }
 
-async function moveAcceptedCallToConnecting(call: TokenCall): Promise<TokenCall> {
+async function moveAcceptedCallToConnecting(
+  call: TokenCall,
+  options?: CallTransitionOptions,
+): Promise<TokenCall> {
   if (call.status !== 'ACCEPTED') return call;
   try {
-    await transitionCall(call.id, 'connect');
+    await transitionCall(call.id, 'connect', undefined, options);
+    return { ...call, status: 'CONNECTING' };
   } catch (error: unknown) {
     const refreshedCall = await getTokenCall(call.id);
     if (refreshedCall.status !== 'CONNECTING' && refreshedCall.status !== 'ACTIVE') throw error;
+    return refreshedCall;
   }
-  return getTokenCall(call.id);
 }
 
 export async function issueAgentLiveKitToken(
   callId: string,
   userId: string,
+  options?: CallTransitionOptions,
 ): Promise<LiveKitTokenResponse> {
   const call = await getTokenCall(callId);
   if (call.agentId !== userId) {
     throw new ForbiddenError('The requested call is not assigned to this agent.');
   }
-  const eligibleCall = await moveAcceptedCallToConnecting(call);
+  const eligibleCall = await moveAcceptedCallToConnecting(call, options);
   if (!canIssueLiveKitToken(eligibleCall.status)) {
     throw new ConflictError('The call has not been accepted or is no longer active.');
   }
@@ -153,6 +158,7 @@ export async function issueVisitorLiveKitToken(
   callId: string,
   origin: string,
   context: TrackingContext,
+  options?: CallTransitionOptions,
 ): Promise<LiveKitTokenResponse> {
   const [call, resolved] = await Promise.all([
     getTokenCall(callId),
@@ -161,7 +167,7 @@ export async function issueVisitorLiveKitToken(
   if (call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
   }
-  const eligibleCall = await moveAcceptedCallToConnecting(call);
+  const eligibleCall = await moveAcceptedCallToConnecting(call, options);
   if (!canIssueLiveKitToken(eligibleCall.status)) {
     throw new ConflictError('The call has not been accepted or is no longer active.');
   }

@@ -7,7 +7,7 @@ import {
   VideoCameraIcon,
 } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import {
@@ -20,6 +20,7 @@ import {
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 
 import { callCopy, callHeading } from './call-display';
+import { optimisticallyEndCall, shouldIgnoreCallUpdate } from './call-end-state';
 import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
 
 const CallWidgetConfigSchema = z.object({
@@ -69,6 +70,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
+  const endingCallId = useRef<string | null>(null);
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -85,7 +87,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       }
       if (data.type === 'supernizo-call-status') {
         const parsed = CallSchema.safeParse(data.call);
-        if (parsed.success) setCall(parsed.data);
+        if (parsed.success && !shouldIgnoreCallUpdate(parsed.data.id, endingCallId.current)) {
+          setCall(parsed.data);
+        }
       }
       if (data.type === 'supernizo-call-media') {
         const parsed = LiveKitTokenResponseSchema.safeParse(data.media);
@@ -148,6 +152,10 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
 
   function endCall(): void {
     if (!call) return;
+    endingCallId.current = call.id;
+    setConnectedMediaCallId(null);
+    setMedia(null);
+    setCall(optimisticallyEndCall(call));
     window.parent.postMessage({ call, type: 'supernizo-call-end' }, hostOrigin);
   }
 
@@ -159,7 +167,12 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         withCredentials: false,
       }}
     >
-      <CallSubscription config={config} onCall={setCall} />
+      <CallSubscription
+        config={config}
+        onCall={(nextCall) => {
+          if (!shouldIgnoreCallUpdate(nextCall.id, endingCallId.current)) setCall(nextCall);
+        }}
+      />
       {call ? (
         <section
           aria-live="assertive"

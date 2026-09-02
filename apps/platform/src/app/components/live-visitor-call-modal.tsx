@@ -12,6 +12,7 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
+import { shouldIgnoreCallUpdate } from '../widget/call/call-end-state';
 import { DashboardCallMediaRoom } from './dashboard-call-media-room';
 
 const CallResponseSchema = z.object({ data: CallSchema });
@@ -37,11 +38,14 @@ export function LiveVisitorCallModal({
   const [call, setCall] = useState<Call | null>(null);
   const [error, setError] = useState<string | null>(null);
   const callRequestStarted = useRef(false);
+  const endingCallId = useRef<string | null>(null);
 
   useRealtime({
     channels: call ? [`call:${call.id}`] : [],
     events: ['call.status'],
-    onData: ({ data }) => setCall(data.call),
+    onData: ({ data }) => {
+      if (!shouldIgnoreCallUpdate(data.call.id, endingCallId.current)) setCall(data.call);
+    },
   });
 
   useEffect(() => {
@@ -154,6 +158,7 @@ export function LiveVisitorCallModal({
             <DashboardCallMediaRoom
               call={call}
               onEnded={() => {
+                endingCallId.current = call.id;
                 setCall(null);
                 setError('Call ended.');
               }}
