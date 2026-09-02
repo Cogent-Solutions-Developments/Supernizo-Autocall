@@ -12,12 +12,23 @@ describe('platform URLs', () => {
   });
 
   it('keeps subsequent API and widget URLs under the application base path', () => {
-    expect(
-      resolveApplicationEndpoint(
-        'https://api.infrastructuresg.com/autocall-db/api/track/bootstrap',
-        '/widget/chat',
-      ),
-    ).toBe('https://api.infrastructuresg.com/autocall-db/widget/chat');
+    const bootstrapEndpoint = 'https://api.infrastructuresg.com/autocall-db/api/track/bootstrap';
+    const paths = [
+      '/api/calls/call-id/accept',
+      '/api/chat/threads/thread-id/messages',
+      '/api/chat/visitor/thread',
+      '/api/livekit/token',
+      '/api/realtime',
+      '/api/track/heartbeat',
+      '/widget/call',
+      '/widget/chat',
+    ];
+
+    for (const path of paths) {
+      expect(resolveApplicationEndpoint(bootstrapEndpoint, path)).toBe(
+        `https://api.infrastructuresg.com/autocall-db${path}`,
+      );
+    }
   });
 
   it('preserves root-hosted behavior when no base path is present', () => {

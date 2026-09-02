@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 type Availability = 'AVAILABLE' | 'BUSY' | 'OFFLINE';
 
@@ -19,7 +19,7 @@ export function AgentAvailabilityControl() {
   useEffect(() => {
     let active = true;
     const heartbeat = () => {
-      void fetch(withAppBasePath('/api/dashboard/agent-presence'), {
+      void fetchAppApi('/api/dashboard/agent-presence', {
         body: JSON.stringify({ availability: requestedAvailability }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },

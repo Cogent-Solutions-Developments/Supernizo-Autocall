@@ -12,7 +12,7 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 import { DashboardCallMediaRoom } from './dashboard-call-media-room';
 
@@ -49,7 +49,7 @@ export function LiveVisitorCallModal({
   useEffect(() => {
     if (!canCall || callRequestStarted.current) return;
     callRequestStarted.current = true;
-    void fetch(withAppBasePath('/api/calls'), {
+    void fetchAppApi('/api/calls', {
       body: JSON.stringify({ siteId, type: callType, visitorId: visitor.visitorId }),
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
@@ -78,7 +78,7 @@ export function LiveVisitorCallModal({
     if (call?.status !== 'RINGING') return;
     let active = true;
     const refresh = () => {
-      void fetch(withAppBasePath(`/api/calls/${call.id}`), { credentials: 'same-origin' })
+      void fetchAppApi(`/api/calls/${call.id}`, { credentials: 'same-origin' })
         .then(async (response) => {
           if (!response.ok) throw new Error('Call status could not be refreshed.');
           return CallResponseSchema.parse(await response.json());
@@ -105,7 +105,7 @@ export function LiveVisitorCallModal({
 
   async function cancel(): Promise<void> {
     if (!call) return;
-    const response = await fetch(withAppBasePath(`/api/calls/${call.id}/cancel`), {
+    const response = await fetchAppApi(`/api/calls/${call.id}/cancel`, {
       credentials: 'same-origin',
       method: 'POST',
     });
