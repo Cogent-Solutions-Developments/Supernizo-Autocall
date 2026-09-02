@@ -1,4 +1,5 @@
 export const APP_BASE_PATH = '/autocall-db' as const;
+export const AUTH_API_BASE_PATH = `${APP_BASE_PATH}/api/auth` as const;
 
 export function withAppBasePath(path: string): string {
   if (!path.startsWith('/')) {
