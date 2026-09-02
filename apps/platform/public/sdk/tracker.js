@@ -346,8 +346,22 @@ exports.EngagementManager = EngagementManager;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatWidgetController = void 0;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
+exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
 function shouldOpenChatForNewAgentMessage(hasSyncedThread, latestAgentMessageId, nextAgentMessageId) {
     return Boolean(hasSyncedThread && nextAgentMessageId && nextAgentMessageId !== latestAgentMessageId);
+}
+function chatWidgetFrameStyles() {
+    return [
+        'background:transparent',
+        'border:0',
+        'bottom:16px',
+        'height:500px',
+        'max-width:calc(100vw - 32px)',
+        'position:fixed',
+        'right:16px',
+        'width:330px',
+        'z-index:2147483000',
+    ];
 }
 function isChatThreadResponse(value) {
     if (!value || typeof value !== 'object')
@@ -428,18 +442,7 @@ class ChatWidgetController {
         frame.setAttribute('aria-label', 'Website chat');
         frame.setAttribute('title', 'Website chat');
         frame.src = widgetUrl.toString();
-        frame.style.cssText = [
-            'background:transparent',
-            'border:0',
-            'bottom:16px',
-            'height:590px',
-            'max-height:calc(100vh - 32px)',
-            'max-width:calc(100vw - 32px)',
-            'position:fixed',
-            'right:16px',
-            'width:360px',
-            'z-index:2147483000',
-        ].join(';');
+        frame.style.cssText = chatWidgetFrameStyles().join(';');
         frame.addEventListener('load', () => this.postConfig());
         window.addEventListener('message', this.receiveMessage);
         (document.body ?? document.documentElement).append(frame);
