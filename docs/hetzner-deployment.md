@@ -10,9 +10,9 @@ This runbook deploys the complete Supernizo Autocall application and its private
 - Images are tagged for humans, but deployment passes immutable `@sha256:...` digests.
 - A restricted SSH key can submit only an exact 40-character `main` commit plus the two approved GHCR repository digests.
 - Hetzner verifies the commit belongs to `origin/main`, pulls the images, verifies each OCI revision label matches the commit, applies Prisma migrations, and starts the app.
-- `app` is bound only to host loopback `127.0.0.1:3100`.
+- `app` is bound only to host loopback `127.0.0.1:3200`.
 - PostgreSQL has a named persistent volume and no published host port.
-- Nginx keeps TLS and proxies `/autocall-db/*` to `127.0.0.1:3100`.
+- Nginx keeps TLS and proxies `/autocall-db/*` to `127.0.0.1:3200`.
 - Upstash Redis/Realtime and LiveKit remain external providers.
 
 This reuses the current server and has no additional software licence cost. It still consumes the existing Hetzner server, GHCR, provider, storage, and backup quotas.
@@ -51,7 +51,15 @@ Keep `api.infrastructuresg.com` pointed at the existing server. In Hetzner Firew
 
 - allow TCP 80 and 443 from the Internet;
 - allow TCP 22 from administrator addresses and the deployment runner path;
-- do not expose TCP 3000, 3100, 5432, or 6432.
+- do not expose TCP 3000, 3200, 5432, or 6432.
+
+The lead-generation monitoring stack already binds Loki to `127.0.0.1:3100`, so Autocall deliberately uses `127.0.0.1:3200`. Confirm that this port is free on the real host before installing Nginx:
+
+```sh
+sudo ss -lntp | grep ':3200 ' || true
+```
+
+No output means the port is currently free. If another service is shown, stop here and choose one different loopback port consistently in `.env.production`, `docker-compose.production.yml`, the deployment health check, the validator, and the Nginx snippet.
 
 GitHub-hosted runner addresses change. If TCP 22 cannot be dynamically allow-listed, leave it reachable but enforce SSH keys, the forced command in section 8, disabled password login, and normal SSH rate limiting. Do not weaken SSH authentication to make CI work.
 
@@ -292,7 +300,7 @@ docker compose \
   -f docker-compose.production.yml ps
 cat .deployment/current-commit
 cat .deployment/current-images.env
-curl --fail http://127.0.0.1:3100/autocall-db/api/health/ready
+curl --fail http://127.0.0.1:3200/autocall-db/api/health/ready
 curl --fail https://api.infrastructuresg.com/autocall-db/api/health/ready
 ```
 
@@ -376,7 +384,7 @@ If any credential was ever committed, deleting the working-tree file is not suff
 - Leadgen still works through the existing `/` route.
 - `/autocall-db` redirects to `/autocall-db/` and loads over HTTPS.
 - Loopback and public readiness endpoints return HTTP 200.
-- `docker compose ps` shows app only on `127.0.0.1:3100` and no PostgreSQL host port.
+- `docker compose ps` shows app only on `127.0.0.1:3200` and no PostgreSQL host port.
 - Both deployed image values use the approved GHCR repositories with `@sha256:` digests.
 - GitHub packages are private and the Hetzner account has pull-only access.
 - The workflow attached BuildKit SBOM/provenance records to both GHCR images.

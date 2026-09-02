@@ -10,7 +10,7 @@ Browser
   | HTTPS https://api.infrastructuresg.com/autocall-db
   v
 Existing host Nginx
-  | /autocall-db/* -> 127.0.0.1:3100
+  | /autocall-db/* -> 127.0.0.1:3200
   v
 Next.js app container :3000
   |

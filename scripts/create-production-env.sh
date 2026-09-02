@@ -52,7 +52,7 @@ umask 077
 (
   set -o noclobber
   {
-    printf 'APP_HOST_PORT=3100\n'
+    printf 'APP_HOST_PORT=3200\n'
     printf 'APP_URL=https://api.infrastructuresg.com/autocall-db\n'
     printf '\n'
     printf 'POSTGRES_DB=autocall_prod\n'

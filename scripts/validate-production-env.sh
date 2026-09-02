@@ -79,8 +79,8 @@ done
   printf 'UPSTASH_REDIS_REST_URL must use https:// in production.\n' >&2
   exit 1
 }
-[[ "${APP_HOST_PORT:-3100}" == 3100 ]] || {
-  printf 'APP_HOST_PORT must remain 3100 to match the Nginx upstream.\n' >&2
+[[ "${APP_HOST_PORT:-3200}" == 3200 ]] || {
+  printf 'APP_HOST_PORT must remain 3200 to match the Nginx upstream.\n' >&2
   exit 1
 }
 [[ "${CALL_RING_TIMEOUT_SECONDS:-30}" =~ ^[0-9]+$ ]] \

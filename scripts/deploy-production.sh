@@ -115,7 +115,7 @@ migrator_revision="$(docker image inspect --format '{{ index .Config.Labels "org
 healthy=false
 for _ in {1..60}; do
   if curl --fail --silent --show-error \
-    http://127.0.0.1:3100/autocall-db/api/health/ready >/dev/null; then
+    http://127.0.0.1:3200/autocall-db/api/health/ready >/dev/null; then
     healthy=true
     break
   fi

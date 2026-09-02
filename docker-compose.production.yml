@@ -97,7 +97,7 @@ services:
       - outbound
     init: true
     ports:
-      - 127.0.0.1:${APP_HOST_PORT:-3100}:3000
+      - 127.0.0.1:${APP_HOST_PORT:-3200}:3000
     security_opt:
       - no-new-privileges:true
     stop_grace_period: 30s
