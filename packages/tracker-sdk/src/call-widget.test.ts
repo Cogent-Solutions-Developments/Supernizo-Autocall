@@ -19,9 +19,9 @@ describe('call widget mounting', () => {
   it('expands and receives pointer input only while presenting a call', () => {
     const visibleStyles = callWidgetFrameStyles(true);
 
-    expect(visibleStyles).toContain('height:560px');
+    expect(visibleStyles).toContain('height:500px');
     expect(visibleStyles).toContain('pointer-events:auto');
-    expect(visibleStyles).toContain('width:360px');
+    expect(visibleStyles).toContain('width:330px');
   });
 
   it('delegates media permissions to the cross-origin call iframe', () => {

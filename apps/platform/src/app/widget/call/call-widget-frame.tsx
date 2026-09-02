@@ -7,6 +7,7 @@ import {
   VideoCameraIcon,
 } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
@@ -19,6 +20,8 @@ import {
 } from '@supernizo/shared';
 
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
+import companyLogo from '@/assets/Company Logo.png';
+import callBackground from '@/assets/call bg.webp';
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
 
 import { callCopy, callHeading } from './call-display';
@@ -238,90 +241,138 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       />
       {call ? (
         <section
+          aria-label="Official event call"
           aria-live="assertive"
-          className={`call-card ${call.type === 'AUDIO' ? 'audio-call' : 'video-call'} ${hasActiveMedia ? 'has-media' : ''}`}
+          className="relative flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 px-6 py-5 font-sans text-slate-900 shadow-[0_14px_34px_rgba(15,23,42,0.1)]"
         >
-          <div aria-hidden="true" className="ambient ambient-one" />
-          <div aria-hidden="true" className="ambient ambient-two" />
-
-          <header className="call-header">
-            <span className="brand">SUPERNIZO</span>
-            <span className="secure">
-              <ShieldCheckIcon aria-hidden="true" size={15} weight="fill" />
-              Secure call
-            </span>
-          </header>
-
-          <div className="caller">
-            <div className={`avatar-ring ${isRinging ? 'is-ringing' : ''}`}>
-              <div className="avatar">
-                {showAvatar && call.agentAvatarUrl ? (
-                  // User-configured cross-origin avatar URLs cannot use Next Image host allowlists.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt={`${agentName} profile`}
-                    onError={() => setFailedAvatarUrl(call.agentAvatarUrl ?? null)}
-                    src={call.agentAvatarUrl}
-                  />
-                ) : (
-                  <span aria-label={`${agentName} initials`}>{initials(agentName) || 'S'}</span>
-                )}
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none object-cover"
+            fill
+            priority
+            sizes="330px"
+            src={callBackground}
+          />
+          <div className="relative z-10 flex h-full min-h-0 w-full flex-col">
+            <header className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-50 p-0.5 ring-2 ring-slate-100">
+                  {showAvatar && call.agentAvatarUrl ? (
+                    // User-configured cross-origin avatar URLs cannot use Next Image host allowlists.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt={`${agentName} profile`}
+                      className="block h-full w-full rounded-full object-cover"
+                      onError={() => setFailedAvatarUrl(call.agentAvatarUrl ?? null)}
+                      src={call.agentAvatarUrl}
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center rounded-full bg-[#e8eef5] text-base font-bold tracking-[-0.04em] text-[#18324d]">
+                      {initials(agentName) || 'S'}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-[15px] font-semibold text-slate-800">
+                    {agentName}
+                  </p>
+                </div>
               </div>
-              <span aria-hidden="true" className="online-dot" />
-            </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10px] font-semibold text-slate-600">
+                <ShieldCheckIcon aria-hidden="true" size={13} weight="fill" />
+                Verified
+              </span>
+            </header>
 
-            <p className="eyebrow">{agentName}</p>
-            <h1>{callHeading(call, mediaConnected)}</h1>
-            <p className="copy">{callCopy(call, Boolean(media), mediaConnected)}</p>
-            <p className="call-kind">
-              {call.type === 'VIDEO' ? (
-                <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
-              ) : (
-                <PhoneIncomingIcon aria-hidden="true" size={15} weight="fill" />
-              )}
-              {call.type === 'VIDEO' ? 'Video call' : 'Audio call'}
-            </p>
-          </div>
+            <div aria-hidden="true" className="my-4 h-px bg-slate-100" />
 
-          {permissionError ? <p className="error">{permissionError}</p> : null}
-
-          {isRinging ? (
-            <div className="incoming-actions">
-              <button className="phone-action decline" onClick={declineCall} type="button">
-                <span className="action-icon">
-                  <PhoneXIcon aria-hidden="true" size={25} weight="fill" />
-                </span>
-                <span>Decline</span>
-              </button>
-              <button
-                className="phone-action accept"
-                disabled={callMedia.isCapturing || !callMedia.room}
-                onClick={acceptCall}
-                type="button"
+            <div
+              className={
+                hasActiveMedia
+                  ? 'flex min-h-0 flex-1 flex-col items-center overflow-y-auto pt-1 text-center'
+                  : 'flex min-h-0 flex-1 flex-col items-center justify-center text-center'
+              }
+            >
+              <Image
+                alt="Cogent Solutions Dubai"
+                className={`h-auto max-w-full ${hasActiveMedia ? 'w-32' : 'w-44'}`}
+                priority
+                sizes={hasActiveMedia ? '128px' : '176px'}
+                src={companyLogo}
+              />
+              <p
+                className={`m-0 text-[10px] font-bold tracking-[0.16em] text-slate-500 uppercase ${
+                  hasActiveMedia ? 'mt-3' : 'mt-5'
+                }`}
               >
-                <span className="action-icon">
-                  <PhoneIncomingIcon aria-hidden="true" size={25} weight="fill" />
-                </span>
-                <span>{callMedia.isCapturing ? 'Allowing...' : 'Accept'}</span>
-              </button>
+                Official event call
+              </p>
+              {!isRinging ? (
+                <h1 className="!m-0 mt-2 !text-lg !font-semibold !leading-tight text-slate-900">
+                  {callHeading(call, mediaConnected)}
+                </h1>
+              ) : null}
+              <p className="m-0 mt-2 max-w-[265px] text-sm leading-5 text-slate-600">
+                {isRinging
+                  ? 'Cogent Solutions Dubai is calling to share event details with you.'
+                  : callCopy(call, Boolean(media), mediaConnected)}
+              </p>
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-600">
+                {call.type === 'VIDEO' ? (
+                  <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
+                ) : (
+                  <PhoneIncomingIcon aria-hidden="true" size={15} weight="fill" />
+                )}
+                {call.type === 'VIDEO' ? 'Video call' : 'Audio call'}
+              </span>
+              {!isRinging && hasActiveMedia && media && callMedia.room ? (
+                <div className="mt-3 w-full">
+                  <LiveKitMediaRoom
+                    call={call}
+                    localTracks={callMedia.localTracks}
+                    media={media}
+                    onConnected={() => setConnectedMediaCallId(call.id)}
+                    onEnd={endCall}
+                    room={callMedia.room}
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : null}
 
-          {hasActiveMedia && media && callMedia.room ? (
-            <LiveKitMediaRoom
-              call={call}
-              localTracks={callMedia.localTracks}
-              media={media}
-              onConnected={() => setConnectedMediaCallId(call.id)}
-              onEnd={endCall}
-              room={callMedia.room}
-            />
-          ) : null}
+            {permissionError ? (
+              <p className="m-0 mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-center text-xs leading-5 text-rose-800">
+                {permissionError}
+              </p>
+            ) : null}
 
-          <footer>
-            <ShieldCheckIcon aria-hidden="true" size={14} weight="fill" />
-            Encrypted connection
-          </footer>
+            {isRinging ? (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                  onClick={declineCall}
+                  type="button"
+                >
+                  <PhoneXIcon aria-hidden="true" size={18} weight="fill" />
+                  Decline
+                </button>
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#18324d] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0f2740] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d] disabled:cursor-wait disabled:opacity-60"
+                  disabled={callMedia.isCapturing || !callMedia.room}
+                  onClick={acceptCall}
+                  type="button"
+                >
+                  <PhoneIncomingIcon aria-hidden="true" size={18} weight="fill" />
+                  {callMedia.isCapturing ? 'Allowing…' : 'Accept call'}
+                </button>
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-slate-100 pt-4 text-[10px] font-medium tracking-[0.08em] text-slate-400 uppercase">
+              <ShieldCheckIcon aria-hidden="true" size={13} weight="fill" />
+              Encrypted connection
+            </div>
+          </div>
         </section>
       ) : null}
 
@@ -355,6 +406,17 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           position: relative;
           width: 100%;
         }
+        .call-card.incoming-call {
+          background: #fff;
+          border-color: #d8e0e9;
+          border-radius: 14px;
+          box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+          color: #0f172a;
+          padding: 20px 22px 18px;
+        }
+        .incoming-call .ambient {
+          display: none;
+        }
         .ambient {
           border: 1px solid rgba(104, 218, 223, 0.09);
           border-radius: 50%;
@@ -380,11 +442,41 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           position: relative;
           z-index: 1;
         }
+        .incoming-call .call-header {
+          flex-direction: column;
+          gap: 8px;
+          justify-content: center;
+          text-align: center;
+        }
+        .brand-lockup {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .incoming-call .brand-lockup {
+          align-items: center;
         .brand {
           color: #72e3dd;
           font-size: 10px;
           font-weight: 800;
           letter-spacing: 0.18em;
+        }
+        .incoming-call .brand {
+          color: #0f172a;
+          font-size: 11px;
+          letter-spacing: 0.14em;
+        }
+        .official-label {
+          color: #64748b;
+          font-size: 9px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+        }
+        .company-logo {
+          display: block;
+          height: auto;
+          width: 148px;
         }
         .secure {
           align-items: center;
@@ -396,6 +488,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           font-size: 10px;
           gap: 5px;
           padding: 6px 9px;
+        }
+        .incoming-call .secure {
+          background: #f8fafc;
+          border-color: #d8e0e9;
+          color: #475569;
+          font-size: 9px;
+          padding: 6px 8px;
         }
         .caller {
           align-items: center;
@@ -420,6 +519,14 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           position: relative;
           width: 116px;
         }
+        .incoming-call .avatar-ring {
+          border-color: #cbd5e1;
+          box-shadow: 0 0 0 7px #f8fafc;
+          height: 96px;
+          margin-bottom: 21px;
+          padding: 5px;
+          width: 96px;
+        }
         .avatar-ring::before,
         .avatar-ring::after {
           border: 1px solid rgba(92, 226, 218, 0.16);
@@ -428,6 +535,10 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           inset: -13px;
           opacity: 0;
           position: absolute;
+        }
+        .incoming-call .avatar-ring::before,
+        .incoming-call .avatar-ring::after {
+          border-color: #cbd5e1;
         }
         .avatar-ring.is-ringing::before {
           animation: ring-pulse 2s ease-out infinite;
@@ -445,6 +556,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           overflow: hidden;
           width: 100%;
         }
+        .incoming-call .avatar {
+          background: #e8eef5;
+        }
         .avatar img {
           height: 100%;
           object-fit: cover;
@@ -455,6 +569,10 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           font-size: 36px;
           font-weight: 800;
           letter-spacing: -0.04em;
+        }
+        .incoming-call .avatar span {
+          color: #18324d;
+          font-size: 31px;
         }
         .online-dot {
           background: #35e1af;
@@ -467,6 +585,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           right: 5px;
           width: 12px;
         }
+        .incoming-call .online-dot {
+          display: none;
+        }
         .eyebrow {
           color: #72e3dd;
           font-size: 11px;
@@ -475,11 +596,19 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           margin: 0 0 8px;
           text-transform: uppercase;
         }
+        .incoming-call .eyebrow {
+          color: #475569;
+          letter-spacing: 0.1em;
+        }
         h1 {
           font-size: 27px;
           letter-spacing: -0.035em;
           line-height: 1.12;
           margin: 0;
+        }
+        .incoming-call h1 {
+          color: #0f172a;
+          font-size: 24px;
         }
         .copy {
           color: #adcad3;
@@ -488,6 +617,10 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           margin: 10px auto 0;
           max-width: 265px;
         }
+        .incoming-call .copy {
+          color: #526477;
+          max-width: 245px;
+        }
         .call-kind {
           align-items: center;
           color: #739ba8;
@@ -495,6 +628,14 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           font-size: 11px;
           gap: 6px;
           margin: 13px 0 0;
+        }
+        .incoming-call .call-kind {
+          background: #f8fafc;
+          border: 1px solid #d8e0e9;
+          border-radius: 999px;
+          color: #475569;
+          font-size: 10px;
+          padding: 6px 9px;
         }
         .error {
           background: rgba(190, 53, 69, 0.16);
@@ -508,6 +649,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           position: relative;
           z-index: 1;
         }
+        .incoming-call .error {
+          background: #fff1f2;
+          border-color: #fecdd3;
+          color: #be123c;
+        }
         .incoming-actions {
           display: grid;
           gap: 42px;
@@ -516,6 +662,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           padding: 8px 0 22px;
           position: relative;
           z-index: 1;
+        }
+        .incoming-call .incoming-actions {
+          gap: 12px;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          padding: 12px 0 16px;
         }
         .phone-action {
           align-items: center;
@@ -530,6 +681,19 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           font-weight: 700;
           gap: 8px;
           padding: 0;
+        }
+        .incoming-call .phone-action {
+          align-items: center;
+          border: 1px solid #cbd5e1;
+          border-radius: 999px;
+          color: #334155;
+          flex-direction: row;
+          font-size: 12px;
+          gap: 9px;
+          justify-content: center;
+          min-height: 50px;
+          padding: 0 12px;
+          width: 100%;
         }
         .action-icon {
           align-items: center;
@@ -550,9 +714,38 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           background: linear-gradient(145deg, #ff5265, #d91e45);
           box-shadow: 0 10px 24px rgba(221, 33, 71, 0.24);
         }
+        .incoming-call .decline .action-icon {
+          background: transparent;
+          box-shadow: none;
+          color: #64748b;
+          height: auto;
+          width: auto;
+        }
         .accept .action-icon {
           background: linear-gradient(145deg, #45d6a4, #15956e);
           box-shadow: 0 10px 24px rgba(31, 184, 132, 0.24);
+        }
+        .incoming-call .accept .action-icon {
+          background: transparent;
+          box-shadow: none;
+          color: #fff;
+          height: auto;
+          width: auto;
+        }
+        .incoming-call .phone-action:hover {
+          background: #f8fafc;
+        }
+        .incoming-call .phone-action:hover .action-icon {
+          filter: none;
+          transform: none;
+        }
+        .incoming-call .accept {
+          background: #18324d;
+          border-color: #18324d;
+          color: #fff;
+        }
+        .incoming-call .accept:hover {
+          background: #0f2740;
         }
         .phone-action:disabled {
           cursor: wait;
@@ -570,6 +763,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           position: relative;
           text-transform: uppercase;
           z-index: 1;
+        }
+        .incoming-call footer {
+          color: #94a3b8;
         }
         .video-call .avatar-ring {
           height: 82px;
@@ -639,6 +835,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             height: 82px;
             margin: 4px 0 15px;
             width: 82px;
+          }
+          .company-logo {
+            width: 108px;
           }
           .avatar span {
             font-size: 27px;

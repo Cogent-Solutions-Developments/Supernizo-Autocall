@@ -42,12 +42,12 @@ export function callWidgetFrameStyles(visible: boolean): readonly string[] {
     'background:transparent',
     'border:0',
     'bottom:16px',
-    `height:${visible ? '560px' : '1px'}`,
+    `height:${visible ? '500px' : '1px'}`,
     `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
     `pointer-events:${visible ? 'auto' : 'none'}`,
     'position:fixed',
     'right:16px',
-    `width:${visible ? '360px' : '1px'}`,
+    `width:${visible ? '330px' : '1px'}`,
     'z-index:2147483001',
   ];
 }
