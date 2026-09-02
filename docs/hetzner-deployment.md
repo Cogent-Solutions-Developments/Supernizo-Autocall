@@ -25,7 +25,7 @@ Merge reviewed releases into `hetzner-prod` only when they are approved for prod
 2. Keep the default `GITHUB_TOKEN` permission read-only; the publish job explicitly requests only `contents: read` and `packages: write`.
 3. Require pull requests and status checks for `hetzner-prod`.
 
-Create a GitHub environment named `production` and allow deployment only from `hetzner-prod`. Add required reviewers when the repository plan supports protection rules for private repositories. On a plan without that feature, make branch protection and successful quality checks mandatory because a successful `hetzner-prod` workflow will deploy automatically. Later, add these environment secrets:
+This workflow deliberately does not use a GitHub Environment. Protect `hetzner-prod` with required pull requests and successful checks, because every successful push to that branch publishes and deploys automatically. Add these repository-level Actions secrets under **Settings → Secrets and variables → Actions → Repository secrets**:
 
 | Secret                    | Exact purpose                                    |
 | ------------------------- | ------------------------------------------------ |
@@ -243,7 +243,7 @@ sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
 sudo chmod 0600 /home/deploy/.ssh/authorized_keys
 ```
 
-Put the complete private key, including header and footer, into the `production` environment secret `HETZNER_SSH_PRIVATE_KEY`. Delete the workstation copies after the secret and server public key are confirmed.
+Put the complete private key, including header and footer, into the repository Actions secret `HETZNER_SSH_PRIVATE_KEY`. Delete the workstation copies after the secret and server public key are confirmed.
 
 Get the SSH host key from a trusted path. On the server console:
 
@@ -264,12 +264,7 @@ The forced command rejects interactive shells, arbitrary commands, tags, foreign
 
 ## 9. First GHCR publish and deployment
 
-Use one of these safe first-run orders:
-
-- With environment reviewers: configure secrets, merge the reviewed code into `hetzner-prod`, let quality/publish finish, keep deployment waiting for approval, confirm package access and complete the server setup, then approve.
-- Without private-repository environment reviewers: prepare the server from the reviewed `feat/prod-config` branch, give the machine account repository read access, configure all GitHub secrets, then merge into protected `hetzner-prod`. The successful `hetzner-prod` workflow publishes and deploys automatically.
-
-For the second option, the temporary server checkout commands before the merge are:
+There is no environment approval pause. Complete every server, GHCR, repository-secret, and Nginx step before merging into `hetzner-prod`. Prepare the server from the reviewed `feat/prod-config` branch first:
 
 ```sh
 cd /home/deploy/app/autocall
@@ -279,7 +274,7 @@ git checkout --detach origin/feat/prod-config
 
 The OCI source label links new packages to this repository, so they normally inherit its read permissions. If organization policy disables automatic inheritance, the first pull fails safely: grant the machine account read access in both new package settings and rerun the workflow manually from `hetzner-prod`.
 
-The first production deployment replaces the temporary checkout with the exact `hetzner-prod` commit. Do not approve or merge until the server can authenticate to GHCR and the restricted Actions SSH key is installed.
+The first production deployment replaces the temporary checkout with the exact `hetzner-prod` commit. Do not merge until the server can authenticate to GHCR and the restricted Actions SSH key is installed.
 
 The workflow passes references shaped like:
 
