@@ -31,6 +31,7 @@ migrator_image_pattern='^ghcr\.io/cogent-solutions-developments/supernizo-autoca
 }
 
 deploy_root=/home/deploy/app/autocall
+production_branch=hetzner-prod
 env_file="${deploy_root}/.env.production"
 state_dir="${deploy_root}/.deployment"
 lock_file="${state_dir}/deploy.lock"
@@ -67,10 +68,11 @@ cd "$deploy_root"
   exit 1
 }
 
-git fetch --prune origin main
+git fetch --prune origin \
+  "refs/heads/${production_branch}:refs/remotes/origin/${production_branch}"
 git cat-file -e "${release_sha}^{commit}"
-git merge-base --is-ancestor "$release_sha" origin/main || {
-  printf 'Requested commit is not contained in origin/main.\n' >&2
+git merge-base --is-ancestor "$release_sha" "origin/${production_branch}" || {
+  printf 'Requested commit is not contained in origin/%s.\n' "$production_branch" >&2
   exit 1
 }
 

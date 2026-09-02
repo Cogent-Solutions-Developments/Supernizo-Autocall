@@ -12,5 +12,5 @@ if [[ "$original_command" =~ ^deploy\ ([0-9a-f]{40})\ (${app_image_pattern})\ ($
     "${BASH_REMATCH[3]}"
 fi
 
-printf 'This SSH key may only deploy an exact main-branch commit with approved GHCR digests.\n' >&2
+printf 'This SSH key may only deploy an exact hetzner-prod commit with approved GHCR digests.\n' >&2
 exit 1

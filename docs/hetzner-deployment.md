@@ -8,8 +8,8 @@ This runbook deploys the complete Supernizo Autocall application and its private
 
 - GitHub Actions tests the repository, builds the `runner` and `migrator` Docker targets, publishes both private images to GHCR, and attaches BuildKit SBOM/provenance records.
 - Images are tagged for humans, but deployment passes immutable `@sha256:...` digests.
-- A restricted SSH key can submit only an exact 40-character `main` commit plus the two approved GHCR repository digests.
-- Hetzner verifies the commit belongs to `origin/main`, pulls the images, verifies each OCI revision label matches the commit, applies Prisma migrations, and starts the app.
+- A restricted SSH key can submit only an exact 40-character `hetzner-prod` commit plus the two approved GHCR repository digests.
+- Hetzner verifies the commit belongs to `origin/hetzner-prod`, pulls the images, verifies each OCI revision label matches the commit, applies Prisma migrations, and starts the app.
 - `app` is bound only to host loopback `127.0.0.1:3200`.
 - PostgreSQL has a named persistent volume and no published host port.
 - Nginx keeps TLS and proxies `/autocall-db/*` to `127.0.0.1:3200`.
@@ -19,13 +19,13 @@ This reuses the current server and has no additional software licence cost. It s
 
 ## 2. Repository and GitHub preparation
 
-Merge these production files into `main` only after review. In GitHub repository **Settings → Actions → General**:
+Merge reviewed releases into `hetzner-prod` only when they are approved for production. In GitHub repository **Settings → Actions → General**:
 
 1. Allow GitHub Actions for the repository.
 2. Keep the default `GITHUB_TOKEN` permission read-only; the publish job explicitly requests only `contents: read` and `packages: write`.
-3. Require pull requests and status checks for `main`.
+3. Require pull requests and status checks for `hetzner-prod`.
 
-Create a GitHub environment named `production` and allow deployment only from `main`. Add required reviewers when the repository plan supports protection rules for private repositories. On a plan without that feature, make branch protection and successful quality checks mandatory because a successful `main` workflow will deploy automatically. Later, add these environment secrets:
+Create a GitHub environment named `production` and allow deployment only from `hetzner-prod`. Add required reviewers when the repository plan supports protection rules for private repositories. On a plan without that feature, make branch protection and successful quality checks mandatory because a successful `hetzner-prod` workflow will deploy automatically. Later, add these environment secrets:
 
 | Secret                    | Exact purpose                                    |
 | ------------------------- | ------------------------------------------------ |
@@ -104,7 +104,7 @@ Docker group membership is effectively root-equivalent. The `deploy` account and
 
 ## 4. Give Hetzner read-only access to the source repository
 
-The server still needs the reviewed Compose, migration, validation, backup, and deployment files from `main`. This key is separate from the Actions-to-Hetzner key.
+The server still needs the reviewed Compose, migration, validation, backup, and deployment files from `hetzner-prod`. This key is separate from the Actions-to-Hetzner key.
 
 Run as `deploy`:
 
@@ -266,8 +266,8 @@ The forced command rejects interactive shells, arbitrary commands, tags, foreign
 
 Use one of these safe first-run orders:
 
-- With environment reviewers: configure secrets, merge the reviewed code to `main`, let quality/publish finish, keep deployment waiting for approval, confirm package access and complete the server setup, then approve.
-- Without private-repository environment reviewers: push the reviewed `feat/prod-config` branch first, clone/check out that branch on Hetzner only to perform sections 4–8, give the machine account repository read access, configure all GitHub secrets, then merge to protected `main`. The successful `main` workflow publishes and deploys automatically.
+- With environment reviewers: configure secrets, merge the reviewed code into `hetzner-prod`, let quality/publish finish, keep deployment waiting for approval, confirm package access and complete the server setup, then approve.
+- Without private-repository environment reviewers: prepare the server from the reviewed `feat/prod-config` branch, give the machine account repository read access, configure all GitHub secrets, then merge into protected `hetzner-prod`. The successful `hetzner-prod` workflow publishes and deploys automatically.
 
 For the second option, the temporary server checkout commands before the merge are:
 
@@ -277,9 +277,9 @@ git fetch origin feat/prod-config
 git checkout --detach origin/feat/prod-config
 ```
 
-The OCI source label links new packages to this repository, so they normally inherit its read permissions. If organization policy disables automatic inheritance, the first pull fails safely: grant the machine account read access in both new package settings and rerun the workflow manually from `main`.
+The OCI source label links new packages to this repository, so they normally inherit its read permissions. If organization policy disables automatic inheritance, the first pull fails safely: grant the machine account read access in both new package settings and rerun the workflow manually from `hetzner-prod`.
 
-The first production deployment replaces the temporary checkout with the exact `main` commit. Do not approve or merge until the server can authenticate to GHCR and the restricted Actions SSH key is installed.
+The first production deployment replaces the temporary checkout with the exact `hetzner-prod` commit. Do not approve or merge until the server can authenticate to GHCR and the restricted Actions SSH key is installed.
 
 The workflow passes references shaped like:
 
@@ -364,7 +364,7 @@ docker stats
 df -h
 ```
 
-If a newly started app fails readiness, the script pulls/restores the preceding app digest when recorded. It never reverses an applied database migration. Every migration must remain backward-compatible with the preceding app during the rollout window. For a planned rollback, revert the application change on `main` and deploy a newly reviewed workflow run after confirming schema compatibility.
+If a newly started app fails readiness, the script pulls/restores the preceding app digest when recorded. It never reverses an applied database migration. Every migration must remain backward-compatible with the preceding app during the rollout window. For a planned rollback, revert the application change on `hetzner-prod` and deploy a newly reviewed workflow run after confirming schema compatibility.
 
 Never run `docker compose down -v` in production; `-v` deletes the PostgreSQL volume. Never run the demo seed against production. Do not run unaudited cleanup commands that could delete the previous image needed for rollback.
 

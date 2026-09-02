@@ -2,9 +2,9 @@ name: Test and deploy to Hetzner
 
 on:
   pull_request:
-    branches: [main]
+    branches: [hetzner-prod]
   push:
-    branches: [main]
+    branches: [hetzner-prod]
   workflow_dispatch:
 
 permissions:
@@ -92,7 +92,7 @@ jobs:
   publish:
     name: Publish immutable GHCR images
     needs: quality
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/hetzner-prod' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -122,7 +122,7 @@ jobs:
           images: ${{ env.APP_IMAGE }}
           tags: |
             type=sha,prefix=sha-,format=long
-            type=raw,value=main
+            type=raw,value=hetzner-prod
 
       - name: Build and publish application image
         id: build-app
@@ -146,7 +146,7 @@ jobs:
           images: ${{ env.MIGRATOR_IMAGE }}
           tags: |
             type=sha,prefix=sha-,format=long
-            type=raw,value=main
+            type=raw,value=hetzner-prod
 
       - name: Build and publish migrator image
         id: build-migrator
@@ -166,7 +166,7 @@ jobs:
   deploy:
     name: Deploy GHCR images and PostgreSQL stack
     needs: publish
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/hetzner-prod' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: production
