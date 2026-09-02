@@ -10,7 +10,7 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 type ClientRealtimeSchema = {
   visitor: {
@@ -51,7 +51,7 @@ export function LivePresencePanel({ initialSiteId, sites }: LivePresencePanelPro
     }
 
     let active = true;
-    void fetch(withAppBasePath(`/api/dashboard/sites/${siteId}/live`), {
+    void fetchAppApi(`/api/dashboard/sites/${siteId}/live`, {
       credentials: 'same-origin',
     })
       .then(async (response) => {

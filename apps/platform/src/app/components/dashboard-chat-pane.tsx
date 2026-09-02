@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 import { ChatMessageSchema, ChatThreadSchema, type ChatMessage } from '@supernizo/shared';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 import { mergeChatMessage } from './chat-state';
 
@@ -53,7 +53,7 @@ export function DashboardChatPane({
   useEffect(() => {
     if (!threadId) return;
     let active = true;
-    void fetch(withAppBasePath(`/api/chat/threads/${threadId}/messages`), {
+    void fetchAppApi(`/api/chat/threads/${threadId}/messages`, {
       credentials: 'same-origin',
     })
       .then(async (response) => {
@@ -72,7 +72,7 @@ export function DashboardChatPane({
   async function startChat(): Promise<void> {
     setError(null);
     try {
-      const response = await fetch(withAppBasePath('/api/chat/threads'), {
+      const response = await fetchAppApi('/api/chat/threads', {
         body: JSON.stringify({ siteId, visitorId }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },
@@ -94,7 +94,7 @@ export function DashboardChatPane({
     setError(null);
     setIsSending(true);
     try {
-      const response = await fetch(withAppBasePath(`/api/chat/threads/${threadId}/messages`), {
+      const response = await fetchAppApi(`/api/chat/threads/${threadId}/messages`, {
         body: JSON.stringify({ content }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },

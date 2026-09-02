@@ -9,6 +9,9 @@ describe('withAppBasePath', () => {
 
   it('adds the production sub-path to an application route', () => {
     expect(withAppBasePath('/api/health/ready')).toBe('/autocall-db/api/health/ready');
+    expect(withAppBasePath('/api/dashboard/agent-presence')).toBe(
+      '/autocall-db/api/dashboard/agent-presence',
+    );
   });
 
   it('does not duplicate an existing base path', () => {

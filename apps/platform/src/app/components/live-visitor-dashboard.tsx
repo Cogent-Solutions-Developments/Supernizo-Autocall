@@ -11,7 +11,7 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 import {
   defaultLiveVisitorFilters,
@@ -111,7 +111,7 @@ export function LiveVisitorDashboard({
 
     let active = true;
     const refresh = () => {
-      void fetch(withAppBasePath(`/api/dashboard/sites/${siteId}/live`), {
+      void fetchAppApi(`/api/dashboard/sites/${siteId}/live`, {
         credentials: 'same-origin',
       })
         .then(async (response) => {
