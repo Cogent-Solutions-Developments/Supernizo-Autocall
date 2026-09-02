@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ConflictError } from '@/server/errors/app-error';
 
 import {
+  buildCallParticipantLockQueries,
   getConnectionTimeoutSeconds,
   getRingTimeoutSeconds,
   isRingingCallExpired,
@@ -11,6 +12,15 @@ import {
 } from './call-service';
 
 describe('call state machine', () => {
+  it('uses PostgreSQL identifier quoting when locking call participants', () => {
+    const [agentLock, visitorLock] = buildCallParticipantLockQueries('agent-1', 'visitor-1');
+
+    expect(agentLock.text).toBe('SELECT id FROM "User" WHERE id = $1 FOR UPDATE');
+    expect(agentLock.values).toEqual(['agent-1']);
+    expect(visitorLock.text).toBe('SELECT id FROM "Visitor" WHERE id = $1 FOR UPDATE');
+    expect(visitorLock.values).toEqual(['visitor-1']);
+  });
+
   it.each([
     ['RINGING', 'accept', 'ACCEPTED'],
     ['RINGING', 'reject', 'REJECTED'],

@@ -10,7 +10,7 @@ import {
   type CallType,
   type TrackingContext,
 } from '@supernizo/shared';
-import type { CallStatus as PrismaCallStatus, Prisma } from '@generated/prisma/client';
+import { Prisma, type CallStatus as PrismaCallStatus } from '@generated/prisma/client';
 
 import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
@@ -121,6 +121,16 @@ export function staleCallAction(status: CallStatus): CallAction | null {
 
 function roomName(): string {
   return `call_${randomUUID().replaceAll('-', '')}`;
+}
+
+export function buildCallParticipantLockQueries(
+  agentId: string,
+  visitorId: string,
+): readonly [Prisma.Sql, Prisma.Sql] {
+  return [
+    Prisma.sql`SELECT id FROM "User" WHERE id = ${agentId} FOR UPDATE`,
+    Prisma.sql`SELECT id FROM "Visitor" WHERE id = ${visitorId} FOR UPDATE`,
+  ];
 }
 
 async function assertCallEnabled(siteId: string, type: CallType): Promise<void> {
@@ -263,8 +273,9 @@ export async function createCall(
 
   const database = getDatabaseClient();
   const { call, expiredCalls } = await database.$transaction(async (transaction) => {
-    await transaction.$queryRaw`SELECT id FROM \`User\` WHERE id = ${input.agentId} FOR UPDATE`;
-    await transaction.$queryRaw`SELECT id FROM \`Visitor\` WHERE id = ${input.visitorId} FOR UPDATE`;
+    for (const query of buildCallParticipantLockQueries(input.agentId, input.visitorId)) {
+      await transaction.$queryRaw(query);
+    }
     const expiredCalls = await expireStalePendingCalls(transaction, input.visitorId, input.agentId);
     const [visitor, existingVisitorCall, existingAgentCall, session] = await Promise.all([
       transaction.visitor.findFirst({
