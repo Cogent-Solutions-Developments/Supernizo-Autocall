@@ -3,13 +3,96 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Supernizo Tracker SDK fixture</title>
+    <meta
+      name="description"
+      content="A local event hero used to preview the Supernizo visitor widget in a realistic setting."
+    />
+    <title>Upstream Angola 2027 — Supernizo widget preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400&family=Urbanist:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link href="/sdk/fixture.css" rel="stylesheet" />
     <script async src="/sdk/tracker.js" data-site-key="site_demo_local"></script>
   </head>
   <body>
-    <main>
-      <h1>Tracker SDK fixture</h1>
-      <p>This plain HTML page loads the framework-independent tracker bundle.</p>
+    <header class="event-header">
+      <div class="event-header__top">
+        <a class="event-brand" href="#hero" aria-label="Upstream Angola 2027 home">
+          <span class="event-brand__mark" aria-hidden="true"></span>
+          <span class="event-brand__copy" aria-hidden="true">
+            <span class="event-brand__kicker">Upstream</span>
+            <span class="event-brand__name">Performance Summit</span>
+            <span class="event-brand__edition">Angola '27</span>
+          </span>
+        </a>
+
+        <div class="event-header__details">
+          <p class="event-header__date">25 February 2027 · HCTA Hotel · Luanda, Angola</p>
+          <p class="event-header__description">
+            Reimagining Angola's upstream future through smarter engineering and technical
+            excellence.
+          </p>
+        </div>
+
+        <div class="event-header__actions" aria-label="Event actions">
+          <a class="event-button event-button--dark" href="#register">Register interest</a>
+          <a class="event-button event-button--gold" href="#sponsor">Sponsor / Exhibit</a>
+        </div>
+      </div>
+
+      <nav class="event-nav" aria-label="Event navigation">
+        <a href="#overview">Overview</a>
+        <a href="#themes">Themes</a>
+        <a href="#attend">Attend</a>
+        <a href="#speakers">Speakers</a>
+        <a href="#sponsor">Sponsor</a>
+      </nav>
+    </header>
+
+    <main class="event-hero" id="hero">
+      <video
+        aria-hidden="true"
+        autoplay
+        class="event-hero__video"
+        loop
+        muted
+        playsinline
+        poster="/sdk/assets/upstream-angola-hero.jpg"
+        tabindex="-1"
+      >
+        <source src="/sdk/assets/upstream-angola-hero.mp4" type="video/mp4" />
+      </video>
+      <div class="event-hero__veil" aria-hidden="true"></div>
+
+      <section class="event-hero__content" aria-labelledby="event-title">
+        <p class="event-hero__eyebrow">Technical Upstream Conference</p>
+        <h1 id="event-title">
+          <span>Upstream</span>
+          <span>Performance Summit</span>
+          <span>Angola 2027</span>
+        </h1>
+        <p class="event-hero__line">Reimagining Angola's Upstream Future</p>
+        <p class="event-hero__summary">
+          Unlocking more barrels through smarter engineering, better execution and technical
+          excellence.
+        </p>
+
+        <div class="event-hero__meta" aria-label="Event time and location">
+          <span>25 February 2027</span>
+          <span>HCTA Hotel</span>
+          <span>Luanda, Angola</span>
+        </div>
+
+        <div class="event-hero__actions">
+          <a class="event-button event-button--light" href="#register">Register interest</a>
+          <a class="event-button event-button--outline" href="#themes">Explore themes</a>
+        </div>
+      </section>
+
+      <p class="event-hero__note">Local widget preview</p>
     </main>
   </body>
 </html>
