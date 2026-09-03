@@ -1,6 +1,6 @@
 'use client';
 
-import { ChatCircleDotsIcon, ChecksIcon, PaperPlaneRightIcon, XIcon } from '@phosphor-icons/react';
+import { ChecksIcon, PaperPlaneRightIcon, XIcon } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -196,10 +196,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                     {agentName}
                   </p>
                   <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-[#85858d]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#36b978]" />
-                      Online now
-                    </span>
+                    <span>Online now</span>
                     <span aria-hidden="true" className="text-[#c4c4c8]">
                       ·
                     </span>
@@ -285,13 +282,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 </>
               ) : (
                 <div className="chat-empty flex h-full min-h-52 flex-col justify-center px-1 pb-4 text-left">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#18181b] text-white shadow-[0_9px_22px_rgba(24,24,27,0.16)]">
-                    <ChatCircleDotsIcon aria-hidden="true" size={19} weight="fill" />
-                  </span>
-                  <p className="m-0 mt-5 text-[11px] font-semibold tracking-[0.01em] text-[#71717a]">
-                    Event support
-                  </p>
-                  <h1 className="m-0 mt-1.5 text-[28px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#18181b]">
+                  <h1 className="m-0 text-[28px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#18181b]">
                     How can we help?
                   </h1>
                   <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
