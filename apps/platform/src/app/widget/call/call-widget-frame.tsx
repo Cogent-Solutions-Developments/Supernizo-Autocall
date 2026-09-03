@@ -371,7 +371,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                   </button>
                 </div>
               ) : (
-                <div className="call-card__actions flex justify-center gap-2.5 px-6 pb-5">
+                <div className="call-card__actions flex justify-center gap-4 px-6 pb-5">
                   <button
                     className="inline-flex min-h-10 w-[120px] items-center justify-center gap-2 rounded-[10px] border border-[#dc2626] bg-[#dc2626] px-2.5 text-xs font-semibold text-white shadow-[0_2px_4px_rgba(127,29,29,0.14)] transition-[transform,box-shadow,background-color] hover:bg-[#c81e1e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626] active:translate-y-px active:shadow-none"
                     onClick={declineCall}

@@ -521,8 +521,8 @@ class ChatWidgetController {
             'box-sizing:border-box',
             'cursor:pointer',
             'display:grid',
-            'grid-template-rows:232px 48px',
-            'height:296px',
+            'grid-template-rows:200px 48px',
+            'height:264px',
             'isolation:isolate',
             'max-width:calc(100vw - 32px)',
             'overflow:hidden',
@@ -531,7 +531,7 @@ class ChatWidgetController {
             'right:16px',
             'text-align:left',
             'transition:box-shadow .22s ease,transform .22s cubic-bezier(.2,.8,.2,1)',
-            'width:228px',
+            'width:204px',
             'z-index:2147482999',
         ].join(';');
         launcher.addEventListener('click', () => this.openChat());
@@ -553,19 +553,19 @@ class ChatWidgetController {
       .supernizo-chat-launcher__video { display:block; height:100%; inset:0; object-fit:cover; object-position:50% 18%; position:absolute; transform:scale(1.02); width:100%; }
       .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; padding:0 1px 1px 4px; pointer-events:none; width:100%; }
       .supernizo-chat-launcher__profile { align-items:center; display:flex; min-width:0; }
-      .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:32px; position:relative; width:32px; }
-      .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:32px; object-fit:cover; object-position:50% 18%; width:32px; }
+      .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:30px; position:relative; width:30px; }
+      .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:30px; object-fit:cover; object-position:50% 18%; width:30px; }
       .supernizo-chat-launcher__online-indicator { background:#55c985; border:2px solid #fff; border-radius:999px; bottom:-1px; height:9px; position:absolute; right:-1px; width:9px; }
-      .supernizo-chat-launcher__profile-copy { color:#18181b; display:flex; flex-direction:column; line-height:1.1; margin-left:8px; min-width:0; overflow:hidden; white-space:nowrap; }
+      .supernizo-chat-launcher__profile-copy { color:#18181b; display:flex; flex-direction:column; line-height:1.1; margin-left:7px; min-width:0; overflow:hidden; white-space:nowrap; }
       .supernizo-chat-launcher__profile-copy strong { font-size:10.5px; font-weight:650; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; }
       .supernizo-chat-launcher__profile-copy > span { color:#85858d; font-size:9px; font-weight:500; margin-top:4px; }
-      .supernizo-chat-launcher__action { align-items:center; background:#18181b; border-radius:10px; color:#fff; display:flex; flex:0 0 auto; font-size:11px; font-weight:600; gap:5px; height:38px; justify-content:center; padding:0 12px; }
+      .supernizo-chat-launcher__action { align-items:center; background:#18181b; border-radius:10px; color:#fff; display:flex; flex:0 0 auto; font-size:11px; font-weight:600; gap:5px; height:36px; justify-content:center; padding:0 10px; }
       .supernizo-chat-launcher__action-icon { font-size:17px; font-weight:300; line-height:1; margin-top:-1px; }
       .supernizo-chat-launcher__badge { background:#ff3b4e; border:2px solid #fff; border-radius:999px; display:none; height:12px; position:absolute; right:10px; top:10px; width:12px; z-index:3; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
       button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
-      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:216px 48px !important; height:280px !important; width:214px !important; } }
+      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 48px !important; height:260px !important; width:200px !important; } }
       @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
