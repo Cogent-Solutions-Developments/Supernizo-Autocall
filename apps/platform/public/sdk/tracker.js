@@ -352,6 +352,10 @@ exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
 exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
 const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
 const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 36;
+const CHAT_FRAME_OPEN_DURATION_MS = 380;
+const CHAT_FRAME_CLOSE_DURATION_MS = 320;
+const CHAT_FRAME_MOTION_EASING = 'cubic-bezier(.65,0,.35,1)';
+const CHAT_LAUNCHER_SHADOW = '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
 function shouldScheduleChatLauncherCollapse(callActive, collapsed) {
     return !callActive && !collapsed;
 }
@@ -362,12 +366,15 @@ function chatWidgetFrameStyles() {
     return [
         'background:transparent',
         'border:0',
+        'border-radius:22px',
         'bottom:16px',
-        'height:500px',
+        'height:min(540px,calc(100vh - 32px))',
         'max-width:calc(100vw - 32px)',
+        'opacity:0',
         'position:fixed',
         'right:16px',
-        'width:330px',
+        'transform-origin:bottom right',
+        'width:350px',
         'z-index:2147483000',
     ];
 }
@@ -405,9 +412,11 @@ class ChatWidgetController {
     bootstrapEndpoint;
     currentConfig;
     frame;
+    frameAnimation;
     launcher;
     launcherCollapseAnimations = [];
     launcherCollapseTimer;
+    launcherOpenAnimation;
     launcherStyle;
     callActive = false;
     hasSyncedThread = false;
@@ -435,7 +444,7 @@ class ChatWidgetController {
         }
         this.cancelLauncherCollapse();
         window.removeEventListener('message', this.receiveMessage);
-        this.unmountFrame();
+        this.unmountFrame(false);
         this.launcher?.remove();
         this.launcher = undefined;
         this.launcherStyle?.remove();
@@ -461,6 +470,7 @@ class ChatWidgetController {
         widgetUrl.searchParams.set('host_origin', window.location.origin);
         const frame = document.createElement('iframe');
         frame.setAttribute('aria-label', 'Website chat');
+        frame.dataset.supernizoChatFrame = 'true';
         frame.setAttribute('title', 'Website chat');
         frame.src = widgetUrl.toString();
         frame.style.cssText = chatWidgetFrameStyles().join(';');
@@ -469,9 +479,147 @@ class ChatWidgetController {
         (document.body ?? document.documentElement).append(frame);
         this.frame = frame;
     }
-    unmountFrame() {
+    unmountFrame(resumeLauncher = true) {
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherOpenAnimation?.cancel();
+        this.launcherOpenAnimation = undefined;
         this.frame?.remove();
         this.frame = undefined;
+        this.restoreLauncher();
+        if (resumeLauncher && this.launcher && !this.callActive) {
+            this.scheduleLauncherCollapse(this.launcher);
+        }
+    }
+    restoreLauncher() {
+        if (!this.launcher)
+            return;
+        this.launcher.style.opacity = '';
+        this.launcher.style.pointerEvents = '';
+        this.launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
+        this.launcher.style.transform = '';
+        this.launcher.style.visibility = '';
+    }
+    animateFrameOpen() {
+        const frame = this.frame;
+        const launcher = this.launcher;
+        if (!frame || !this.openRequested || this.frameAnimation)
+            return;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof frame.animate !== 'function') {
+            frame.style.opacity = '1';
+            if (launcher) {
+                launcher.style.opacity = '0';
+                launcher.style.pointerEvents = 'none';
+                launcher.style.visibility = 'hidden';
+            }
+            return;
+        }
+        const frameRect = frame.getBoundingClientRect();
+        const launcherRect = launcher?.getBoundingClientRect();
+        const scaleX = launcherRect ? Math.max(0.2, launcherRect.width / frameRect.width) : 0.92;
+        const scaleY = launcherRect ? Math.max(0.12, launcherRect.height / frameRect.height) : 0.86;
+        frame.style.pointerEvents = 'auto';
+        this.frameAnimation = frame.animate([
+            {
+                filter: 'blur(4px)',
+                opacity: 0,
+                transform: `translate3d(0,8px,0) scale(${scaleX},${scaleY})`,
+            },
+            {
+                filter: 'blur(0)',
+                offset: 0.76,
+                opacity: 1,
+                transform: 'translate3d(0,-2px,0) scale(1.008,.996)',
+            },
+            { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+        ], {
+            duration: CHAT_FRAME_OPEN_DURATION_MS,
+            easing: CHAT_FRAME_MOTION_EASING,
+            fill: 'both',
+        });
+        if (launcher && typeof launcher.animate === 'function') {
+            launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
+            launcher.style.pointerEvents = 'none';
+            launcher.style.transform = '';
+            this.launcherOpenAnimation = launcher.animate([
+                { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+                {
+                    filter: 'blur(3px)',
+                    opacity: 0,
+                    transform: 'translate3d(0,5px,0) scale(.97)',
+                },
+            ], {
+                duration: CHAT_FRAME_OPEN_DURATION_MS * 0.62,
+                easing: 'cubic-bezier(.23,1,.32,1)',
+                fill: 'both',
+            });
+        }
+        this.frameAnimation.addEventListener('finish', () => {
+            if (this.frame !== frame || !this.openRequested)
+                return;
+            frame.style.filter = '';
+            frame.style.opacity = '1';
+            frame.style.transform = '';
+            this.frameAnimation?.cancel();
+            this.frameAnimation = undefined;
+            if (launcher) {
+                launcher.style.opacity = '0';
+                launcher.style.visibility = 'hidden';
+                this.launcherOpenAnimation?.cancel();
+                this.launcherOpenAnimation = undefined;
+            }
+        }, { once: true });
+    }
+    animateFrameClosed() {
+        const frame = this.frame;
+        const launcher = this.launcher;
+        if (!frame)
+            return;
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherOpenAnimation?.cancel();
+        this.launcherOpenAnimation = undefined;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof frame.animate !== 'function') {
+            this.unmountFrame();
+            return;
+        }
+        const frameRect = frame.getBoundingClientRect();
+        const launcherRect = launcher?.getBoundingClientRect();
+        const scaleX = launcherRect ? Math.max(0.2, launcherRect.width / frameRect.width) : 0.92;
+        const scaleY = launcherRect ? Math.max(0.12, launcherRect.height / frameRect.height) : 0.86;
+        frame.style.pointerEvents = 'none';
+        this.frameAnimation = frame.animate([
+            { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+            {
+                filter: 'blur(4px)',
+                opacity: 0,
+                transform: `translate3d(0,8px,0) scale(${scaleX},${scaleY})`,
+            },
+        ], {
+            duration: CHAT_FRAME_CLOSE_DURATION_MS,
+            easing: CHAT_FRAME_MOTION_EASING,
+            fill: 'both',
+        });
+        if (launcher && typeof launcher.animate === 'function') {
+            launcher.style.opacity = '0';
+            launcher.style.visibility = 'visible';
+            this.launcherOpenAnimation = launcher.animate([
+                { filter: 'blur(3px)', opacity: 0, transform: 'translate3d(0,4px,0) scale(.97)' },
+                { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+            ], {
+                delay: CHAT_FRAME_CLOSE_DURATION_MS * 0.36,
+                duration: CHAT_FRAME_CLOSE_DURATION_MS * 0.64,
+                easing: 'cubic-bezier(.23,1,.32,1)',
+                fill: 'both',
+            });
+        }
+        this.frameAnimation.addEventListener('finish', () => {
+            if (this.frame !== frame || this.openRequested)
+                return;
+            this.unmountFrame();
+        }, { once: true });
     }
     mountLauncher() {
         if (this.launcher)
@@ -531,14 +679,13 @@ class ChatWidgetController {
         unreadBadge.ariaHidden = 'true';
         unreadBadge.className = 'supernizo-chat-launcher__badge';
         launcher.append(media, footer, unreadBadge);
-        const launcherShadow = '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
         launcher.style.cssText = [
             'appearance:none',
             'background:#fff',
             'border:1px solid rgba(24,24,27,.12)',
             'border-radius:18px',
             'bottom:16px',
-            `box-shadow:${launcherShadow}`,
+            `box-shadow:${CHAT_LAUNCHER_SHADOW}`,
             'box-sizing:border-box',
             'cursor:pointer',
             'display:grid',
@@ -561,7 +708,7 @@ class ChatWidgetController {
             launcher.style.transform = 'translateY(-3px) scale(1.012)';
         });
         launcher.addEventListener('mouseleave', () => {
-            launcher.style.boxShadow = launcherShadow;
+            launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
             launcher.style.transform = '';
         });
         (document.body ?? document.documentElement).append(launcher);
@@ -721,6 +868,7 @@ class ChatWidgetController {
     }
     openChat() {
         this.openRequested = true;
+        this.cancelLauncherCollapse();
         this.launcher?.removeAttribute('data-supernizo-unread');
         this.mount();
         this.postConfig();
@@ -737,11 +885,12 @@ class ChatWidgetController {
         if (data.type === 'supernizo-chat-ready') {
             this.postConfig();
             this.postOpenRequest();
+            this.animateFrameOpen();
             return;
         }
         if (data.type === 'supernizo-chat-close') {
             this.openRequested = false;
-            this.unmountFrame();
+            this.animateFrameClosed();
             return;
         }
         if (data.type === 'supernizo-chat-send' && isOutboundMessage(data.message)) {

@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  ChatCircleDotsIcon,
-  ChecksIcon,
-  PaperPlaneRightIcon,
-  XIcon,
-} from '@phosphor-icons/react';
+import { ChatCircleDotsIcon, ChecksIcon, PaperPlaneRightIcon, XIcon } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -40,7 +35,7 @@ const messageDayFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
 });
 
-function displayAgentName(name: string | undefined): string {
+function displayAgentName(name: string | null | undefined): string {
   const normalizedName = name?.trim().toLowerCase();
   if (!normalizedName || ['support team', 'local admin', 'nizo'].includes(normalizedName)) {
     return 'Soniya Sahanya';

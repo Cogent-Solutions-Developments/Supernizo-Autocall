@@ -20,8 +20,7 @@ const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 36;
 const CHAT_FRAME_OPEN_DURATION_MS = 380;
 const CHAT_FRAME_CLOSE_DURATION_MS = 320;
 const CHAT_FRAME_MOTION_EASING = 'cubic-bezier(.65,0,.35,1)';
-const CHAT_LAUNCHER_SHADOW =
-  '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
+const CHAT_LAUNCHER_SHADOW = '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
 
 export function shouldScheduleChatLauncherCollapse(
   callActive: boolean,
