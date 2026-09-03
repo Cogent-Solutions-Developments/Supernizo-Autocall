@@ -480,13 +480,13 @@ class ChatWidgetController {
             'border:0',
             'bottom:16px',
             'cursor:pointer',
-            'height:72px',
+            'height:88px',
             'isolation:isolate',
             'padding:0',
             'position:fixed',
             'right:16px',
             'transition:transform .16s ease',
-            'width:72px',
+            'width:88px',
             'z-index:2147482999',
         ].join(';');
         launcher.addEventListener('click', () => this.openChat());
@@ -502,9 +502,9 @@ class ChatWidgetController {
         const style = document.createElement('style');
         style.dataset.supernizoChatLauncher = 'true';
         style.textContent = `
-      .supernizo-chat-launcher__blob-fallback { background:#18181b; border-radius:48% 52% 43% 57% / 55% 44% 56% 45%; height:48px; inset:12px; position:absolute; transform:rotate(-8deg); width:50px; z-index:0; }
-      .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 .75px rgba(255,255,255,.5)); height:68px; inset:2px; pointer-events:none; position:absolute; transition:filter .16s ease; width:68px; z-index:1; }
-      .supernizo-chat-launcher__badge { background:#55b982; border:2px solid #f4f4f5; border-radius:999px; bottom:7px; display:none; height:10px; position:absolute; right:7px; width:10px; z-index:2; }
+      .supernizo-chat-launcher__blob-fallback { background:#18181b; border-radius:48% 52% 43% 57% / 55% 44% 56% 45%; height:62px; inset:13px; position:absolute; transform:rotate(-8deg); width:64px; z-index:0; }
+      .supernizo-chat-launcher__blob { filter:drop-shadow(0 8px 12px rgba(0,0,0,.24)) drop-shadow(0 0 .75px rgba(255,255,255,.5)); height:84px; inset:2px; pointer-events:none; position:absolute; transition:filter .16s ease; width:84px; z-index:1; }
+      .supernizo-chat-launcher__badge { background:#55b982; border:2px solid #f4f4f5; border-radius:999px; bottom:8px; display:none; height:11px; position:absolute; right:8px; width:11px; z-index:2; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
       button[aria-label='Open chat with the event team']:focus-visible .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 3px #fff) drop-shadow(0 0 2px #18181b); }
@@ -515,14 +515,14 @@ class ChatWidgetController {
     }
     startLauncherBlobAnimation(canvas) {
         const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        const size = 68;
+        const size = 84;
         canvas.height = size * pixelRatio;
         canvas.width = size * pixelRatio;
         const context = canvas.getContext('2d');
         if (!context)
             return;
         context.scale(pixelRatio, pixelRatio);
-        const surface = context.createRadialGradient(24, 21, 2, 36, 38, 30);
+        const surface = context.createRadialGradient(30, 26, 2, 45, 47, 37);
         surface.addColorStop(0, '#3a3a3d');
         surface.addColorStop(0.52, '#252528');
         surface.addColorStop(1, '#111113');
@@ -543,11 +543,11 @@ class ChatWidgetController {
             const elapsed = timestamp / 1_000;
             context.clearRect(0, 0, size, size);
             context.beginPath();
-            const centerX = size / 2 + Math.sin(elapsed * 0.82) * 2.2;
-            const centerY = size / 2 + Math.cos(elapsed * 0.67) * 1.8;
+            const centerX = size / 2 + Math.sin(elapsed * 0.82) * 2.7;
+            const centerY = size / 2 + Math.cos(elapsed * 0.67) * 2.2;
             for (let index = 0; index <= 64; index += 1) {
                 const angle = (index / 64) * Math.PI * 2;
-                const radius = 24 *
+                const radius = 30 *
                     (1 +
                         Math.sin(angle * 3 + elapsed * 1.28) * 0.13 +
                         Math.sin(angle * 5 - elapsed * 0.92) * 0.08 +
@@ -567,10 +567,10 @@ class ChatWidgetController {
             context.stroke();
             const blinkPhase = (elapsed + 1.2) % 4.6;
             const blinkScale = blinkPhase < 0.18 ? 1 - Math.sin((blinkPhase / 0.18) * Math.PI) * 0.88 : 1;
-            const gazeX = Math.sin(elapsed * 0.72) * 1.25;
-            const gazeY = Math.sin(elapsed * 0.47 + 0.6) * 0.85;
-            drawEye(centerX - 7.4, centerY - 3.2, 4.15, 5.1 * blinkScale, gazeX, gazeY);
-            drawEye(centerX + 7.8, centerY - 2.5, 3.85, 4.65 * blinkScale, gazeX, gazeY);
+            const gazeX = Math.sin(elapsed * 0.72) * 1.5;
+            const gazeY = Math.sin(elapsed * 0.47 + 0.6) * 1.05;
+            drawEye(centerX - 9.2, centerY - 4, 5.1, 6.3 * blinkScale, gazeX, gazeY);
+            drawEye(centerX + 9.7, centerY - 3.1, 4.8, 5.8 * blinkScale, gazeX, gazeY);
             this.launcherAnimationFrame = window.requestAnimationFrame(render);
         };
         render(0);
