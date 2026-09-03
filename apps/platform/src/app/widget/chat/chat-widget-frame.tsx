@@ -170,11 +170,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
         >
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_16%_4%,rgba(85,201,133,0.11),transparent_46%),radial-gradient(circle_at_92%_8%,rgba(24,24,27,0.055),transparent_38%)]" />
-            <div className="absolute inset-0 opacity-[0.46]">
+            <div className="absolute inset-0 opacity-[0.76]">
               <FlowingRibbons
                 animationSpeed={0.34}
                 backgroundColor="transparent"
-                lineColor="rgba(63,63,70,0.095)"
+                lineColor="rgba(63,63,70,0.13)"
                 placement="bottom"
               />
             </div>
@@ -281,17 +281,13 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                   </ol>
                 </>
               ) : (
-                <div className="chat-empty flex h-full min-h-52 flex-col justify-center px-1 pb-4 text-left">
+                <div className="chat-empty flex h-full min-h-52 flex-col items-center justify-center px-2 pb-4 text-center">
                   <h1 className="m-0 text-[28px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#18181b]">
                     How can we help?
                   </h1>
                   <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
                     Send a message. Soniya and the event team are ready to help.
                   </p>
-                  <div className="mt-5 flex w-fit items-center gap-2 rounded-full border border-black/[0.06] bg-white/65 px-3 py-2 text-[10px] font-medium text-[#71717a] shadow-[0_4px_14px_rgba(24,24,27,0.05)] backdrop-blur-md">
-                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#36b978]" />
-                    Usually replies in a few minutes
-                  </div>
                 </div>
               )}
               <div ref={messageEndRef} />
