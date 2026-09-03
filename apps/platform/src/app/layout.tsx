@@ -7,8 +7,9 @@ import './globals.css';
 import '@livekit/components-styles';
 
 export const metadata: Metadata = {
-  title: 'Supernizo Autocall',
-  description: 'Website visitor intelligence and browser calling platform.',
+  title: 'Supernizo Autocall | Your visitor coworker',
+  description:
+    'Spot live visitor intent, start conversations, and turn the right moments into real connections.',
 };
 
 type RootLayoutProps = Readonly<{

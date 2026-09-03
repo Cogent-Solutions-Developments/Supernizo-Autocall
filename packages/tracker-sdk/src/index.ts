@@ -241,6 +241,27 @@ function isBootstrapResponse(value: unknown): value is TrackerBootstrapResponse 
   );
 }
 
+async function requestTrackerBootstrap(
+  endpoint: string,
+  payload: TrackerBootstrapRequest,
+): Promise<TrackerBootstrapResponse | undefined> {
+  try {
+    const response = await fetch(endpoint, {
+      body: JSON.stringify(payload),
+      credentials: 'omit',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+      keepalive: true,
+      method: 'POST',
+      mode: 'cors',
+    });
+    if (!response.ok) return undefined;
+    const responseBody: unknown = await response.json();
+    return isBootstrapResponse(responseBody) ? responseBody : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function readDisabledState(): boolean {
   if (typeof window === 'undefined') {
     return true;
@@ -311,27 +332,32 @@ export const Tracker: TrackerRuntime = {
       }
 
       const bootstrapEndpoint = resolveEndpoint(script, options.endpoint);
-      const response = await fetch(bootstrapEndpoint, {
-        body: JSON.stringify({
-          ...identifiers,
-          browser,
-          sitePublicKey,
-        } satisfies TrackerBootstrapRequest),
-        credentials: 'omit',
-        headers: { 'content-type': 'text/plain;charset=UTF-8' },
-        keepalive: true,
-        method: 'POST',
-        mode: 'cors',
+      const responseBody = await requestTrackerBootstrap(bootstrapEndpoint, {
+        ...identifiers,
+        browser,
+        sitePublicKey,
       });
 
-      if (!response.ok) {
+      if (!responseBody) {
         return undefined;
       }
 
-      const responseBody: unknown = await response.json();
-      if (!isBootstrapResponse(responseBody)) {
-        return undefined;
-      }
+      const renewCallWidgetConfig = async () => {
+        const refreshedBrowser = getBrowserMetadata();
+        if (!refreshedBrowser) return undefined;
+        const refreshed = await requestTrackerBootstrap(bootstrapEndpoint, {
+          ...identifiers,
+          browser: refreshedBrowser,
+          sitePublicKey,
+        });
+        return refreshed
+          ? {
+              channel: refreshed.realtime.channel,
+              ...(refreshed.calling ? { livekitUrl: refreshed.calling.url } : {}),
+              token: refreshed.realtime.authorizationToken,
+            }
+          : undefined;
+      };
 
       engagementManager?.stop();
       engagementManager = new EngagementManager(
@@ -368,8 +394,10 @@ export const Tracker: TrackerRuntime = {
               bootstrapEndpoint,
               {
                 channel: responseBody.realtime.channel,
+                ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                 token: responseBody.realtime.authorizationToken,
               },
+              renewCallWidgetConfig,
             )
           : undefined;
       callWidget?.start();

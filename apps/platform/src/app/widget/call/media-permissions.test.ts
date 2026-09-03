@@ -5,29 +5,27 @@ import { MediaPermissionError, requestMediaPermissions } from './media-permissio
 describe('requestMediaPermissions', () => {
   it('asks only for a microphone for an audio call', async () => {
     const stop = vi.fn();
-    const requestMedia = vi.fn().mockResolvedValue({ getTracks: () => [{ stop }] });
+    const tracks = [{ stop }];
+    const requestMedia = vi.fn().mockResolvedValue(tracks);
 
-    await requestMediaPermissions('AUDIO', requestMedia);
+    await expect(requestMediaPermissions('AUDIO', requestMedia)).resolves.toBe(tracks);
 
     expect(requestMedia).toHaveBeenCalledWith({ audio: true, video: false });
     expect(requestMedia).toHaveBeenCalledTimes(1);
-    expect(stop).toHaveBeenCalledOnce();
+    expect(stop).not.toHaveBeenCalled();
   });
 
-  it('asks for microphone and camera access separately for a video call', async () => {
-    const requestMedia = vi.fn().mockResolvedValue({ getTracks: () => [] });
+  it('asks for microphone and camera access together for a video call', async () => {
+    const requestMedia = vi.fn().mockResolvedValue([]);
 
     await requestMediaPermissions('VIDEO', requestMedia);
 
-    expect(requestMedia).toHaveBeenNthCalledWith(1, { audio: true, video: false });
-    expect(requestMedia).toHaveBeenNthCalledWith(2, { audio: false, video: true });
+    expect(requestMedia).toHaveBeenCalledWith({ audio: true, video: true });
+    expect(requestMedia).toHaveBeenCalledTimes(1);
   });
 
-  it('identifies a blocked camera after microphone access has been granted', async () => {
-    const requestMedia = vi
-      .fn()
-      .mockResolvedValueOnce({ getTracks: () => [] })
-      .mockRejectedValueOnce(new Error('Camera permission denied.'));
+  it('identifies blocked video-call media as a camera permission failure', async () => {
+    const requestMedia = vi.fn().mockRejectedValue(new Error('Camera permission denied.'));
 
     await expect(requestMediaPermissions('VIDEO', requestMedia)).rejects.toEqual(
       expect.objectContaining<Partial<MediaPermissionError>>({ permission: 'camera' }),
