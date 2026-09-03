@@ -398,7 +398,6 @@ class ChatWidgetController {
     currentConfig;
     frame;
     launcher;
-    launcherAnimationFrame;
     launcherStyle;
     hasSyncedThread = false;
     latestAgentMessageId;
@@ -425,10 +424,6 @@ class ChatWidgetController {
         }
         window.removeEventListener('message', this.receiveMessage);
         this.unmountFrame();
-        if (this.launcherAnimationFrame !== undefined) {
-            window.cancelAnimationFrame(this.launcherAnimationFrame);
-            this.launcherAnimationFrame = undefined;
-        }
         this.launcher?.remove();
         this.launcher = undefined;
         this.launcherStyle?.remove();
@@ -464,122 +459,117 @@ class ChatWidgetController {
         launcher.setAttribute('aria-label', 'Open chat with the event team');
         launcher.dataset.supernizoLauncher = 'true';
         launcher.setAttribute('type', 'button');
-        const fallbackBlob = document.createElement('span');
-        fallbackBlob.ariaHidden = 'true';
-        fallbackBlob.className = 'supernizo-chat-launcher__blob-fallback';
-        const blobCanvas = document.createElement('canvas');
-        blobCanvas.ariaHidden = 'true';
-        blobCanvas.className = 'supernizo-chat-launcher__blob';
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const media = document.createElement('span');
+        media.ariaHidden = 'true';
+        media.className = 'supernizo-chat-launcher__media';
+        const identityVideo = document.createElement('video');
+        identityVideo.ariaHidden = 'true';
+        identityVideo.autoplay = !reducedMotion;
+        identityVideo.className = 'supernizo-chat-launcher__video';
+        identityVideo.disablePictureInPicture = true;
+        identityVideo.loop = true;
+        identityVideo.muted = true;
+        identityVideo.playsInline = true;
+        identityVideo.poster = new URL('/sdk/assets/cta-hover-loop1-poster.jpg', this.bootstrapEndpoint).toString();
+        identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
+        identityVideo.src = new URL('/sdk/assets/cta-hover-loop1.mp4', this.bootstrapEndpoint).toString();
+        media.append(identityVideo);
+        const footer = document.createElement('span');
+        footer.ariaHidden = 'true';
+        footer.className = 'supernizo-chat-launcher__footer';
+        const profile = document.createElement('span');
+        profile.className = 'supernizo-chat-launcher__profile';
+        const avatarWrap = document.createElement('span');
+        avatarWrap.className = 'supernizo-chat-launcher__avatar-wrap';
+        const avatar = document.createElement('img');
+        avatar.alt = '';
+        avatar.className = 'supernizo-chat-launcher__avatar';
+        avatar.src = identityVideo.poster;
+        const onlineIndicator = document.createElement('span');
+        onlineIndicator.className = 'supernizo-chat-launcher__online-indicator';
+        avatarWrap.append(avatar, onlineIndicator);
+        const profileCopy = document.createElement('span');
+        profileCopy.className = 'supernizo-chat-launcher__profile-copy';
+        const profileName = document.createElement('strong');
+        profileName.textContent = 'Soniya Sahanya';
+        const profileStatus = document.createElement('span');
+        profileStatus.textContent = 'Ready to help';
+        profileCopy.append(profileName, profileStatus);
+        profile.append(avatarWrap, profileCopy);
+        const action = document.createElement('span');
+        action.className = 'supernizo-chat-launcher__action';
+        const actionIcon = document.createElement('span');
+        actionIcon.className = 'supernizo-chat-launcher__action-icon';
+        actionIcon.textContent = '+';
+        const actionLabel = document.createElement('span');
+        actionLabel.textContent = 'Chat';
+        action.append(actionIcon, actionLabel);
+        footer.append(profile, action);
         const unreadBadge = document.createElement('span');
         unreadBadge.ariaHidden = 'true';
         unreadBadge.className = 'supernizo-chat-launcher__badge';
-        launcher.append(fallbackBlob, blobCanvas, unreadBadge);
+        launcher.append(media, footer, unreadBadge);
+        const launcherShadow = '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
         launcher.style.cssText = [
             'appearance:none',
-            'background:transparent',
-            'border:0',
+            'background:#fff',
+            'border:1px solid rgba(24,24,27,.12)',
+            'border-radius:18px',
             'bottom:16px',
+            `box-shadow:${launcherShadow}`,
+            'box-sizing:border-box',
             'cursor:pointer',
-            'height:88px',
+            'display:grid',
+            'grid-template-rows:232px 48px',
+            'height:296px',
             'isolation:isolate',
-            'padding:0',
+            'max-width:calc(100vw - 32px)',
+            'overflow:hidden',
+            'padding:7px',
             'position:fixed',
             'right:16px',
-            'transition:transform .16s ease',
-            'width:88px',
+            'text-align:left',
+            'transition:box-shadow .22s ease,transform .22s cubic-bezier(.2,.8,.2,1)',
+            'width:228px',
             'z-index:2147482999',
         ].join(';');
         launcher.addEventListener('click', () => this.openChat());
         launcher.addEventListener('mouseenter', () => {
-            launcher.style.transform = 'translateY(-2px) scale(1.03)';
+            launcher.style.boxShadow = '0 26px 64px rgba(24,24,27,.22),0 4px 12px rgba(24,24,27,.09)';
+            launcher.style.transform = 'translateY(-3px) scale(1.012)';
         });
         launcher.addEventListener('mouseleave', () => {
+            launcher.style.boxShadow = launcherShadow;
             launcher.style.transform = '';
         });
         (document.body ?? document.documentElement).append(launcher);
         this.launcher = launcher;
-        this.startLauncherBlobAnimation(blobCanvas);
         const style = document.createElement('style');
         style.dataset.supernizoChatLauncher = 'true';
         style.textContent = `
-      .supernizo-chat-launcher__blob-fallback { background:#18181b; border-radius:48% 52% 43% 57% / 55% 44% 56% 45%; height:62px; inset:13px; position:absolute; transform:rotate(-8deg); width:64px; z-index:0; }
-      .supernizo-chat-launcher__blob { filter:drop-shadow(0 8px 12px rgba(0,0,0,.24)) drop-shadow(0 0 .75px rgba(255,255,255,.5)); height:84px; inset:2px; pointer-events:none; position:absolute; transition:filter .16s ease; width:84px; z-index:1; }
-      .supernizo-chat-launcher__badge { background:#55b982; border:2px solid #f4f4f5; border-radius:999px; bottom:8px; display:none; height:11px; position:absolute; right:8px; width:11px; z-index:2; }
+      button[data-supernizo-launcher='true'], button[data-supernizo-launcher='true'] *, button[data-supernizo-launcher='true'] *::before, button[data-supernizo-launcher='true'] *::after { box-sizing:border-box; }
+      .supernizo-chat-launcher__media { background:#efefec; border-radius:12px; display:block; min-height:0; overflow:hidden; pointer-events:none; position:relative; width:100%; }
+      .supernizo-chat-launcher__video { display:block; height:100%; inset:0; object-fit:cover; object-position:50% 18%; position:absolute; transform:scale(1.02); width:100%; }
+      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; padding:0 1px 1px 4px; pointer-events:none; width:100%; }
+      .supernizo-chat-launcher__profile { align-items:center; display:flex; min-width:0; }
+      .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:32px; position:relative; width:32px; }
+      .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:32px; object-fit:cover; object-position:50% 18%; width:32px; }
+      .supernizo-chat-launcher__online-indicator { background:#55c985; border:2px solid #fff; border-radius:999px; bottom:-1px; height:9px; position:absolute; right:-1px; width:9px; }
+      .supernizo-chat-launcher__profile-copy { color:#18181b; display:flex; flex-direction:column; line-height:1.1; margin-left:8px; min-width:0; overflow:hidden; white-space:nowrap; }
+      .supernizo-chat-launcher__profile-copy strong { font-size:10.5px; font-weight:650; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; }
+      .supernizo-chat-launcher__profile-copy > span { color:#85858d; font-size:9px; font-weight:500; margin-top:4px; }
+      .supernizo-chat-launcher__action { align-items:center; background:#18181b; border-radius:10px; color:#fff; display:flex; flex:0 0 auto; font-size:11px; font-weight:600; gap:5px; height:38px; justify-content:center; padding:0 12px; }
+      .supernizo-chat-launcher__action-icon { font-size:17px; font-weight:300; line-height:1; margin-top:-1px; }
+      .supernizo-chat-launcher__badge { background:#ff3b4e; border:2px solid #fff; border-radius:999px; display:none; height:12px; position:absolute; right:10px; top:10px; width:12px; z-index:3; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
-      button[aria-label='Open chat with the event team']:focus-visible .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 3px #fff) drop-shadow(0 0 2px #18181b); }
+      button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
+      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:216px 48px !important; height:280px !important; width:214px !important; } }
       @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
         this.launcherStyle = style;
-    }
-    startLauncherBlobAnimation(canvas) {
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        const size = 84;
-        canvas.height = size * pixelRatio;
-        canvas.width = size * pixelRatio;
-        const context = canvas.getContext('2d');
-        if (!context)
-            return;
-        context.scale(pixelRatio, pixelRatio);
-        const surface = context.createRadialGradient(30, 26, 2, 45, 47, 37);
-        surface.addColorStop(0, '#3a3a3d');
-        surface.addColorStop(0.52, '#252528');
-        surface.addColorStop(1, '#111113');
-        const drawEye = (x, y, radiusX, radiusY, gazeX, gazeY) => {
-            context.beginPath();
-            context.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
-            context.fillStyle = '#f4f3ed';
-            context.fill();
-            context.save();
-            context.clip();
-            context.beginPath();
-            context.ellipse(x + gazeX, y + gazeY, 1.7, Math.max(0.45, radiusY * 0.38), 0, 0, Math.PI * 2);
-            context.fillStyle = '#18181b';
-            context.fill();
-            context.restore();
-        };
-        const render = (timestamp) => {
-            const elapsed = timestamp / 1_000;
-            context.clearRect(0, 0, size, size);
-            context.beginPath();
-            const centerX = size / 2 + Math.sin(elapsed * 0.82) * 2.7;
-            const centerY = size / 2 + Math.cos(elapsed * 0.67) * 2.2;
-            for (let index = 0; index <= 64; index += 1) {
-                const angle = (index / 64) * Math.PI * 2;
-                const radius = 30 *
-                    (1 +
-                        Math.sin(angle * 3 + elapsed * 1.28) * 0.13 +
-                        Math.sin(angle * 5 - elapsed * 0.92) * 0.08 +
-                        Math.sin(angle * 2 + elapsed * 0.58) * 0.055);
-                const x = centerX + Math.cos(angle) * radius;
-                const y = centerY + Math.sin(angle) * radius;
-                if (index === 0)
-                    context.moveTo(x, y);
-                else
-                    context.lineTo(x, y);
-            }
-            context.closePath();
-            context.fillStyle = surface;
-            context.fill();
-            context.lineWidth = 0.75;
-            context.strokeStyle = '#09090b';
-            context.stroke();
-            const blinkPhase = (elapsed + 1.2) % 4.6;
-            const blinkScale = blinkPhase < 0.18 ? 1 - Math.sin((blinkPhase / 0.18) * Math.PI) * 0.88 : 1;
-            const gazeX = Math.sin(elapsed * 0.72) * 1.5;
-            const gazeY = Math.sin(elapsed * 0.47 + 0.6) * 1.05;
-            drawEye(centerX - 9.2, centerY - 4, 5.1, 6.3 * blinkScale, gazeX, gazeY);
-            drawEye(centerX + 9.7, centerY - 3.1, 4.8, 5.8 * blinkScale, gazeX, gazeY);
-            this.launcherAnimationFrame = window.requestAnimationFrame(render);
-        };
-        render(0);
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            if (this.launcherAnimationFrame !== undefined) {
-                window.cancelAnimationFrame(this.launcherAnimationFrame);
-                this.launcherAnimationFrame = undefined;
-            }
-        }
     }
     openChat() {
         this.openRequested = true;
@@ -696,32 +686,39 @@ const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
 const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MOTION_HANDOFF_DURATION_MS = 680;
-const CALL_FRAME_ENTER_KEYFRAMES = [
-    {
-        clipPath: 'inset(86% 0 0 78% round 36px)',
-        offset: 0,
-        opacity: 0.12,
-        transform: 'translate3d(0, 5px, 0) scale(0.99)',
-    },
-    {
-        clipPath: 'inset(86% 0 0 78% round 36px)',
-        offset: 0.16,
-        opacity: 1,
-        transform: 'translate3d(0, 4px, 0) scale(0.99)',
-    },
-    {
-        clipPath: 'inset(0 0 0 0 round 22px)',
-        offset: 0.86,
-        opacity: 1,
-        transform: 'translate3d(0, 0, 0) scale(1)',
-    },
-    {
-        clipPath: 'inset(0 0 0 0 round 18px)',
-        offset: 1,
-        opacity: 1,
-        transform: 'translate3d(0, 0, 0) scale(1)',
-    },
-];
+function callFrameEnterKeyframes(frame, launcher) {
+    const frameRect = frame.getBoundingClientRect();
+    const launcherRect = launcher?.getBoundingClientRect();
+    const scaleX = launcherRect ? Math.min(1, launcherRect.width / frameRect.width) : 0.7;
+    const scaleY = launcherRect ? Math.min(1, launcherRect.height / frameRect.height) : 0.62;
+    const compactTransform = `translate3d(0, 0, 0) scale3d(${scaleX}, ${scaleY}, 1)`;
+    return [
+        {
+            filter: 'blur(1px)',
+            offset: 0,
+            opacity: 0,
+            transform: compactTransform,
+        },
+        {
+            filter: 'blur(0)',
+            offset: 0.2,
+            opacity: 0.28,
+            transform: compactTransform,
+        },
+        {
+            filter: 'blur(0)',
+            offset: 0.82,
+            opacity: 1,
+            transform: 'translate3d(0, 0, 0) scale3d(.985, .985, 1)',
+        },
+        {
+            filter: 'blur(0)',
+            offset: 1,
+            opacity: 1,
+            transform: 'translate3d(0, 0, 0) scale3d(1, 1, 1)',
+        },
+    ];
+}
 function isCallWidgetConfigRefreshDue(lastRefreshAt, lastAttemptAt, now = Date.now()) {
     return (now - lastRefreshAt >= CONFIG_REFRESH_AFTER_MS && now - lastAttemptAt >= CONFIG_REFRESH_RETRY_MS);
 }
@@ -734,7 +731,7 @@ function callWidgetFrameStyles(visible) {
         'border:0',
         'border-radius:18px',
         'bottom:16px',
-        `height:${visible ? '500px' : '1px'}`,
+        `height:${visible ? 'min(540px, calc(100vh - 32px))' : '1px'}`,
         `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
         'overflow:hidden',
         `opacity:${visible ? '1' : '0'}`,
@@ -742,7 +739,7 @@ function callWidgetFrameStyles(visible) {
         'position:fixed',
         'right:16px',
         'transform-origin:bottom right',
-        `width:${visible ? '330px' : '1px'}`,
+        `width:${visible ? '350px' : '1px'}`,
         'z-index:2147483001',
     ];
 }
@@ -914,7 +911,9 @@ class CallWidgetController {
         this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (visible && typeof this.frame.animate === 'function') {
-            this.frameAnimation = this.frame.animate(reducedMotion ? [{ opacity: 0 }, { opacity: 1 }] : CALL_FRAME_ENTER_KEYFRAMES, {
+            this.frameAnimation = this.frame.animate(reducedMotion
+                ? [{ opacity: 0 }, { opacity: 1 }]
+                : callFrameEnterKeyframes(this.frame, this.findLauncher()), {
                 duration: reducedMotion ? 140 : MOTION_HANDOFF_DURATION_MS,
                 easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
                 fill: 'both',
@@ -937,12 +936,6 @@ class CallWidgetController {
             return;
         }
         if (!visible && !reducedMotion && this.frame) {
-            const launcherRect = launcher.getBoundingClientRect();
-            const frameRect = this.frame.getBoundingClientRect();
-            const targetX = frameRect.left + frameRect.width / 2;
-            const targetY = frameRect.top + frameRect.height * 0.31;
-            const translateX = targetX - (launcherRect.left + launcherRect.width / 2);
-            const translateY = targetY - (launcherRect.top + launcherRect.height / 2);
             launcher.style.zIndex = '2147483002';
             const animation = launcher.animate([
                 {
@@ -951,24 +944,19 @@ class CallWidgetController {
                     transform: 'translate3d(0, 0, 0) scale(1)',
                 },
                 {
-                    offset: 0.18,
+                    offset: 0.42,
                     opacity: 1,
-                    transform: `translate3d(${translateX * 0.1}px, ${translateY * 0.1}px, 0) scale(1.04)`,
+                    transform: 'translate3d(0, 0, 0) scale(1.008)',
                 },
                 {
-                    offset: 0.76,
-                    opacity: 1,
-                    transform: `translate3d(${translateX * 0.9}px, ${translateY * 0.9}px, 0) scale(1.38)`,
-                },
-                {
-                    offset: 0.9,
-                    opacity: 1,
-                    transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.48)`,
+                    offset: 0.78,
+                    opacity: 0.76,
+                    transform: 'translate3d(0, 1px, 0) scale(1.014)',
                 },
                 {
                     offset: 1,
                     opacity: 0,
-                    transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.5)`,
+                    transform: 'translate3d(0, 3px, 0) scale(1.018)',
                 },
             ], {
                 duration: MOTION_HANDOFF_DURATION_MS,
@@ -985,12 +973,12 @@ class CallWidgetController {
         launcher.style.zIndex = '2147482999';
         const hiddenFrame = reducedMotion
             ? { opacity: 0 }
-            : { opacity: 0, transform: 'translate3d(0, 5px, 0) scale(0.84)' };
+            : { opacity: 0, transform: 'translate3d(0, 7px, 0) scale(0.96)' };
         const visibleFrame = reducedMotion
             ? { opacity: 1 }
             : { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' };
         this.launcherAnimation = launcher.animate(visible ? [hiddenFrame, visibleFrame] : [visibleFrame, hiddenFrame], {
-            duration: reducedMotion ? 120 : visible ? 220 : 150,
+            duration: reducedMotion ? 120 : visible ? 280 : 180,
             easing: MOTION_EASE_OUT,
             fill: 'both',
         });

@@ -20,9 +20,9 @@ describe('call widget mounting', () => {
   it('expands and receives pointer input only while presenting a call', () => {
     const visibleStyles = callWidgetFrameStyles(true);
 
-    expect(visibleStyles).toContain('height:500px');
+    expect(visibleStyles).toContain('height:min(540px, calc(100vh - 32px))');
     expect(visibleStyles).toContain('pointer-events:auto');
-    expect(visibleStyles).toContain('width:330px');
+    expect(visibleStyles).toContain('width:350px');
     expect(visibleStyles).toContain('background:transparent');
     expect(visibleStyles).toContain('border-radius:18px');
     expect(visibleStyles).toContain('overflow:hidden');

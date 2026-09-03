@@ -25,32 +25,44 @@ const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
 const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MOTION_HANDOFF_DURATION_MS = 680;
-const CALL_FRAME_ENTER_KEYFRAMES: Keyframe[] = [
-  {
-    clipPath: 'inset(86% 0 0 78% round 36px)',
-    offset: 0,
-    opacity: 0.12,
-    transform: 'translate3d(0, 5px, 0) scale(0.99)',
-  },
-  {
-    clipPath: 'inset(86% 0 0 78% round 36px)',
-    offset: 0.16,
-    opacity: 1,
-    transform: 'translate3d(0, 4px, 0) scale(0.99)',
-  },
-  {
-    clipPath: 'inset(0 0 0 0 round 22px)',
-    offset: 0.86,
-    opacity: 1,
-    transform: 'translate3d(0, 0, 0) scale(1)',
-  },
-  {
-    clipPath: 'inset(0 0 0 0 round 18px)',
-    offset: 1,
-    opacity: 1,
-    transform: 'translate3d(0, 0, 0) scale(1)',
-  },
-];
+
+function callFrameEnterKeyframes(
+  frame: HTMLIFrameElement,
+  launcher: HTMLButtonElement | null,
+): Keyframe[] {
+  const frameRect = frame.getBoundingClientRect();
+  const launcherRect = launcher?.getBoundingClientRect();
+  const scaleX = launcherRect ? Math.min(1, launcherRect.width / frameRect.width) : 0.7;
+  const scaleY = launcherRect ? Math.min(1, launcherRect.height / frameRect.height) : 0.62;
+  const compactTransform = `translate3d(0, 0, 0) scale3d(${scaleX}, ${scaleY}, 1)`;
+
+  return [
+    {
+      filter: 'blur(1px)',
+      offset: 0,
+      opacity: 0,
+      transform: compactTransform,
+    },
+    {
+      filter: 'blur(0)',
+      offset: 0.2,
+      opacity: 0.28,
+      transform: compactTransform,
+    },
+    {
+      filter: 'blur(0)',
+      offset: 0.82,
+      opacity: 1,
+      transform: 'translate3d(0, 0, 0) scale3d(.985, .985, 1)',
+    },
+    {
+      filter: 'blur(0)',
+      offset: 1,
+      opacity: 1,
+      transform: 'translate3d(0, 0, 0) scale3d(1, 1, 1)',
+    },
+  ];
+}
 
 export function isCallWidgetConfigRefreshDue(
   lastRefreshAt: number,
@@ -72,7 +84,7 @@ export function callWidgetFrameStyles(visible: boolean): readonly string[] {
     'border:0',
     'border-radius:18px',
     'bottom:16px',
-    `height:${visible ? '500px' : '1px'}`,
+    `height:${visible ? 'min(540px, calc(100vh - 32px))' : '1px'}`,
     `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
     'overflow:hidden',
     `opacity:${visible ? '1' : '0'}`,
@@ -80,7 +92,7 @@ export function callWidgetFrameStyles(visible: boolean): readonly string[] {
     'position:fixed',
     'right:16px',
     'transform-origin:bottom right',
-    `width:${visible ? '330px' : '1px'}`,
+    `width:${visible ? '350px' : '1px'}`,
     'z-index:2147483001',
   ];
 }
@@ -276,7 +288,9 @@ export class CallWidgetController {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (visible && typeof this.frame.animate === 'function') {
       this.frameAnimation = this.frame.animate(
-        reducedMotion ? [{ opacity: 0 }, { opacity: 1 }] : CALL_FRAME_ENTER_KEYFRAMES,
+        reducedMotion
+          ? [{ opacity: 0 }, { opacity: 1 }]
+          : callFrameEnterKeyframes(this.frame, this.findLauncher()),
         {
           duration: reducedMotion ? 140 : MOTION_HANDOFF_DURATION_MS,
           easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
@@ -306,12 +320,6 @@ export class CallWidgetController {
     }
 
     if (!visible && !reducedMotion && this.frame) {
-      const launcherRect = launcher.getBoundingClientRect();
-      const frameRect = this.frame.getBoundingClientRect();
-      const targetX = frameRect.left + frameRect.width / 2;
-      const targetY = frameRect.top + frameRect.height * 0.31;
-      const translateX = targetX - (launcherRect.left + launcherRect.width / 2);
-      const translateY = targetY - (launcherRect.top + launcherRect.height / 2);
       launcher.style.zIndex = '2147483002';
 
       const animation = launcher.animate(
@@ -322,24 +330,19 @@ export class CallWidgetController {
             transform: 'translate3d(0, 0, 0) scale(1)',
           },
           {
-            offset: 0.18,
+            offset: 0.42,
             opacity: 1,
-            transform: `translate3d(${translateX * 0.1}px, ${translateY * 0.1}px, 0) scale(1.04)`,
+            transform: 'translate3d(0, 0, 0) scale(1.008)',
           },
           {
-            offset: 0.76,
-            opacity: 1,
-            transform: `translate3d(${translateX * 0.9}px, ${translateY * 0.9}px, 0) scale(1.38)`,
-          },
-          {
-            offset: 0.9,
-            opacity: 1,
-            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.48)`,
+            offset: 0.78,
+            opacity: 0.76,
+            transform: 'translate3d(0, 1px, 0) scale(1.014)',
           },
           {
             offset: 1,
             opacity: 0,
-            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.5)`,
+            transform: 'translate3d(0, 3px, 0) scale(1.018)',
           },
         ],
         {
@@ -362,14 +365,14 @@ export class CallWidgetController {
     launcher.style.zIndex = '2147482999';
     const hiddenFrame: Keyframe = reducedMotion
       ? { opacity: 0 }
-      : { opacity: 0, transform: 'translate3d(0, 5px, 0) scale(0.84)' };
+      : { opacity: 0, transform: 'translate3d(0, 7px, 0) scale(0.96)' };
     const visibleFrame: Keyframe = reducedMotion
       ? { opacity: 1 }
       : { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' };
     this.launcherAnimation = launcher.animate(
       visible ? [hiddenFrame, visibleFrame] : [visibleFrame, hiddenFrame],
       {
-        duration: reducedMotion ? 120 : visible ? 220 : 150,
+        duration: reducedMotion ? 120 : visible ? 280 : 180,
         easing: MOTION_EASE_OUT,
         fill: 'both',
       },

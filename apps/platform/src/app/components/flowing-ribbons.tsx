@@ -9,6 +9,7 @@ type FlowingRibbonsProps = Readonly<{
   animationSpeed?: number;
   backgroundColor?: string;
   lineColor?: string;
+  placement?: 'bottom' | 'center';
   removeWaveLine?: boolean;
 }>;
 
@@ -68,10 +69,13 @@ export function FlowingRibbons({
   animationSpeed = 0.3,
   backgroundColor = '#f0eee6',
   lineColor = '#777777',
+  placement = 'center',
   removeWaveLine = true,
 }: FlowingRibbonsProps) {
   const edgeFadeMask =
-    'radial-gradient(ellipse 82% 76% at 50% 50%, #000 0%, #000 30%, rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0.22) 74%, transparent 100%)';
+    placement === 'bottom'
+      ? 'linear-gradient(180deg, transparent 0%, transparent 44%, rgba(0, 0, 0, 0.12) 54%, rgba(0, 0, 0, 0.68) 70%, #000 82%, #000 100%)'
+      : 'radial-gradient(ellipse 82% 76% at 50% 50%, #000 0%, #000 30%, rgba(0, 0, 0, 0.72) 52%, rgba(0, 0, 0, 0.22) 74%, transparent 100%)';
   const automaticDisturbanceIndex = useRef(0);
   const automaticDisturbanceTimer = useRef<number | null>(null);
   const animationFrameId = useRef<number | null>(null);
@@ -113,8 +117,11 @@ export function FlowingRibbons({
     const disturbances = disturbancesRef.current;
     timeRef.current += Math.min(elapsedTime, 50) * animationSpeed * 0.25;
 
-    context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, width, height);
+    context.clearRect(0, 0, width, height);
+    if (backgroundColor !== 'transparent') {
+      context.fillStyle = backgroundColor;
+      context.fillRect(0, 0, width, height);
+    }
     context.strokeStyle = lineColor;
     context.lineWidth = 0.5;
 

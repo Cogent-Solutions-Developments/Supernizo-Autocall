@@ -13,7 +13,7 @@ import {
   type LiveKitTokenResponse,
 } from '@supernizo/shared';
 
-import { BlobIdentity } from '@/app/components/blob-identity';
+import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
 import { FlowingRibbons } from '@/app/components/flowing-ribbons';
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
@@ -142,7 +142,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const hasActiveMedia =
     media !== null && call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
   const agentName = call?.agentDisplayName ?? 'Event team';
-  const callerName = agentName.trim().toLowerCase() === 'local admin' ? 'Blob' : agentName;
+  const normalizedAgentName = agentName.trim().toLowerCase();
+  const callerName =
+    normalizedAgentName === 'local admin' || normalizedAgentName === 'nizo'
+      ? 'Soniya Sahanya'
+      : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
 
   function acceptCall(): void {
@@ -237,19 +241,33 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         <section
           aria-label="Official event call"
           aria-live="assertive"
-          className="relative isolate flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b]"
+          className="relative isolate flex h-[calc(100vh-2px)] min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b]"
         >
-          <FlowingRibbons
-            animationSpeed={0.36}
-            backgroundColor="#ffffff"
-            lineColor="rgba(113, 113, 122, 0.13)"
-          />
-          <span className="call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium text-[#71717a]">
+          {isRinging ? (
+            <div className="absolute inset-0 z-0">
+              <CallerIdentityVideo variant="cover" />
+            </div>
+          ) : null}
+          {isRinging ? (
+            <div
+              aria-hidden="true"
+              className="call-card__portrait-blend pointer-events-none absolute inset-0 z-[1]"
+            />
+          ) : null}
+          <div className="absolute inset-0 z-[2]">
+            <FlowingRibbons
+              animationSpeed={0.36}
+              backgroundColor={isRinging ? 'transparent' : '#ffffff'}
+              lineColor={isRinging ? 'rgba(39, 39, 42, 0.1)' : 'rgba(113, 113, 122, 0.13)'}
+              placement={isRinging ? 'bottom' : 'center'}
+            />
+          </div>
+          <span className="call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.32)]">
             <NizoVerifiedIcon />
             Nizo Verified
           </span>
 
-          <div className="relative z-[1] flex h-full min-h-0 w-full flex-col">
+          <div className="relative z-[3] flex h-full min-h-0 w-full flex-col">
             <div
               className={
                 hasActiveMedia
@@ -306,15 +324,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 </div>
               ) : (
                 <div className="call-card__hero flex flex-col items-center">
-                  <div className="h-32 w-32 shrink-0">
-                    <BlobIdentity />
-                  </div>
+                  <span aria-hidden="true" className="h-56 shrink-0" />
                   <span className="sr-only">
                     {callerName}, {call.type === 'VIDEO' ? 'video call' : 'audio call'}
                   </span>
                   <p className="m-0 mt-5 text-[12px] font-medium text-[#71717a]">
                     {isRinging
-                      ? `Incoming ${call.type === 'VIDEO' ? 'video' : 'audio'} call`
+                      ? `Incoming ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Call`
                       : 'Call status'}
                   </p>
                   <h1 className="!m-0 mt-2 max-w-[290px] !text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
@@ -408,6 +424,18 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
         .call-card__verified {
           animation: call-verified-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 280ms both;
+        }
+        .call-card__portrait-blend {
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0) 46%,
+            rgba(255, 255, 255, 0.14) 55%,
+            rgba(255, 255, 255, 0.62) 67%,
+            rgba(255, 255, 255, 0.94) 79%,
+            #fff 88%,
+            #fff 100%
+          );
         }
         .call-card__hero {
           animation: call-hero-in 340ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
