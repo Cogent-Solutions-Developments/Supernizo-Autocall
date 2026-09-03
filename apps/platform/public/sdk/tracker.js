@@ -344,9 +344,17 @@ exports.EngagementManager = EngagementManager;
   modules['./chat-widget'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatWidgetController = void 0;
+exports.ChatWidgetController = exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = void 0;
+exports.shouldScheduleChatLauncherCollapse = shouldScheduleChatLauncherCollapse;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
 exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
+exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
+exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
+const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
+const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 38;
+function shouldScheduleChatLauncherCollapse(callActive, collapsed) {
+    return !callActive && !collapsed;
+}
 function shouldOpenChatForNewAgentMessage(hasSyncedThread, latestAgentMessageId, nextAgentMessageId) {
     return Boolean(hasSyncedThread && nextAgentMessageId && nextAgentMessageId !== latestAgentMessageId);
 }
@@ -398,7 +406,10 @@ class ChatWidgetController {
     currentConfig;
     frame;
     launcher;
+    launcherCollapseAnimations = [];
+    launcherCollapseTimer;
     launcherStyle;
+    callActive = false;
     hasSyncedThread = false;
     latestAgentMessageId;
     openRequested = false;
@@ -422,6 +433,7 @@ class ChatWidgetController {
             window.clearInterval(this.syncTimer);
             this.syncTimer = undefined;
         }
+        this.cancelLauncherCollapse();
         window.removeEventListener('message', this.receiveMessage);
         this.unmountFrame();
         this.launcher?.remove();
@@ -432,6 +444,15 @@ class ChatWidgetController {
         this.latestAgentMessageId = undefined;
         this.openRequested = false;
         this.currentConfig = undefined;
+    }
+    setCallActive(active) {
+        if (this.callActive === active)
+            return;
+        this.callActive = active;
+        this.cancelLauncherCollapse();
+        if (!active && this.launcher) {
+            this.scheduleLauncherCollapse(this.launcher);
+        }
     }
     mount() {
         if (this.frame)
@@ -521,8 +542,8 @@ class ChatWidgetController {
             'box-sizing:border-box',
             'cursor:pointer',
             'display:grid',
-            'grid-template-rows:200px 48px',
-            'height:264px',
+            'grid-template-rows:200px 46px',
+            'height:262px',
             'isolation:isolate',
             'max-width:calc(100vw - 32px)',
             'overflow:hidden',
@@ -565,11 +586,138 @@ class ChatWidgetController {
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
       button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
-      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 48px !important; height:260px !important; width:200px !important; } }
+      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 46px !important; height:258px !important; width:200px !important; } }
+      button[data-supernizo-launcher='true'][data-supernizo-collapsed='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; }
+      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__media { opacity:0; visibility:hidden; }
+      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__footer { align-items:center; padding:0 1px; }
       @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
         this.launcherStyle = style;
+        this.scheduleLauncherCollapse(launcher);
+    }
+    scheduleLauncherCollapse(launcher) {
+        if (!shouldScheduleChatLauncherCollapse(this.callActive, launcher.dataset.supernizoCollapsed === 'true')) {
+            return;
+        }
+        if (this.launcherCollapseTimer !== undefined) {
+            window.clearTimeout(this.launcherCollapseTimer);
+        }
+        this.launcherCollapseTimer = window.setTimeout(() => {
+            this.launcherCollapseTimer = undefined;
+            if (!this.callActive)
+                this.collapseLauncher(launcher);
+        }, exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS);
+    }
+    collapseLauncher(launcher) {
+        if (this.launcher !== launcher ||
+            !launcher.isConnected ||
+            !shouldScheduleChatLauncherCollapse(this.callActive, launcher.dataset.supernizoCollapsed === 'true')) {
+            return;
+        }
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof launcher.animate !== 'function') {
+            launcher.dataset.supernizoCollapsed = 'true';
+            return;
+        }
+        const media = launcher.querySelector('.supernizo-chat-launcher__media');
+        const profile = launcher.querySelector('.supernizo-chat-launcher__profile');
+        const action = launcher.querySelector('.supernizo-chat-launcher__action');
+        const fullHeight = launcher.getBoundingClientRect().height;
+        const fullGridRows = window.getComputedStyle(launcher).gridTemplateRows;
+        const shellAnimation = launcher.animate([
+            {
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                gridTemplateRows: fullGridRows,
+                height: `${fullHeight}px`,
+                offset: 0,
+            },
+            {
+                easing: 'cubic-bezier(.22,1,.36,1)',
+                gridTemplateRows: '0px 36px',
+                height: '52px',
+                offset: 0.86,
+            },
+            {
+                gridTemplateRows: `0px ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px`,
+                height: `${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px`,
+                offset: 1,
+            },
+        ], {
+            duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+            fill: 'both',
+        });
+        const animations = [shellAnimation];
+        if (media && typeof media.animate === 'function') {
+            animations.push(media.animate([
+                {
+                    filter: 'blur(0)',
+                    opacity: 1,
+                    transform: 'translate3d(0,0,0) scale(1)',
+                },
+                {
+                    filter: 'blur(0)',
+                    offset: 0.3,
+                    opacity: 0.96,
+                    transform: 'translate3d(0,4px,0) scale(1.012)',
+                },
+                {
+                    filter: 'blur(5px)',
+                    opacity: 0,
+                    transform: 'translate3d(0,20px,0) scale(.95)',
+                },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS * 0.82,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        if (profile && typeof profile.animate === 'function') {
+            animations.push(profile.animate([
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+                {
+                    offset: 0.86,
+                    transform: 'translate3d(0,-4px,0) scaleY(.97)',
+                },
+                { transform: 'translate3d(0,-3px,0) scaleY(1)' },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        if (action && typeof action.animate === 'function') {
+            animations.push(action.animate([
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+                {
+                    offset: 0.86,
+                    transform: 'translate3d(0,0,0) scaleY(.97)',
+                },
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        this.launcherCollapseAnimations = animations;
+        shellAnimation.addEventListener('finish', () => {
+            if (this.launcher !== launcher || this.callActive)
+                return;
+            launcher.dataset.supernizoCollapsed = 'true';
+            animations.forEach((animation) => animation.cancel());
+            if (this.launcherCollapseAnimations === animations) {
+                this.launcherCollapseAnimations = [];
+            }
+        }, { once: true });
+    }
+    cancelLauncherCollapse() {
+        if (this.launcherCollapseTimer !== undefined) {
+            window.clearTimeout(this.launcherCollapseTimer);
+            this.launcherCollapseTimer = undefined;
+        }
+        this.launcherCollapseAnimations.forEach((animation) => animation.cancel());
+        this.launcherCollapseAnimations = [];
     }
     openChat() {
         this.openRequested = true;
@@ -775,6 +923,7 @@ class CallWidgetController {
     endpoint;
     config;
     renewConfig;
+    onVisibilityChange;
     frame;
     frameAnimation;
     frameVisible = false;
@@ -784,11 +933,12 @@ class CallWidgetController {
     lastConfigRefreshAttemptAt = 0;
     launcherAnimation;
     syncTimer;
-    constructor(context, endpoint, config, renewConfig) {
+    constructor(context, endpoint, config, renewConfig, onVisibilityChange) {
         this.context = context;
         this.endpoint = endpoint;
         this.config = config;
         this.renewConfig = renewConfig;
+        this.onVisibilityChange = onVisibilityChange;
     }
     start() {
         try {
@@ -906,6 +1056,7 @@ class CallWidgetController {
         if (!this.frame || visible === this.frameVisible)
             return;
         this.frameVisible = visible;
+        this.onVisibilityChange?.(visible);
         this.frameAnimation?.cancel();
         this.frameAnimation = undefined;
         this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
@@ -1351,14 +1502,15 @@ exports.Tracker = {
                 visitorId: responseBody.visitorId,
             }, bootstrapEndpoint, createRandomUuid);
             engagementManager.start();
-            chatWidget?.stop();
-            chatWidget = responseBody.features.chatEnabled
+            const nextChatWidget = responseBody.features.chatEnabled
                 ? new chat_widget_1.ChatWidgetController({
                     sessionId: responseBody.sessionId,
                     sitePublicKey,
                     visitorId: responseBody.visitorId,
                 }, bootstrapEndpoint)
                 : undefined;
+            chatWidget?.stop();
+            chatWidget = nextChatWidget;
             chatWidget?.start();
             callWidget?.stop();
             callWidget =
@@ -1371,7 +1523,7 @@ exports.Tracker = {
                         channel: responseBody.realtime.channel,
                         ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                         token: responseBody.realtime.authorizationToken,
-                    }, renewCallWidgetConfig)
+                    }, renewCallWidgetConfig, (visible) => nextChatWidget?.setCallActive(visible))
                     : undefined;
             callWidget?.start();
             return responseBody;

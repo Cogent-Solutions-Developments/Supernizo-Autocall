@@ -143,6 +143,7 @@ export class CallWidgetController {
     private readonly endpoint: string,
     private config: CallWidgetConfig,
     private readonly renewConfig?: () => Promise<CallWidgetConfig | undefined>,
+    private readonly onVisibilityChange?: (visible: boolean) => void,
   ) {}
 
   public start(): void {
@@ -281,6 +282,7 @@ export class CallWidgetController {
   private setFrameVisibility(visible: boolean): void {
     if (!this.frame || visible === this.frameVisible) return;
     this.frameVisible = visible;
+    this.onVisibilityChange?.(visible);
     this.frameAnimation?.cancel();
     this.frameAnimation = undefined;
     this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
