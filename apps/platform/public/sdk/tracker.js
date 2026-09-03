@@ -351,7 +351,7 @@ exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
 exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
 exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
 const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
-const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 38;
+const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 36;
 function shouldScheduleChatLauncherCollapse(callActive, collapsed) {
     return !callActive && !collapsed;
 }
@@ -542,12 +542,12 @@ class ChatWidgetController {
             'box-sizing:border-box',
             'cursor:pointer',
             'display:grid',
-            'grid-template-rows:200px 46px',
-            'height:262px',
+            'grid-template-rows:200px 45px',
+            'height:263px',
             'isolation:isolate',
             'max-width:calc(100vw - 32px)',
             'overflow:hidden',
-            'padding:7px',
+            'padding:8px',
             'position:fixed',
             'right:16px',
             'text-align:left',
@@ -572,7 +572,7 @@ class ChatWidgetController {
       button[data-supernizo-launcher='true'], button[data-supernizo-launcher='true'] *, button[data-supernizo-launcher='true'] *::before, button[data-supernizo-launcher='true'] *::after { box-sizing:border-box; }
       .supernizo-chat-launcher__media { background:#efefec; border-radius:12px; display:block; min-height:0; overflow:hidden; pointer-events:none; position:relative; width:100%; }
       .supernizo-chat-launcher__video { display:block; height:100%; inset:0; object-fit:cover; object-position:50% 18%; position:absolute; transform:scale(1.02); width:100%; }
-      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; padding:0 1px 1px 4px; pointer-events:none; width:100%; }
+      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; pointer-events:none; width:100%; }
       .supernizo-chat-launcher__profile { align-items:center; display:flex; min-width:0; }
       .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:30px; position:relative; width:30px; }
       .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:30px; object-fit:cover; object-position:50% 18%; width:30px; }
@@ -586,10 +586,10 @@ class ChatWidgetController {
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
       button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
-      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 46px !important; height:258px !important; width:200px !important; } }
+      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 45px !important; height:259px !important; width:200px !important; } }
       button[data-supernizo-launcher='true'][data-supernizo-collapsed='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; }
       button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__media { opacity:0; visibility:hidden; }
-      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__footer { align-items:center; padding:0 1px; }
+      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__footer { align-items:center; }
       @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
@@ -634,7 +634,7 @@ class ChatWidgetController {
             },
             {
                 easing: 'cubic-bezier(.22,1,.36,1)',
-                gridTemplateRows: '0px 36px',
+                gridTemplateRows: '0px 34px',
                 height: '52px',
                 offset: 0.86,
             },
