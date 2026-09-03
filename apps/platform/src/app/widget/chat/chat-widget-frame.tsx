@@ -170,11 +170,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
         >
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_16%_4%,rgba(85,201,133,0.11),transparent_46%),radial-gradient(circle_at_92%_8%,rgba(24,24,27,0.055),transparent_38%)]" />
-            <div className="absolute inset-0 opacity-[0.76]">
+            <div className="absolute inset-0 opacity-[0.94]">
               <FlowingRibbons
                 animationSpeed={0.34}
                 backgroundColor="transparent"
-                lineColor="rgba(63,63,70,0.13)"
+                lineColor="rgba(63,63,70,0.18)"
                 placement="bottom"
               />
             </div>
@@ -283,7 +283,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
               ) : (
                 <div className="chat-empty flex h-full min-h-52 flex-col items-center justify-center px-2 pb-4 text-center">
                   <h1 className="m-0 text-[28px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#18181b]">
-                    How can we help?
+                    How Can We Help?
                   </h1>
                   <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
                     Send a message. Soniya and the event team are ready to help.
