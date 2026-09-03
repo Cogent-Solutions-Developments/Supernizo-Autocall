@@ -4,7 +4,6 @@ import {
   ChatCircleDotsIcon,
   ChecksIcon,
   PaperPlaneRightIcon,
-  ShieldCheckIcon,
   XIcon,
 } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
@@ -13,7 +12,11 @@ import { z } from 'zod';
 
 import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 
+import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
 import { mergeChatMessage } from '@/app/components/chat-state';
+import { FlowingRibbons } from '@/app/components/flowing-ribbons';
+
+import { NizoVerifiedIcon } from '../call/call-action-icons';
 
 const WidgetConfigSchema = z.object({
   messages: z.array(ChatMessageSchema),
@@ -37,15 +40,12 @@ const messageDayFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: 'short',
 });
 
-function initials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join('') || 'S'
-  );
+function displayAgentName(name: string | undefined): string {
+  const normalizedName = name?.trim().toLowerCase();
+  if (!normalizedName || ['support team', 'local admin', 'nizo'].includes(normalizedName)) {
+    return 'Soniya Sahanya';
+  }
+  return name?.trim() || 'Soniya Sahanya';
 }
 
 function messageTime(sentAt: string): string {
@@ -87,9 +87,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   const [unread, setUnread] = useState(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const agentName =
-    [...messages].reverse().find((message) => message.senderType === 'AGENT')?.senderName ??
-    'Support team';
+  const agentName = displayAgentName(
+    [...messages].reverse().find((message) => message.senderType === 'AGENT')?.senderName,
+  );
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -153,7 +153,6 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   }
 
   function closeChat(): void {
-    setIsOpen(false);
     window.parent.postMessage({ type: 'supernizo-chat-close' }, hostOrigin);
   }
 
@@ -172,64 +171,77 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
       {isOpen ? (
         <section
           aria-label="Chat conversation"
-          className="flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b] shadow-[0_20px_50px_rgba(0,0,0,0.14)]"
+          className="chat-shell relative flex h-[calc(100vh-2px)] w-full flex-col overflow-hidden rounded-[22px] border border-black/10 bg-[#fbfbfa] text-[#18181b] shadow-[0_24px_68px_rgba(24,24,27,0.18),0_3px_12px_rgba(24,24,27,0.08)]"
         >
-          <div className="flex h-full min-h-0 flex-col">
-            <header className="flex items-center justify-between gap-3 border-b border-[#e4e4e7] bg-white px-4 py-3.5">
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_16%_4%,rgba(85,201,133,0.11),transparent_46%),radial-gradient(circle_at_92%_8%,rgba(24,24,27,0.055),transparent_38%)]" />
+            <div className="absolute inset-0 opacity-[0.46]">
+              <FlowingRibbons
+                animationSpeed={0.34}
+                backgroundColor="transparent"
+                lineColor="rgba(63,63,70,0.095)"
+                placement="bottom"
+              />
+            </div>
+          </div>
+
+          <div className="relative z-10 flex h-full min-h-0 flex-col">
+            <header className="chat-header flex items-center justify-between gap-3 px-4 pt-4 pb-2.5">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e4e4e7] bg-[#f4f4f5]">
-                  <span className="text-sm font-semibold tracking-[-0.02em] text-[#18181b]">
-                    {initials(agentName)}
-                  </span>
+                <div className="relative h-11 w-11 shrink-0">
+                  <CallerIdentityVideo className="ring-2 ring-white" />
                   <span
                     aria-label="Online now"
-                    className="absolute -right-1 -bottom-1 h-3 w-3 rounded-full border-[3px] border-white bg-[#22a06b]"
+                    className="absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-[#55c985]"
                     role="status"
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="m-0 truncate text-sm font-semibold tracking-[-0.01em] text-[#18181b]">
+                  <p className="m-0 truncate text-[15px] leading-5 font-semibold tracking-[-0.025em] text-[#18181b]">
                     {agentName}
                   </p>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#71717a]">
-                    <span>Online now</span>
-                    <span aria-hidden="true" className="text-[#d4d4d8]">
+                  <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-[#85858d]">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#36b978]" />
+                      Online now
+                    </span>
+                    <span aria-hidden="true" className="text-[#c4c4c8]">
                       ·
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <ShieldCheckIcon aria-hidden="true" size={11} weight="fill" />
-                      Verified
+                      <NizoVerifiedIcon />
+                      Nizo Verified
                     </span>
                   </div>
                 </div>
               </div>
               <button
                 aria-label="Close chat"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] border border-transparent text-[#71717a] transition-colors duration-150 hover:border-[#e4e4e7] hover:bg-[#f4f4f5] hover:text-[#18181b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b]"
+                className="chat-close flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-[#71717a] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md transition-[background-color,color,transform] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b]"
                 onClick={closeChat}
                 type="button"
               >
-                <XIcon aria-hidden="true" size={17} />
+                <XIcon aria-hidden="true" size={16} weight="bold" />
               </button>
             </header>
 
             <div
               aria-live="polite"
               aria-relevant="additions"
-              className="message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
+              className="message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3"
             >
               {messages.length ? (
                 <>
                   <div className="mb-4 flex items-center justify-center">
-                    <span className="rounded-md bg-[#f4f4f5] px-2 py-1 text-[10px] font-medium text-[#71717a]">
+                    <span className="rounded-full border border-black/[0.06] bg-white/70 px-2.5 py-1 text-[9px] font-medium text-[#85858d] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md">
                       {conversationDay(messages[0]?.sentAt)}
                     </span>
                   </div>
-                  <ol className="m-0 grid list-none gap-3.5 p-0">
+                  <ol className="m-0 grid list-none gap-3 p-0">
                     {messages.map((message) => {
                       if (message.senderType === 'SYSTEM') {
                         return (
-                          <li className="flex justify-center" key={message.id}>
+                          <li className="chat-message flex justify-center" key={message.id}>
                             <p className="m-0 max-w-[90%] px-3 py-1.5 text-center text-[10px] leading-4 text-[#71717a]">
                               {message.content}
                             </p>
@@ -240,20 +252,20 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                       const isVisitor = message.senderType === 'VISITOR';
                       return (
                         <li
-                          className={`flex ${isVisitor ? 'justify-end' : 'justify-start'}`}
+                          className={`chat-message flex ${isVisitor ? 'justify-end' : 'justify-start'}`}
                           key={message.id}
                         >
-                          <article className="max-w-[84%]">
+                          <article className="max-w-[85%]">
                             {!isVisitor ? (
-                              <p className="m-0 mb-1.5 pl-1 text-[10px] font-medium text-[#71717a]">
-                                {message.senderName ?? agentName}
+                              <p className="m-0 mb-1.5 pl-1 text-[9px] font-medium text-[#85858d]">
+                                {displayAgentName(message.senderName)}
                               </p>
                             ) : null}
                             <div
-                              className={`border px-3.5 py-2.5 text-[13px] leading-[1.5] ${
+                              className={`border px-3.5 py-2.5 text-[13px] leading-[1.5] shadow-[0_1px_2px_rgba(24,24,27,0.04)] ${
                                 isVisitor
                                   ? 'rounded-[13px] rounded-br-[4px] border-[#18181b] bg-[#18181b] text-white'
-                                  : 'rounded-[13px] rounded-bl-[4px] border-[#e4e4e7] bg-[#f4f4f5] text-[#27272a]'
+                                  : 'rounded-[13px] rounded-bl-[4px] border-black/[0.07] bg-white/80 text-[#27272a] backdrop-blur-md'
                               }`}
                             >
                               <p className="m-0 whitespace-pre-wrap break-words">
@@ -277,19 +289,21 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                   </ol>
                 </>
               ) : (
-                <div className="flex h-full min-h-52 flex-col justify-center px-2 pb-5 text-left">
-                  <span className="flex h-9 w-9 items-center justify-start text-[#18181b]">
-                    <ChatCircleDotsIcon aria-hidden="true" size={22} weight="fill" />
+                <div className="chat-empty flex h-full min-h-52 flex-col justify-center px-1 pb-4 text-left">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#18181b] text-white shadow-[0_9px_22px_rgba(24,24,27,0.16)]">
+                    <ChatCircleDotsIcon aria-hidden="true" size={19} weight="fill" />
                   </span>
-                  <p className="m-0 mt-4 text-[12px] font-medium text-[#71717a]">Event support</p>
-                  <h1 className="m-0 mt-1 text-[25px] leading-8 font-semibold tracking-[-0.035em] text-[#18181b]">
+                  <p className="m-0 mt-5 text-[11px] font-semibold tracking-[0.01em] text-[#71717a]">
+                    Event support
+                  </p>
+                  <h1 className="m-0 mt-1.5 text-[28px] leading-[1.08] font-semibold tracking-[-0.045em] text-[#18181b]">
                     How can we help?
                   </h1>
-                  <p className="m-0 mt-2 max-w-[245px] text-[13px] leading-5 text-[#71717a]">
-                    Send us a message and someone from the team will reply here.
+                  <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
+                    Send a message. Soniya and the event team are ready to help.
                   </p>
-                  <div className="mt-5 flex items-center gap-2 border-t border-[#e4e4e7] pt-4 text-[11px] text-[#71717a]">
-                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#22a06b]" />
+                  <div className="mt-5 flex w-fit items-center gap-2 rounded-full border border-black/[0.06] bg-white/65 px-3 py-2 text-[10px] font-medium text-[#71717a] shadow-[0_4px_14px_rgba(24,24,27,0.05)] backdrop-blur-md">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#36b978]" />
                     Usually replies in a few minutes
                   </div>
                 </div>
@@ -298,13 +312,13 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             </div>
 
             <form
-              className="border-t border-[#e4e4e7] bg-white px-3 pt-3 pb-2.5"
+              className="chat-composer relative z-10 bg-gradient-to-t from-[#fbfbfa] via-[#fbfbfa] to-transparent px-3.5 pt-3 pb-3"
               onSubmit={sendMessage}
             >
               <label className="sr-only" htmlFor="supernizo-chat-input">
                 Message
               </label>
-              <div className="flex items-end gap-2 rounded-[12px] border border-[#e4e4e7] bg-[#fafafa] px-3 py-2 transition-colors duration-150 focus-within:border-[#a1a1aa] focus-within:ring-2 focus-within:ring-black/5">
+              <div className="composer-field flex items-end gap-2 rounded-[15px] border border-black/10 bg-white/90 py-2 pr-2 pl-3.5 shadow-[0_8px_28px_rgba(24,24,27,0.08),0_1px_3px_rgba(24,24,27,0.06)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-black/25 focus-within:shadow-[0_10px_32px_rgba(24,24,27,0.11),0_0_0_3px_rgba(24,24,27,0.04)]">
                 <textarea
                   className="max-h-[88px] min-h-10 flex-1 resize-none border-0 bg-transparent py-2 text-[13px] leading-5 text-[#18181b] outline-none placeholder:text-[#a1a1aa] disabled:cursor-wait"
                   disabled={!config}
@@ -323,7 +337,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 />
                 <button
                   aria-label="Send message"
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-[#18181b] text-white transition-colors duration-150 hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-not-allowed disabled:bg-[#e4e4e7] disabled:text-[#a1a1aa]"
+                  className="send-button flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[11px] bg-[#18181b] text-white shadow-[0_4px_12px_rgba(24,24,27,0.15)] transition-[background-color,transform,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-not-allowed disabled:bg-[#e7e7e8] disabled:text-[#a1a1aa] disabled:shadow-none"
                   disabled={!config || !content.trim()}
                   type="submit"
                 >
@@ -332,7 +346,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
               </div>
               <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[9px] font-medium text-[#a1a1aa]">
                 <span className="inline-flex items-center gap-1">
-                  <ShieldCheckIcon aria-hidden="true" size={11} weight="fill" />
+                  <NizoVerifiedIcon />
                   Private conversation
                 </span>
                 <span>{content.length > 1600 ? `${content.length}/2000` : 'Enter to send'}</span>
@@ -382,6 +396,78 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
         .message-scroll::-webkit-scrollbar-thumb {
           background: #d4d4d8;
           border-radius: 999px;
+        }
+        .chat-header {
+          animation: chat-content-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 70ms both;
+        }
+        .chat-empty {
+          animation: chat-content-in 280ms cubic-bezier(0.23, 1, 0.32, 1) 110ms both;
+        }
+        .chat-composer {
+          animation: chat-composer-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 130ms both;
+        }
+        .chat-message {
+          animation: chat-message-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+          transform-origin: bottom;
+        }
+        .chat-close:active,
+        .send-button:not(:disabled):active {
+          transform: scale(0.94);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .chat-close:hover {
+            background: rgba(255, 255, 255, 0.98);
+            color: #18181b;
+            transform: scale(1.04);
+          }
+          .send-button:not(:disabled):hover {
+            background: #000;
+            box-shadow: 0 6px 16px rgba(24, 24, 27, 0.22);
+            transform: translateY(-1px);
+          }
+        }
+        @keyframes chat-content-in {
+          from {
+            opacity: 0;
+            transform: translateY(7px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes chat-composer-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes chat-message-in {
+          from {
+            opacity: 0;
+            transform: translateY(5px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .chat-header,
+          .chat-empty,
+          .chat-composer,
+          .chat-message {
+            animation: none;
+          }
+          .chat-close,
+          .send-button,
+          .composer-field {
+            transition: none;
+          }
         }
       `}</style>
     </>

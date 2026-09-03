@@ -27,9 +27,11 @@ describe('chat widget frame', () => {
   it('matches the visible call widget footprint', () => {
     const styles = chatWidgetFrameStyles();
 
-    expect(styles).toContain('height:500px');
-    expect(styles).toContain('width:330px');
+    expect(styles).toContain('height:min(540px,calc(100vh - 32px))');
+    expect(styles).toContain('width:350px');
     expect(styles).toContain('max-width:calc(100vw - 32px)');
+    expect(styles).toContain('border-radius:22px');
+    expect(styles).toContain('transform-origin:bottom right');
   });
 });
 
