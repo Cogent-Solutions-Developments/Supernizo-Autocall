@@ -11,7 +11,7 @@ Voice and video calls also invoke sensitive browser permissions and must never b
 
 ## Decision
 
-Do not store raw visitor IP addresses by default. Use Vercel-provided approximate geolocation where available for coarse session attributes. Where a stable network-related signal is justified for abuse protection or deduplication, use a documented, rotating or salted one-way hash with limited access and retention; it is not an identity-enrichment mechanism.
+Do not store raw visitor IP addresses by default. Use approximate geolocation only when it comes from explicitly trusted reverse-proxy headers. Where a stable network-related signal is justified for abuse protection or deduplication, use a documented, rotating or salted one-way hash with limited access and retention; it is not an identity-enrichment mechanism.
 
 Use anonymous visitor and session identifiers for tracking. Do not automatically identify a person from an IP address. An optional CRM identity link may be stored only when an authorized first-party action or integration provides it.
 

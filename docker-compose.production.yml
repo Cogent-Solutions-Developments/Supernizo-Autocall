@@ -1,0 +1,114 @@
+name: supernizo-autocall
+
+x-database-environment: &database-environment
+  DATABASE_URL: postgresql://${POSTGRES_USER:-autocall}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}@postgres:5432/${POSTGRES_DB:-autocall_prod}?schema=public
+
+x-application-environment: &application-environment
+  APP_URL: ${APP_URL:?Set APP_URL in .env.production}
+  AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env.production}
+  CALL_CONNECTION_TIMEOUT_SECONDS: ${CALL_CONNECTION_TIMEOUT_SECONDS:-90}
+  CALL_RING_TIMEOUT_SECONDS: ${CALL_RING_TIMEOUT_SECONDS:-30}
+  LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?Set LIVEKIT_API_KEY in .env.production}
+  LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?Set LIVEKIT_API_SECRET in .env.production}
+  LIVEKIT_URL: ${LIVEKIT_URL:?Set LIVEKIT_URL in .env.production}
+  NEXTAUTH_URL: ${APP_URL:?Set APP_URL in .env.production}/api/auth
+  NEXTAUTH_URL_INTERNAL: http://app:3000/autocall-db/api/auth
+  TRACKING_IP_HASH_SECRET: ${TRACKING_IP_HASH_SECRET:?Set TRACKING_IP_HASH_SECRET in .env.production}
+  UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:?Set UPSTASH_REDIS_REST_TOKEN in .env.production}
+  UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:?Set UPSTASH_REDIS_REST_URL in .env.production}
+
+services:
+  postgres:
+    image: postgres:17.11-bookworm@sha256:051f7b7b3abdd564d5d1bd1e8c4b9c1b6e77087d1dd22020ede611c096a272e0
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-autocall_prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_USER: ${POSTGRES_USER:-autocall}
+      TZ: UTC
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -q -U ${POSTGRES_USER:-autocall} -d ${POSTGRES_DB:-autocall_prod}
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-file: '5'
+        max-size: 10m
+    networks:
+      - database
+    shm_size: 128mb
+    stop_grace_period: 60s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  migrate:
+    image: ${MIGRATOR_IMAGE:?Set MIGRATOR_IMAGE to the approved GHCR digest}
+    environment:
+      <<: *database-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - database
+    profiles:
+      - tools
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    image: ${APP_IMAGE:?Set APP_IMAGE to the approved GHCR digest}
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    environment:
+      <<:
+        - *database-environment
+        - *application-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/autocall-db/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-file: '5'
+        max-size: 10m
+    networks:
+      - database
+      - outbound
+    init: true
+    ports:
+      - 127.0.0.1:${APP_HOST_PORT:-3200}:3000
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+
+networks:
+  database:
+    internal: true
+  outbound:
+
+volumes:
+  postgres_data:
+    name: supernizo-autocall-postgres-data

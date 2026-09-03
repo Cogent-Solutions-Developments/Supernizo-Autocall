@@ -18,6 +18,7 @@ exports.serializeBeaconPayload = serializeBeaconPayload;
 exports.sanitizeEventMetadata = sanitizeEventMetadata;
 exports.hasNavigationChanged = hasNavigationChanged;
 exports.sendAfterPageRegistration = sendAfterPageRegistration;
+const platform_url_1 = require("./platform-url");
 exports.HEARTBEAT_INTERVAL_MS = 15_000;
 exports.IDLE_THRESHOLD_MS = 60_000;
 class ActiveTimeAccumulator {
@@ -148,7 +149,7 @@ class EngagementManager {
         });
     }
     endpoint(path) {
-        return new URL(`/api/track/${path}`, this.bootstrapEndpoint).toString();
+        return (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, `/api/track/${path}`);
     }
     startPage() {
         const id = this.createIdentifier();
@@ -436,7 +437,7 @@ class ChatWidgetController {
     mount() {
         if (this.frame)
             return;
-        const widgetUrl = new URL('/widget/chat', this.bootstrapEndpoint);
+        const widgetUrl = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/widget/chat'));
         widgetUrl.searchParams.set('host_origin', window.location.origin);
         const frame = document.createElement('iframe');
         frame.setAttribute('aria-label', 'Website chat');
@@ -536,7 +537,7 @@ class ChatWidgetController {
     };
     async syncThread() {
         try {
-            const endpoint = new URL('/api/chat/visitor/thread', this.bootstrapEndpoint);
+            const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/thread'));
             endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
             endpoint.searchParams.set('visitorId', this.context.visitorId);
             endpoint.searchParams.set('sessionId', this.context.sessionId);
@@ -587,7 +588,7 @@ class ChatWidgetController {
         const content = message.content.trim().slice(0, 2_000);
         if (!content)
             return;
-        const endpoint = new URL(`/api/chat/threads/${message.threadId}/messages`, this.bootstrapEndpoint);
+        const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, `/api/chat/threads/${message.threadId}/messages`));
         const response = await fetch(endpoint, {
             body: JSON.stringify({ content, context: this.context }),
             credentials: 'omit',
@@ -685,7 +686,7 @@ class CallWidgetController {
         try {
             if (this.frame)
                 return;
-            const widgetUrl = new URL('/widget/call', this.endpoint);
+            const widgetUrl = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, '/widget/call'));
             widgetUrl.searchParams.set('host_origin', window.location.origin);
             const frame = document.createElement('iframe');
             frame.setAttribute('aria-label', 'Incoming calls');
@@ -789,7 +790,7 @@ class CallWidgetController {
     }
     async respond(call, action) {
         try {
-            const response = await fetch(new URL(`/api/calls/${call.id}/${action}`, this.endpoint), {
+            const response = await fetch(new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, `/api/calls/${call.id}/${action}`)), {
                 body: JSON.stringify({ context: this.context }),
                 credentials: 'omit',
                 headers: { 'content-type': 'text/plain;charset=UTF-8' },
@@ -847,7 +848,7 @@ class CallWidgetController {
     }
     async requestMedia(call) {
         try {
-            const response = await fetch(new URL('/api/livekit/token', this.endpoint), {
+            const response = await fetch(new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, '/api/livekit/token')), {
                 body: JSON.stringify({
                     callId: call.id,
                     context: this.context,
@@ -877,6 +878,36 @@ class CallWidgetController {
 exports.CallWidgetController = CallWidgetController;
 
   };
+  modules['./platform-url'] = (require, exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.resolveBootstrapEndpoint = resolveBootstrapEndpoint;
+exports.resolveApplicationEndpoint = resolveApplicationEndpoint;
+const TRACKER_BOOTSTRAP_PATH = '/api/track/bootstrap';
+function parseUrl(value) {
+    const fallbackBase = typeof location === 'undefined' ? 'http://localhost' : location.href;
+    return new URL(value, fallbackBase);
+}
+function resolveBootstrapEndpoint(scriptSource) {
+    const scriptUrl = parseUrl(scriptSource);
+    const sdkMarkerIndex = scriptUrl.pathname.lastIndexOf('/sdk/');
+    const basePath = sdkMarkerIndex >= 0 ? scriptUrl.pathname.slice(0, sdkMarkerIndex) : '';
+    scriptUrl.pathname = `${basePath}${TRACKER_BOOTSTRAP_PATH}`;
+    scriptUrl.search = '';
+    scriptUrl.hash = '';
+    return scriptUrl.toString();
+}
+function resolveApplicationEndpoint(reference, path) {
+    if (!path.startsWith('/')) {
+        throw new Error('Platform API paths must start with a slash.');
+    }
+    const referenceUrl = parseUrl(reference);
+    const bootstrapIndex = referenceUrl.pathname.lastIndexOf(TRACKER_BOOTSTRAP_PATH);
+    const basePath = bootstrapIndex >= 0 ? referenceUrl.pathname.slice(0, bootstrapIndex) : '';
+    return new URL(`${basePath}${path}`, referenceUrl.origin).toString();
+}
+
+  };
   modules['./index'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -886,6 +917,7 @@ exports.createTracker = createTracker;
 const engagement_1 = require("./engagement");
 const chat_widget_1 = require("./chat-widget");
 const call_widget_1 = require("./call-widget");
+const platform_url_1 = require("./platform-url");
 const STORAGE_PREFIX = 'supernizo_';
 const DISABLED_KEY = `${STORAGE_PREFIX}tracking_disabled`;
 let engagementManager;
@@ -996,7 +1028,7 @@ function resolveEndpoint(script, configuredEndpoint) {
         return script.dataset.endpoint;
     }
     try {
-        return new URL('/api/track/bootstrap', script.src).toString();
+        return (0, platform_url_1.resolveBootstrapEndpoint)(script.src);
     }
     catch {
         return '/api/track/bootstrap';

@@ -4,11 +4,21 @@ import { config } from 'dotenv';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { PrismaClient } from '@generated/prisma/client';
+import { getDatabaseEnvironment } from '@/server/env';
 import type { VisitorSessionRepository } from './visitor-session-repository';
 
 config({ path: '.env.local', quiet: true });
 
-const describeWithDatabase = process.env.DATABASE_URL ? describe : describe.skip;
+function hasValidDatabaseEnvironment(): boolean {
+  try {
+    getDatabaseEnvironment();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const describeWithDatabase = hasValidDatabaseEnvironment() ? describe : describe.skip;
 
 describeWithDatabase('VisitorSessionRepository smoke test', () => {
   let database: PrismaClient;

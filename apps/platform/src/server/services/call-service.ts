@@ -11,7 +11,7 @@ import {
   type CallType,
   type TrackingContext,
 } from '@supernizo/shared';
-import type { CallStatus as PrismaCallStatus, Prisma } from '@generated/prisma/client';
+import { Prisma, type CallStatus as PrismaCallStatus } from '@generated/prisma/client';
 
 import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
@@ -130,6 +130,16 @@ export function staleCallAction(status: CallStatus): CallAction | null {
 
 function roomName(): string {
   return `call_${randomUUID().replaceAll('-', '')}`;
+}
+
+export function buildCallParticipantLockQueries(
+  agentId: string,
+  visitorId: string,
+): readonly [Prisma.Sql, Prisma.Sql] {
+  return [
+    Prisma.sql`SELECT id FROM "User" WHERE id = ${agentId} FOR UPDATE`,
+    Prisma.sql`SELECT id FROM "Visitor" WHERE id = ${visitorId} FOR UPDATE`,
+  ];
 }
 
 async function assertCallEnabled(siteId: string, type: CallType): Promise<void> {

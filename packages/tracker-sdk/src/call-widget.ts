@@ -1,5 +1,7 @@
 import type { TrackingContext } from '@supernizo/shared';
 
+import { resolveApplicationEndpoint } from './platform-url';
+
 type Call = Readonly<{
   agentAvatarUrl?: string | null;
   agentDisplayName: string | null;
@@ -100,7 +102,7 @@ export class CallWidgetController {
   public start(): void {
     try {
       if (this.frame) return;
-      const widgetUrl = new URL('/widget/call', this.endpoint);
+      const widgetUrl = new URL(resolveApplicationEndpoint(this.endpoint, '/widget/call'));
       widgetUrl.searchParams.set('host_origin', window.location.origin);
       const frame = document.createElement('iframe');
       frame.setAttribute('aria-label', 'Incoming calls');
@@ -297,18 +299,21 @@ export class CallWidgetController {
 
   private async requestMedia(call: Call): Promise<void> {
     try {
-      const response = await fetch(new URL('/api/livekit/token', this.endpoint), {
-        body: JSON.stringify({
-          callId: call.id,
-          context: this.context,
-          participantRole: 'VISITOR',
-        }),
-        credentials: 'omit',
-        headers: { 'content-type': 'text/plain;charset=UTF-8' },
-        keepalive: true,
-        method: 'POST',
-        mode: 'cors',
-      });
+      const response = await fetch(
+        new URL(resolveApplicationEndpoint(this.endpoint, '/api/livekit/token')),
+        {
+          body: JSON.stringify({
+            callId: call.id,
+            context: this.context,
+            participantRole: 'VISITOR',
+          }),
+          credentials: 'omit',
+          headers: { 'content-type': 'text/plain;charset=UTF-8' },
+          keepalive: true,
+          method: 'POST',
+          mode: 'cors',
+        },
+      );
       if (!response.ok) return;
       const body: unknown = await response.json();
       if (!body || typeof body !== 'object' || !('data' in body) || !isLiveKitMedia(body.data))

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import type { StaffRole } from '@supernizo/shared';
 
+import { withAppBasePath } from '@/lib/app-path';
 import { getAuthOptions } from '@/server/auth/auth-options';
 import { assertRole } from '@/server/auth/roles';
 import { getDatabaseClient } from '@/server/db/client';
@@ -59,7 +60,7 @@ export async function requireDashboardUser(): Promise<AuthenticatedUser> {
     return await requireUser();
   } catch (error: unknown) {
     if (error instanceof UnauthorizedError) {
-      redirect('/login');
+      redirect(withAppBasePath('/login'));
     }
 
     throw error;

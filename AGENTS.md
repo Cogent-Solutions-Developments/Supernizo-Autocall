@@ -10,7 +10,7 @@ These rules apply to every implementation phase. Do not implement work from a fu
 4. Keep TypeScript strict; do not use `any` to bypass type errors.
 5. Default to Server Components. Use Client Components only for browser APIs, interactive UI, realtime subscriptions, media, and forms.
 6. Validate every untrusted API payload with Zod.
-7. Store durable records in MySQL through Prisma; store ephemeral online/presence state in Redis.
+7. Store durable records in PostgreSQL through Prisma; store ephemeral online/presence state in Redis.
 8. Use Upstash Realtime/SSE through an internal realtime adapter for dashboard updates, visitor ringing, and chat delivery.
 9. Use LiveKit for audio/video WebRTC. Never proxy audio/video bytes through Next.js.
 
@@ -18,7 +18,7 @@ These rules apply to every implementation phase. Do not implement work from a fu
 
 10. Never expose `DATABASE_URL`, Redis credentials, the LiveKit API secret, or internal signing secrets to the browser.
 11. Public tracker endpoints must validate the Site public key and allowed Origin, and must be rate-limited.
-12. Do not store raw visitor IP addresses by default. Prefer Vercel geolocation and a salted one-way hash when an abuse or deduplication signal is needed.
+12. Do not store raw visitor IP addresses by default. Prefer trusted reverse-proxy geolocation headers and a salted one-way hash when an abuse or deduplication signal is needed.
 13. Visitors must explicitly accept calls and grant browser microphone/camera permission.
 14. Implement structured error handling. Public responses must not leak stack traces or secrets.
 

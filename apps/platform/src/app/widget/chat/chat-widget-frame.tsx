@@ -164,7 +164,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
       <RealtimeProvider
         key={config?.token ?? 'unauthenticated'}
         api={{
-          url: config ? `/api/realtime/${encodeURIComponent(config.token)}` : '/api/realtime',
+          url: config
+            ? withAppBasePath(`/api/realtime/${encodeURIComponent(config.token)}`)
+            : withAppBasePath('/api/realtime'),
           withCredentials: false,
         }}
       >

@@ -4,6 +4,8 @@ import { useState, type FormEvent } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 export function LoginForm() {
   const router = useRouter();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -19,7 +21,7 @@ export function LoginForm() {
     const email = formData.get('email');
     const password = formData.get('password');
     const result = await signIn('credentials', {
-      callbackUrl: '/dashboard',
+      callbackUrl: withAppBasePath('/dashboard'),
       email: typeof email === 'string' ? email : '',
       password: typeof password === 'string' ? password : '',
       redirect: false,
@@ -32,7 +34,7 @@ export function LoginForm() {
       return;
     }
 
-    router.replace(result.url ?? '/dashboard');
+    router.replace(result.url ?? withAppBasePath('/dashboard'));
     router.refresh();
   }
 
@@ -72,7 +74,9 @@ export function LoginForm() {
           </button>
         </span>
       </label>
-      {errorMessage ? <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200">{errorMessage}</p> : null}
+      {errorMessage ? (
+        <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-200">{errorMessage}</p>
+      ) : null}
       <button
         className="mt-2 h-12 rounded-xl border border-slate-300/30 bg-linear-to-b from-slate-400/60 via-[#121b25] to-[#07111b] text-sm font-semibold text-white shadow-lg shadow-black/35 transition hover:from-slate-300/70 hover:via-[#17232f] hover:to-[#0a1621] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSubmitting}
@@ -81,7 +85,9 @@ export function LoginForm() {
         {isSubmitting ? 'Signing in…' : 'Sign in'}
       </button>
       <p className="mt-1 text-center text-xs leading-5 text-slate-400">
-        <span aria-hidden="true" className="mr-2 text-sky-300">◈</span>
+        <span aria-hidden="true" className="mr-2 text-sky-300">
+          ◈
+        </span>
         Confidential workspace. Authorized access only.
       </p>
     </form>
