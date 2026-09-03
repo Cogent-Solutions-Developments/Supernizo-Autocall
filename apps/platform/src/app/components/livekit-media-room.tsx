@@ -25,6 +25,7 @@ import type { Call, LiveKitTokenResponse } from '@supernizo/shared';
 import { deriveLiveKitMediaState, getLiveKitMediaErrorMessage } from './livekit-media-state';
 
 type LiveKitMediaRoomProps = Readonly<{
+  agentName?: string;
   call: Call;
   localTracks: readonly LocalTrack[];
   media: LiveKitTokenResponse;
@@ -77,19 +78,18 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
       <style jsx>{`
         .video-stage {
           aspect-ratio: 4 / 3;
-          background: #020d16;
-          border: 1px solid #cbd5e1;
-          border-radius: 14px;
-          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+          background: #f4f4f5;
+          border: 1px solid #e4e4e7;
+          border-radius: 12px;
           margin: 0 auto;
-          max-width: 220px;
+          max-width: 100%;
           min-height: 0;
           overflow: hidden;
           position: relative;
           width: 100%;
         }
         .remote-video {
-          background: linear-gradient(145deg, #18324d, #0f2740);
+          background: #f4f4f5;
           height: 100%;
           position: relative;
           width: 100%;
@@ -101,11 +101,14 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
         }
         .remote-placeholder {
           align-items: center;
-          color: #cbd5e1;
+          color: #71717a;
           display: flex;
           flex-direction: column;
           font:
-            11px/1.45 Arial,
+            11px/1.45 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           height: 100%;
           justify-content: center;
@@ -113,33 +116,33 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
           text-align: center;
         }
         .remote-placeholder strong {
-          color: #f8fafc;
+          color: #27272a;
           font-size: 11px;
           margin: 10px 0 3px;
         }
         .placeholder-icon {
           align-items: center;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 50%;
-          color: #e2e8f0;
+          background: #fff;
+          border: 1px solid #e4e4e7;
+          border-radius: 10px;
+          color: #71717a;
           display: flex;
           height: 38px;
           justify-content: center;
           width: 38px;
         }
         .local-video {
-          background: #061725;
+          background: #fafafa;
           border: 2px solid #fff;
           border-radius: 10px;
           bottom: 8px;
-          box-shadow: 0 8px 18px rgba(0, 7, 13, 0.38);
           height: 70px;
           overflow: hidden;
           position: absolute;
           right: 8px;
           width: 56px;
           z-index: 2;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
         }
         :global(.supernizo-local-video) {
           height: 100%;
@@ -148,19 +151,22 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
         }
         .local-placeholder {
           align-items: center;
-          color: #789aa5;
+          color: #a1a1aa;
           display: flex;
           height: 100%;
           justify-content: center;
         }
         .participant-label {
-          backdrop-filter: blur(8px);
-          background: rgba(15, 39, 64, 0.74);
-          border-radius: 999px;
+          background: rgba(16, 16, 17, 0.88);
+          border: 1px solid rgba(82, 82, 91, 0.72);
+          border-radius: 6px;
           bottom: 7px;
           color: #f8fafc;
           font:
-            700 9px/1 Arial,
+            600 9px/1 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           left: 7px;
           max-width: calc(100% - 78px);
@@ -255,6 +261,7 @@ function MediaConnectionStatus({
 }
 
 export function LiveKitMediaRoom({
+  agentName,
   call,
   localTracks,
   media,
@@ -340,7 +347,9 @@ export function LiveKitMediaRoom({
           videoEnabled={videoEnabled}
         />
         {error ? <p className="media-error">{error}</p> : null}
-        {videoEnabled ? <VideoTiles agentName={call.agentDisplayName || 'Event team'} /> : null}
+        {videoEnabled ? (
+          <VideoTiles agentName={agentName ?? call.agentDisplayName ?? 'Event team'} />
+        ) : null}
         <RoomAudioRenderer />
         <div className="media-controls">
           <div className="control-item">
@@ -396,75 +405,88 @@ export function LiveKitMediaRoom({
         }
         .media-room {
           display: grid;
-          gap: 10px;
+          gap: 12px;
           position: relative;
           z-index: 2;
         }
         :global(.connection-status) {
           align-items: center;
-          border-bottom: 1px solid #e2e8f0;
-          color: #64748b;
+          border-bottom: 1px solid #e4e4e7;
+          color: #71717a;
           display: flex;
           font:
-            11px/1.4 Arial,
+            11px/1.4 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           gap: 7px;
           padding: 0 2px 9px;
         }
         :global(.connection-status time) {
-          color: #475569;
+          color: #52525b;
           font-variant-numeric: tabular-nums;
           margin-left: auto;
         }
         :global(.status-dot) {
-          background: #f59e0b;
+          background: #d6a547;
           border-radius: 50%;
-          box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
           height: 7px;
           width: 7px;
         }
         :global(.status-dot.connected) {
-          background: #10b981;
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+          background: #55b982;
         }
         .media-error {
           background: #fff1f2;
           border: 1px solid #fecdd3;
-          border-radius: 11px;
+          border-radius: 9px;
           color: #be123c;
           font:
-            11px/1.4 Arial,
+            11px/1.4 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           margin: 0;
           padding: 8px 10px;
         }
         :global(button.enable-audio) {
           appearance: none;
-          background: #18324d;
-          border: 0;
-          border-radius: 999px;
-          box-shadow: 0 8px 18px rgba(24, 50, 77, 0.18);
+          background: #18181b;
+          border: 1px solid #18181b;
+          border-radius: 9px;
           color: #fff;
           cursor: pointer;
           font:
-            700 11px/1 Arial,
+            600 11px/1 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           justify-self: center;
           padding: 10px 16px;
         }
+        :global(button.enable-audio:focus-visible) {
+          outline: 2px solid #18181b;
+          outline-offset: 2px;
+        }
         .media-controls {
           display: flex;
-          gap: 24px;
+          gap: 18px;
           justify-content: center;
-          padding: 0 0 2px;
+          padding: 2px 0 0;
         }
         .control-item {
           align-items: center;
-          color: #64748b;
+          color: #71717a;
           display: flex;
           flex-direction: column;
           font:
-            700 10px/1 Arial,
+            500 10px/1 var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           gap: 6px;
         }
@@ -472,40 +494,44 @@ export function LiveKitMediaRoom({
         .end-call {
           align-items: center;
           appearance: none;
-          background: #f8fafc;
-          border: 1px solid #cbd5e1;
-          border-radius: 50%;
+          background: #fff;
+          border: 1px solid #e4e4e7;
+          border-radius: 10px;
           box-sizing: border-box;
-          color: #18324d;
+          color: #27272a;
           cursor: pointer;
           display: flex;
-          flex: 0 0 54px;
-          height: 54px;
+          flex: 0 0 46px;
+          height: 46px;
           justify-content: center;
           padding: 0;
           transition:
             transform 0.16s ease,
             background 0.16s ease;
-          width: 54px;
+          width: 46px;
         }
         :global(button.supernizo-media-toggle:hover),
         .end-call:hover {
-          background: #eef2f7;
+          background: #f4f4f5;
           transform: translateY(-1px);
         }
         :global(button.supernizo-media-toggle[data-lk-enabled='false']) {
           background: #fff1f2;
           border-color: #fecdd3;
-          color: #e11d48;
+          color: #be123c;
         }
         .end-call {
           background: #e11d48;
-          border-color: transparent;
-          box-shadow: 0 8px 18px rgba(225, 29, 72, 0.18);
+          border-color: #e11d48;
           color: #fff;
         }
         .end-call:hover {
           background: #be123c;
+        }
+        :global(button.supernizo-media-toggle:focus-visible),
+        .end-call:focus-visible {
+          outline: 2px solid #18181b;
+          outline-offset: 2px;
         }
         @media (prefers-reduced-motion: reduce) {
           :global(button.supernizo-media-toggle),

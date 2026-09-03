@@ -12,6 +12,7 @@ describe('call widget mounting', () => {
     const initialStyles = callWidgetFrameStyles(false);
 
     expect(initialStyles).toContain('height:1px');
+    expect(initialStyles).toContain('opacity:0');
     expect(initialStyles).toContain('pointer-events:none');
     expect(initialStyles).toContain('width:1px');
   });
@@ -22,6 +23,11 @@ describe('call widget mounting', () => {
     expect(visibleStyles).toContain('height:500px');
     expect(visibleStyles).toContain('pointer-events:auto');
     expect(visibleStyles).toContain('width:330px');
+    expect(visibleStyles).toContain('background:transparent');
+    expect(visibleStyles).toContain('border-radius:18px');
+    expect(visibleStyles).toContain('overflow:hidden');
+    expect(visibleStyles).toContain('opacity:1');
+    expect(visibleStyles).toContain('transform-origin:bottom right');
   });
 
   it('delegates media permissions to the cross-origin call iframe', () => {

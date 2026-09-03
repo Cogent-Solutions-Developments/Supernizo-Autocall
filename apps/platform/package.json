@@ -14,6 +14,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@prisma/adapter-mariadb": "7.10.0",
     "@prisma/client": "7.10.0",
+    "@react-three/fiber": "^9.7.0",
     "@supernizo/shared": "workspace:*",
     "@upstash/realtime": "latest",
     "@upstash/redis": "latest",
@@ -27,6 +28,7 @@
     "react": "latest",
     "react-dom": "latest",
     "server-only": "latest",
+    "three": "^0.185.1",
     "zod": "latest"
   },
   "devDependencies": {
@@ -34,6 +36,7 @@
     "@types/dom-mediacapture-record": "^1.0.22",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/three": "^0.185.4",
     "eslint-config-next": "latest",
     "tailwindcss": "latest"
   }

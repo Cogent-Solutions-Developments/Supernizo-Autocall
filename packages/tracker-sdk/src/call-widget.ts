@@ -22,6 +22,34 @@ type LiveKitMedia = Readonly<{ token: string; url: string }>;
 const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
 const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
 const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
+const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+const MOTION_EASE_HANDOFF = 'cubic-bezier(0.32, 0.72, 0, 1)';
+const CALL_FRAME_ENTER_KEYFRAMES: Keyframe[] = [
+  {
+    clipPath: 'inset(86% 0 0 78% round 36px)',
+    offset: 0,
+    opacity: 0.2,
+    transform: 'translate3d(0, 8px, 0) scale(0.985)',
+  },
+  {
+    clipPath: 'inset(86% 0 0 78% round 36px)',
+    offset: 0.12,
+    opacity: 1,
+    transform: 'translate3d(0, 5px, 0) scale(0.985)',
+  },
+  {
+    clipPath: 'inset(0 0 0 0 round 22px)',
+    offset: 0.78,
+    opacity: 1,
+    transform: 'translate3d(0, 0, 0) scale(1.004)',
+  },
+  {
+    clipPath: 'inset(0 0 0 0 round 18px)',
+    offset: 1,
+    opacity: 1,
+    transform: 'translate3d(0, 0, 0) scale(1)',
+  },
+];
 
 export function isCallWidgetConfigRefreshDue(
   lastRefreshAt: number,
@@ -41,12 +69,16 @@ export function callWidgetFrameStyles(visible: boolean): readonly string[] {
   return [
     'background:transparent',
     'border:0',
+    'border-radius:18px',
     'bottom:16px',
     `height:${visible ? '500px' : '1px'}`,
     `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
+    'overflow:hidden',
+    `opacity:${visible ? '1' : '0'}`,
     `pointer-events:${visible ? 'auto' : 'none'}`,
     'position:fixed',
     'right:16px',
+    'transform-origin:bottom right',
     `width:${visible ? '330px' : '1px'}`,
     'z-index:2147483001',
   ];
@@ -84,10 +116,13 @@ export function readCallActionResponse(
 
 export class CallWidgetController {
   private frame: HTMLIFrameElement | undefined;
+  private frameAnimation: Animation | undefined;
+  private frameVisible = false;
   private configRefreshTimer: number | undefined;
   private configRefreshInFlight = false;
   private lastConfigRefreshAt = Date.now();
   private lastConfigRefreshAttemptAt = 0;
+  private launcherAnimation: Animation | undefined;
   private syncTimer: number | undefined;
 
   public constructor(
@@ -134,8 +169,19 @@ export class CallWidgetController {
     }
     document.removeEventListener('visibilitychange', this.refreshConfigWhenVisible);
     window.removeEventListener('message', this.receiveMessage);
+    this.frameAnimation?.cancel();
+    this.frameAnimation = undefined;
+    this.launcherAnimation?.cancel();
+    this.launcherAnimation = undefined;
+    const launcher = this.findLauncher();
+    if (launcher) {
+      launcher.style.opacity = '';
+      launcher.style.pointerEvents = '';
+      launcher.style.zIndex = '2147482999';
+    }
     this.frame?.remove();
     this.frame = undefined;
+    this.frameVisible = false;
   }
 
   private readonly receiveMessage = (event: MessageEvent<unknown>): void => {
@@ -220,8 +266,108 @@ export class CallWidgetController {
   }
 
   private setFrameVisibility(visible: boolean): void {
-    if (!this.frame) return;
+    if (!this.frame || visible === this.frameVisible) return;
+    this.frameVisible = visible;
+    this.frameAnimation?.cancel();
+    this.frameAnimation = undefined;
     this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (visible && typeof this.frame.animate === 'function') {
+      this.frameAnimation = this.frame.animate(
+        reducedMotion ? [{ opacity: 0 }, { opacity: 1 }] : CALL_FRAME_ENTER_KEYFRAMES,
+        {
+          duration: reducedMotion ? 140 : 480,
+          easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
+          fill: 'both',
+        },
+      );
+    }
+
+    this.setLauncherVisible(!visible, reducedMotion);
+  }
+
+  private findLauncher(): HTMLButtonElement | null {
+    return document.querySelector<HTMLButtonElement>('[data-supernizo-launcher="true"]');
+  }
+
+  private setLauncherVisible(visible: boolean, reducedMotion: boolean): void {
+    const launcher = this.findLauncher();
+    if (!launcher) return;
+
+    this.launcherAnimation?.cancel();
+    this.launcherAnimation = undefined;
+    launcher.style.pointerEvents = visible ? '' : 'none';
+
+    if (typeof launcher.animate !== 'function') {
+      launcher.style.opacity = visible ? '1' : '0';
+      return;
+    }
+
+    if (!visible && !reducedMotion && this.frame) {
+      const launcherRect = launcher.getBoundingClientRect();
+      const frameRect = this.frame.getBoundingClientRect();
+      const targetX = frameRect.left + frameRect.width / 2;
+      const targetY = frameRect.top + frameRect.height * 0.31;
+      const translateX = targetX - (launcherRect.left + launcherRect.width / 2);
+      const translateY = targetY - (launcherRect.top + launcherRect.height / 2);
+      launcher.style.zIndex = '2147483002';
+
+      const animation = launcher.animate(
+        [
+          {
+            offset: 0,
+            opacity: 1,
+            transform: 'translate3d(0, 0, 0) scale(1)',
+          },
+          {
+            offset: 0.22,
+            opacity: 1,
+            transform: `translate3d(${translateX * 0.18}px, ${translateY * 0.18}px, 0) scale(1.12)`,
+          },
+          {
+            offset: 0.78,
+            opacity: 1,
+            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.55)`,
+          },
+          {
+            offset: 1,
+            opacity: 0,
+            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.72)`,
+          },
+        ],
+        {
+          duration: 480,
+          easing: MOTION_EASE_HANDOFF,
+          fill: 'both',
+        },
+      );
+      this.launcherAnimation = animation;
+      animation.addEventListener(
+        'finish',
+        () => {
+          if (this.launcherAnimation === animation) launcher.style.zIndex = '2147482999';
+        },
+        { once: true },
+      );
+      return;
+    }
+
+    launcher.style.zIndex = '2147482999';
+    const hiddenFrame: Keyframe = reducedMotion
+      ? { opacity: 0 }
+      : { opacity: 0, transform: 'translate3d(0, 5px, 0) scale(0.84)' };
+    const visibleFrame: Keyframe = reducedMotion
+      ? { opacity: 1 }
+      : { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' };
+    this.launcherAnimation = launcher.animate(
+      visible ? [hiddenFrame, visibleFrame] : [visibleFrame, hiddenFrame],
+      {
+        duration: reducedMotion ? 120 : visible ? 220 : 150,
+        easing: MOTION_EASE_OUT,
+        fill: 'both',
+      },
+    );
   }
 
   private async respond(call: Call, action: 'accept' | 'end' | 'reject'): Promise<void> {

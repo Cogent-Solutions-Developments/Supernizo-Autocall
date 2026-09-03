@@ -398,6 +398,7 @@ class ChatWidgetController {
     currentConfig;
     frame;
     launcher;
+    launcherAnimationFrame;
     launcherStyle;
     hasSyncedThread = false;
     latestAgentMessageId;
@@ -424,6 +425,10 @@ class ChatWidgetController {
         }
         window.removeEventListener('message', this.receiveMessage);
         this.unmountFrame();
+        if (this.launcherAnimationFrame !== undefined) {
+            window.cancelAnimationFrame(this.launcherAnimationFrame);
+            this.launcherAnimationFrame = undefined;
+        }
         this.launcher?.remove();
         this.launcher = undefined;
         this.launcherStyle?.remove();
@@ -457,53 +462,105 @@ class ChatWidgetController {
             return;
         const launcher = document.createElement('button');
         launcher.setAttribute('aria-label', 'Open chat with the event team');
+        launcher.dataset.supernizoLauncher = 'true';
         launcher.setAttribute('type', 'button');
-        launcher.innerHTML =
-            '<span aria-hidden="true" class="supernizo-chat-launcher__halo"></span><span aria-hidden="true" class="supernizo-chat-launcher__avatar">S</span><span aria-hidden="true" class="supernizo-chat-launcher__badge"></span>';
+        const fallbackBlob = document.createElement('span');
+        fallbackBlob.ariaHidden = 'true';
+        fallbackBlob.className = 'supernizo-chat-launcher__blob-fallback';
+        const blobCanvas = document.createElement('canvas');
+        blobCanvas.ariaHidden = 'true';
+        blobCanvas.className = 'supernizo-chat-launcher__blob';
+        const unreadBadge = document.createElement('span');
+        unreadBadge.ariaHidden = 'true';
+        unreadBadge.className = 'supernizo-chat-launcher__badge';
+        launcher.append(fallbackBlob, blobCanvas, unreadBadge);
         launcher.style.cssText = [
-            'align-items:center',
             'appearance:none',
-            'background:linear-gradient(145deg,#0d536e,#082337)',
-            'border:1px solid rgba(159,231,255,.62)',
-            'border-radius:999px',
-            'bottom:20px',
-            'box-shadow:0 12px 30px rgba(1,14,25,.35),inset 0 1px 1px rgba(255,255,255,.22)',
-            'color:#effbff',
+            'background:transparent',
+            'border:0',
+            'bottom:16px',
             'cursor:pointer',
-            'display:inline-flex',
-            'height:62px',
+            'height:72px',
             'isolation:isolate',
-            'justify-content:center',
             'padding:0',
             'position:fixed',
-            'right:20px',
-            'transition:transform .2s ease,box-shadow .2s ease',
-            'width:62px',
+            'right:16px',
+            'transition:transform .16s ease',
+            'width:72px',
             'z-index:2147482999',
         ].join(';');
         launcher.addEventListener('click', () => this.openChat());
         launcher.addEventListener('mouseenter', () => {
-            launcher.style.transform = 'translateY(-3px) scale(1.03)';
-            launcher.style.boxShadow =
-                '0 16px 34px rgba(1,14,25,.42),inset 0 1px 1px rgba(255,255,255,.26)';
+            launcher.style.transform = 'translateY(-2px) scale(1.03)';
         });
         launcher.addEventListener('mouseleave', () => {
             launcher.style.transform = '';
-            launcher.style.boxShadow = '';
         });
         (document.body ?? document.documentElement).append(launcher);
         this.launcher = launcher;
+        this.startLauncherBlobAnimation(blobCanvas);
         const style = document.createElement('style');
         style.dataset.supernizoChatLauncher = 'true';
         style.textContent = `
-      .supernizo-chat-launcher__halo { position:absolute; inset:7px; border:1px solid rgba(180,239,255,.28); border-radius:inherit; }
-      .supernizo-chat-launcher__avatar { align-items:center; background:linear-gradient(145deg,#3bd3d0,#1182a0); border-radius:999px; box-shadow:inset 0 1px 2px rgba(255,255,255,.44); display:flex; font:700 20px/1 Arial,sans-serif; height:42px; justify-content:center; position:relative; width:42px; }
-      .supernizo-chat-launcher__badge { background:#35e0b1; border:2px solid #082337; border-radius:999px; bottom:7px; box-shadow:0 0 0 3px rgba(53,224,177,.14); display:none; height:10px; position:absolute; right:7px; width:10px; }
+      .supernizo-chat-launcher__blob-fallback { background:#18181b; border-radius:48% 52% 43% 57% / 55% 44% 56% 45%; height:48px; inset:12px; position:absolute; transform:rotate(-8deg); width:50px; z-index:0; }
+      .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 .75px rgba(255,255,255,.5)); height:68px; inset:2px; pointer-events:none; position:absolute; transition:filter .16s ease; width:68px; z-index:1; }
+      .supernizo-chat-launcher__badge { background:#55b982; border:2px solid #f4f4f5; border-radius:999px; bottom:7px; display:none; height:10px; position:absolute; right:7px; width:10px; z-index:2; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
-      @media (max-width: 480px) { .supernizo-chat-launcher__avatar { font-size:18px; } }
+      button[aria-label='Open chat with the event team']:focus { outline:none; }
+      button[aria-label='Open chat with the event team']:focus-visible .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 3px #fff) drop-shadow(0 0 2px #18181b); }
+      @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
         this.launcherStyle = style;
+    }
+    startLauncherBlobAnimation(canvas) {
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        const size = 68;
+        canvas.height = size * pixelRatio;
+        canvas.width = size * pixelRatio;
+        const context = canvas.getContext('2d');
+        if (!context)
+            return;
+        context.scale(pixelRatio, pixelRatio);
+        const surface = context.createRadialGradient(24, 21, 2, 36, 38, 30);
+        surface.addColorStop(0, '#3a3a3d');
+        surface.addColorStop(0.52, '#252528');
+        surface.addColorStop(1, '#111113');
+        const render = (timestamp) => {
+            const elapsed = timestamp / 1_000;
+            context.clearRect(0, 0, size, size);
+            context.beginPath();
+            const centerX = size / 2 + Math.sin(elapsed * 0.82) * 2.2;
+            const centerY = size / 2 + Math.cos(elapsed * 0.67) * 1.8;
+            for (let index = 0; index <= 64; index += 1) {
+                const angle = (index / 64) * Math.PI * 2;
+                const radius = 24 *
+                    (1 +
+                        Math.sin(angle * 3 + elapsed * 1.28) * 0.13 +
+                        Math.sin(angle * 5 - elapsed * 0.92) * 0.08 +
+                        Math.sin(angle * 2 + elapsed * 0.58) * 0.055);
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                if (index === 0)
+                    context.moveTo(x, y);
+                else
+                    context.lineTo(x, y);
+            }
+            context.closePath();
+            context.fillStyle = surface;
+            context.fill();
+            context.lineWidth = 0.75;
+            context.strokeStyle = '#09090b';
+            context.stroke();
+            this.launcherAnimationFrame = window.requestAnimationFrame(render);
+        };
+        render(0);
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            if (this.launcherAnimationFrame !== undefined) {
+                window.cancelAnimationFrame(this.launcherAnimationFrame);
+                this.launcherAnimationFrame = undefined;
+            }
+        }
     }
     openChat() {
         this.openRequested = true;
@@ -617,6 +674,34 @@ exports.readCallActionResponse = readCallActionResponse;
 const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
 const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
 const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
+const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+const MOTION_EASE_HANDOFF = 'cubic-bezier(0.32, 0.72, 0, 1)';
+const CALL_FRAME_ENTER_KEYFRAMES = [
+    {
+        clipPath: 'inset(86% 0 0 78% round 36px)',
+        offset: 0,
+        opacity: 0.2,
+        transform: 'translate3d(0, 8px, 0) scale(0.985)',
+    },
+    {
+        clipPath: 'inset(86% 0 0 78% round 36px)',
+        offset: 0.12,
+        opacity: 1,
+        transform: 'translate3d(0, 5px, 0) scale(0.985)',
+    },
+    {
+        clipPath: 'inset(0 0 0 0 round 22px)',
+        offset: 0.78,
+        opacity: 1,
+        transform: 'translate3d(0, 0, 0) scale(1.004)',
+    },
+    {
+        clipPath: 'inset(0 0 0 0 round 18px)',
+        offset: 1,
+        opacity: 1,
+        transform: 'translate3d(0, 0, 0) scale(1)',
+    },
+];
 function isCallWidgetConfigRefreshDue(lastRefreshAt, lastAttemptAt, now = Date.now()) {
     return (now - lastRefreshAt >= CONFIG_REFRESH_AFTER_MS && now - lastAttemptAt >= CONFIG_REFRESH_RETRY_MS);
 }
@@ -627,12 +712,16 @@ function callWidgetFrameStyles(visible) {
     return [
         'background:transparent',
         'border:0',
+        'border-radius:18px',
         'bottom:16px',
         `height:${visible ? '500px' : '1px'}`,
         `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
+        'overflow:hidden',
+        `opacity:${visible ? '1' : '0'}`,
         `pointer-events:${visible ? 'auto' : 'none'}`,
         'position:fixed',
         'right:16px',
+        'transform-origin:bottom right',
         `width:${visible ? '330px' : '1px'}`,
         'z-index:2147483001',
     ];
@@ -670,10 +759,13 @@ class CallWidgetController {
     config;
     renewConfig;
     frame;
+    frameAnimation;
+    frameVisible = false;
     configRefreshTimer;
     configRefreshInFlight = false;
     lastConfigRefreshAt = Date.now();
     lastConfigRefreshAttemptAt = 0;
+    launcherAnimation;
     syncTimer;
     constructor(context, endpoint, config, renewConfig) {
         this.context = context;
@@ -716,8 +808,19 @@ class CallWidgetController {
         }
         document.removeEventListener('visibilitychange', this.refreshConfigWhenVisible);
         window.removeEventListener('message', this.receiveMessage);
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherAnimation?.cancel();
+        this.launcherAnimation = undefined;
+        const launcher = this.findLauncher();
+        if (launcher) {
+            launcher.style.opacity = '';
+            launcher.style.pointerEvents = '';
+            launcher.style.zIndex = '2147482999';
+        }
         this.frame?.remove();
         this.frame = undefined;
+        this.frameVisible = false;
     }
     receiveMessage = (event) => {
         if (event.origin !== new URL(this.endpoint).origin ||
@@ -783,9 +886,89 @@ class CallWidgetController {
         this.frame?.contentWindow?.postMessage({ config: this.config, type: 'supernizo-call-config' }, new URL(this.endpoint).origin);
     }
     setFrameVisibility(visible) {
-        if (!this.frame)
+        if (!this.frame || visible === this.frameVisible)
             return;
+        this.frameVisible = visible;
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
         this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (visible && typeof this.frame.animate === 'function') {
+            this.frameAnimation = this.frame.animate(reducedMotion ? [{ opacity: 0 }, { opacity: 1 }] : CALL_FRAME_ENTER_KEYFRAMES, {
+                duration: reducedMotion ? 140 : 480,
+                easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
+                fill: 'both',
+            });
+        }
+        this.setLauncherVisible(!visible, reducedMotion);
+    }
+    findLauncher() {
+        return document.querySelector('[data-supernizo-launcher="true"]');
+    }
+    setLauncherVisible(visible, reducedMotion) {
+        const launcher = this.findLauncher();
+        if (!launcher)
+            return;
+        this.launcherAnimation?.cancel();
+        this.launcherAnimation = undefined;
+        launcher.style.pointerEvents = visible ? '' : 'none';
+        if (typeof launcher.animate !== 'function') {
+            launcher.style.opacity = visible ? '1' : '0';
+            return;
+        }
+        if (!visible && !reducedMotion && this.frame) {
+            const launcherRect = launcher.getBoundingClientRect();
+            const frameRect = this.frame.getBoundingClientRect();
+            const targetX = frameRect.left + frameRect.width / 2;
+            const targetY = frameRect.top + frameRect.height * 0.31;
+            const translateX = targetX - (launcherRect.left + launcherRect.width / 2);
+            const translateY = targetY - (launcherRect.top + launcherRect.height / 2);
+            launcher.style.zIndex = '2147483002';
+            const animation = launcher.animate([
+                {
+                    offset: 0,
+                    opacity: 1,
+                    transform: 'translate3d(0, 0, 0) scale(1)',
+                },
+                {
+                    offset: 0.22,
+                    opacity: 1,
+                    transform: `translate3d(${translateX * 0.18}px, ${translateY * 0.18}px, 0) scale(1.12)`,
+                },
+                {
+                    offset: 0.78,
+                    opacity: 1,
+                    transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.55)`,
+                },
+                {
+                    offset: 1,
+                    opacity: 0,
+                    transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.72)`,
+                },
+            ], {
+                duration: 480,
+                easing: MOTION_EASE_HANDOFF,
+                fill: 'both',
+            });
+            this.launcherAnimation = animation;
+            animation.addEventListener('finish', () => {
+                if (this.launcherAnimation === animation)
+                    launcher.style.zIndex = '2147482999';
+            }, { once: true });
+            return;
+        }
+        launcher.style.zIndex = '2147482999';
+        const hiddenFrame = reducedMotion
+            ? { opacity: 0 }
+            : { opacity: 0, transform: 'translate3d(0, 5px, 0) scale(0.84)' };
+        const visibleFrame = reducedMotion
+            ? { opacity: 1 }
+            : { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' };
+        this.launcherAnimation = launcher.animate(visible ? [hiddenFrame, visibleFrame] : [visibleFrame, hiddenFrame], {
+            duration: reducedMotion ? 120 : visible ? 220 : 150,
+            easing: MOTION_EASE_OUT,
+            fill: 'both',
+        });
     }
     async respond(call, action) {
         try {

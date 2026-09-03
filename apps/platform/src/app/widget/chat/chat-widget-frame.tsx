@@ -8,14 +8,12 @@ import {
   XIcon,
 } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
-import Image from 'next/image';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 
 import { mergeChatMessage } from '@/app/components/chat-state';
-import callBackground from '@/assets/call bg.webp';
 
 const WidgetConfigSchema = z.object({
   messages: z.array(ChatMessageSchema),
@@ -174,79 +172,65 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
       {isOpen ? (
         <section
           aria-label="Chat conversation"
-          className="relative flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 font-sans text-slate-900 shadow-[0_14px_34px_rgba(15,23,42,0.1)]"
+          className="flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b] shadow-[0_20px_50px_rgba(0,0,0,0.14)]"
         >
-          <Image
-            alt=""
-            aria-hidden="true"
-            className="pointer-events-none object-cover"
-            fill
-            priority
-            sizes="330px"
-            src={callBackground}
-          />
-
-          <div className="relative z-10 flex h-full min-h-0 flex-col">
-            <header className="flex items-center justify-between gap-3 px-5 py-4">
+          <div className="flex h-full min-h-0 flex-col">
+            <header className="flex items-center justify-between gap-3 border-b border-[#e4e4e7] bg-white px-4 py-3.5">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white p-0.5 shadow-sm ring-2 ring-slate-100">
-                  <span className="flex h-full w-full items-center justify-center rounded-full bg-[#e8eef5] text-sm font-bold tracking-[-0.04em] text-[#18324d]">
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e4e4e7] bg-[#f4f4f5]">
+                  <span className="text-sm font-semibold tracking-[-0.02em] text-[#18181b]">
                     {initials(agentName)}
                   </span>
                   <span
-                    aria-label="Online"
-                    className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500"
+                    aria-label="Online now"
+                    className="absolute -right-1 -bottom-1 h-3 w-3 rounded-full border-[3px] border-white bg-[#22a06b]"
                     role="status"
                   />
                 </div>
                 <div className="min-w-0">
-                  <p className="m-0 truncate text-[15px] font-semibold text-slate-800">
+                  <p className="m-0 truncate text-sm font-semibold tracking-[-0.01em] text-[#18181b]">
                     {agentName}
                   </p>
-                  <p className="m-0 mt-0.5 truncate text-[11px] font-medium text-slate-500">
-                    Online · Usually replies quickly
-                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#71717a]">
+                    <span>Online now</span>
+                    <span aria-hidden="true" className="text-[#d4d4d8]">
+                      ·
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <ShieldCheckIcon aria-hidden="true" size={11} weight="fill" />
+                      Verified
+                    </span>
+                  </div>
                 </div>
               </div>
               <button
                 aria-label="Close chat"
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-500 transition hover:bg-white hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d]"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] border border-transparent text-[#71717a] transition-colors duration-150 hover:border-[#e4e4e7] hover:bg-[#f4f4f5] hover:text-[#18181b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b]"
                 onClick={closeChat}
                 type="button"
               >
-                <XIcon aria-hidden="true" size={16} weight="bold" />
+                <XIcon aria-hidden="true" size={17} />
               </button>
             </header>
-
-            <div className="flex items-center justify-between border-y border-slate-100 bg-white/[0.55] px-5 py-2.5 backdrop-blur-sm">
-              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
-                <ChatCircleDotsIcon aria-hidden="true" size={15} weight="fill" />
-                Live event support
-              </div>
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
-                <ShieldCheckIcon aria-hidden="true" size={13} weight="fill" />
-                Verified
-              </span>
-            </div>
 
             <div
               aria-live="polite"
               aria-relevant="additions"
-              className="message-scroll min-h-0 flex-1 overflow-y-auto bg-white/[0.38] px-4 py-4"
+              className="message-scroll min-h-0 flex-1 overflow-y-auto px-4 py-4"
             >
               {messages.length ? (
                 <>
                   <div className="mb-4 flex items-center justify-center">
-                    <span className="rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-[10px] font-semibold text-slate-500 shadow-sm backdrop-blur-sm">
+                    <span className="rounded-md bg-[#f4f4f5] px-2 py-1 text-[10px] font-medium text-[#71717a]">
                       {conversationDay(messages[0]?.sentAt)}
                     </span>
                   </div>
-                  <ol className="m-0 grid list-none gap-3 p-0">
+                  <ol className="m-0 grid list-none gap-3.5 p-0">
                     {messages.map((message) => {
                       if (message.senderType === 'SYSTEM') {
                         return (
                           <li className="flex justify-center" key={message.id}>
-                            <p className="m-0 max-w-[90%] rounded-full bg-slate-100/90 px-3 py-1.5 text-center text-[10px] leading-4 text-slate-500">
+                            <p className="m-0 max-w-[90%] px-3 py-1.5 text-center text-[10px] leading-4 text-[#71717a]">
                               {message.content}
                             </p>
                           </li>
@@ -261,15 +245,15 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                         >
                           <article className="max-w-[84%]">
                             {!isVisitor ? (
-                              <p className="m-0 mb-1 pl-1 text-[10px] font-semibold text-slate-500">
+                              <p className="m-0 mb-1.5 pl-1 text-[10px] font-medium text-[#71717a]">
                                 {message.senderName ?? agentName}
                               </p>
                             ) : null}
                             <div
-                              className={`px-3.5 py-2.5 text-[13px] leading-[1.45] shadow-sm ${
+                              className={`border px-3.5 py-2.5 text-[13px] leading-[1.5] ${
                                 isVisitor
-                                  ? 'rounded-2xl rounded-br-md bg-[#18324d] text-white'
-                                  : 'rounded-2xl rounded-bl-md border border-slate-200 bg-white/95 text-slate-700'
+                                  ? 'rounded-[13px] rounded-br-[4px] border-[#18181b] bg-[#18181b] text-white'
+                                  : 'rounded-[13px] rounded-bl-[4px] border-[#e4e4e7] bg-[#f4f4f5] text-[#27272a]'
                               }`}
                             >
                               <p className="m-0 whitespace-pre-wrap break-words">
@@ -277,7 +261,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                               </p>
                             </div>
                             <div
-                              className={`mt-1 flex items-center gap-1 px-1 text-[9px] font-medium text-slate-400 ${
+                              className={`mt-1.5 flex items-center gap-1 px-1 text-[9px] font-medium text-[#a1a1aa] ${
                                 isVisitor ? 'justify-end' : 'justify-start'
                               }`}
                             >
@@ -293,31 +277,36 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                   </ol>
                 </>
               ) : (
-                <div className="flex h-full min-h-52 flex-col items-center justify-center px-5 text-center">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white/[0.85] text-[#18324d] shadow-sm">
-                    <ChatCircleDotsIcon aria-hidden="true" size={24} weight="fill" />
+                <div className="flex h-full min-h-52 flex-col justify-center px-2 pb-5 text-left">
+                  <span className="flex h-9 w-9 items-center justify-start text-[#18181b]">
+                    <ChatCircleDotsIcon aria-hidden="true" size={22} weight="fill" />
                   </span>
-                  <p className="m-0 mt-3 text-sm font-semibold text-slate-800">
-                    Start a conversation
+                  <p className="m-0 mt-4 text-[12px] font-medium text-[#71717a]">Event support</p>
+                  <h1 className="m-0 mt-1 text-[25px] leading-8 font-semibold tracking-[-0.035em] text-[#18181b]">
+                    How can we help?
+                  </h1>
+                  <p className="m-0 mt-2 max-w-[245px] text-[13px] leading-5 text-[#71717a]">
+                    Send us a message and someone from the team will reply here.
                   </p>
-                  <p className="m-0 mt-1 max-w-52 text-xs leading-5 text-slate-500">
-                    Ask us anything about the event. Our team is here to help.
-                  </p>
+                  <div className="mt-5 flex items-center gap-2 border-t border-[#e4e4e7] pt-4 text-[11px] text-[#71717a]">
+                    <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#22a06b]" />
+                    Usually replies in a few minutes
+                  </div>
                 </div>
               )}
               <div ref={messageEndRef} />
             </div>
 
             <form
-              className="border-t border-slate-200/80 bg-white/[0.88] px-3 pt-3 pb-2.5 backdrop-blur-md"
+              className="border-t border-[#e4e4e7] bg-white px-3 pt-3 pb-2.5"
               onSubmit={sendMessage}
             >
               <label className="sr-only" htmlFor="supernizo-chat-input">
                 Message
               </label>
-              <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition focus-within:border-[#6b879e] focus-within:ring-2 focus-within:ring-[#18324d]/10">
+              <div className="flex items-end gap-2 rounded-[12px] border border-[#e4e4e7] bg-[#fafafa] px-3 py-2 transition-colors duration-150 focus-within:border-[#a1a1aa] focus-within:ring-2 focus-within:ring-black/5">
                 <textarea
-                  className="max-h-[88px] min-h-10 flex-1 resize-none border-0 bg-transparent py-2 text-[13px] leading-5 text-slate-800 outline-none placeholder:text-slate-400 disabled:cursor-wait"
+                  className="max-h-[88px] min-h-10 flex-1 resize-none border-0 bg-transparent py-2 text-[13px] leading-5 text-[#18181b] outline-none placeholder:text-[#a1a1aa] disabled:cursor-wait"
                   disabled={!config}
                   id="supernizo-chat-input"
                   maxLength={2000}
@@ -334,17 +323,17 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 />
                 <button
                   aria-label="Send message"
-                  className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#18324d] text-white shadow-sm transition hover:bg-[#0f2740] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18324d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] bg-[#18181b] text-white transition-colors duration-150 hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-not-allowed disabled:bg-[#e4e4e7] disabled:text-[#a1a1aa]"
                   disabled={!config || !content.trim()}
                   type="submit"
                 >
-                  <PaperPlaneRightIcon aria-hidden="true" size={18} weight="fill" />
+                  <PaperPlaneRightIcon aria-hidden="true" size={17} weight="fill" />
                 </button>
               </div>
-              <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[9px] font-medium text-slate-400">
+              <div className="mt-2 flex items-center justify-between gap-2 px-1 text-[9px] font-medium text-[#a1a1aa]">
                 <span className="inline-flex items-center gap-1">
                   <ShieldCheckIcon aria-hidden="true" size={11} weight="fill" />
-                  Private and secure
+                  Private conversation
                 </span>
                 <span>{content.length > 1600 ? `${content.length}/2000` : 'Enter to send'}</span>
               </div>
@@ -372,16 +361,26 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           height: 100%;
           margin: 0;
           overflow: hidden;
+          font-family:
+            var(--font-google-sans),
+            'Google Sans',
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            sans-serif;
+          color-scheme: light;
         }
         .message-scroll {
-          scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+          scrollbar-color: #d4d4d8 transparent;
           scrollbar-width: thin;
         }
         .message-scroll::-webkit-scrollbar {
           width: 5px;
         }
         .message-scroll::-webkit-scrollbar-thumb {
-          background: rgba(100, 116, 139, 0.3);
+          background: #d4d4d8;
           border-radius: 999px;
         }
       `}</style>

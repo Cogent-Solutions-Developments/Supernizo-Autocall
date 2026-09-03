@@ -75,6 +75,7 @@ export class ChatWidgetController {
   private currentConfig: ChatWidgetConfig | undefined;
   private frame: HTMLIFrameElement | undefined;
   private launcher: HTMLButtonElement | undefined;
+  private launcherAnimationFrame: number | undefined;
   private launcherStyle: HTMLStyleElement | undefined;
   private hasSyncedThread = false;
   private latestAgentMessageId: string | undefined;
@@ -103,6 +104,10 @@ export class ChatWidgetController {
     }
     window.removeEventListener('message', this.receiveMessage);
     this.unmountFrame();
+    if (this.launcherAnimationFrame !== undefined) {
+      window.cancelAnimationFrame(this.launcherAnimationFrame);
+      this.launcherAnimationFrame = undefined;
+    }
     this.launcher?.remove();
     this.launcher = undefined;
     this.launcherStyle?.remove();
@@ -138,54 +143,109 @@ export class ChatWidgetController {
     if (this.launcher) return;
     const launcher = document.createElement('button');
     launcher.setAttribute('aria-label', 'Open chat with the event team');
+    launcher.dataset.supernizoLauncher = 'true';
     launcher.setAttribute('type', 'button');
-    launcher.innerHTML =
-      '<span aria-hidden="true" class="supernizo-chat-launcher__halo"></span><span aria-hidden="true" class="supernizo-chat-launcher__avatar">S</span><span aria-hidden="true" class="supernizo-chat-launcher__badge"></span>';
+
+    const fallbackBlob = document.createElement('span');
+    fallbackBlob.ariaHidden = 'true';
+    fallbackBlob.className = 'supernizo-chat-launcher__blob-fallback';
+    const blobCanvas = document.createElement('canvas');
+    blobCanvas.ariaHidden = 'true';
+    blobCanvas.className = 'supernizo-chat-launcher__blob';
+    const unreadBadge = document.createElement('span');
+    unreadBadge.ariaHidden = 'true';
+    unreadBadge.className = 'supernizo-chat-launcher__badge';
+    launcher.append(fallbackBlob, blobCanvas, unreadBadge);
+
     launcher.style.cssText = [
-      'align-items:center',
       'appearance:none',
-      'background:linear-gradient(145deg,#0d536e,#082337)',
-      'border:1px solid rgba(159,231,255,.62)',
-      'border-radius:999px',
-      'bottom:20px',
-      'box-shadow:0 12px 30px rgba(1,14,25,.35),inset 0 1px 1px rgba(255,255,255,.22)',
-      'color:#effbff',
+      'background:transparent',
+      'border:0',
+      'bottom:16px',
       'cursor:pointer',
-      'display:inline-flex',
-      'height:62px',
+      'height:72px',
       'isolation:isolate',
-      'justify-content:center',
       'padding:0',
       'position:fixed',
-      'right:20px',
-      'transition:transform .2s ease,box-shadow .2s ease',
-      'width:62px',
+      'right:16px',
+      'transition:transform .16s ease',
+      'width:72px',
       'z-index:2147482999',
     ].join(';');
     launcher.addEventListener('click', () => this.openChat());
     launcher.addEventListener('mouseenter', () => {
-      launcher.style.transform = 'translateY(-3px) scale(1.03)';
-      launcher.style.boxShadow =
-        '0 16px 34px rgba(1,14,25,.42),inset 0 1px 1px rgba(255,255,255,.26)';
+      launcher.style.transform = 'translateY(-2px) scale(1.03)';
     });
     launcher.addEventListener('mouseleave', () => {
       launcher.style.transform = '';
-      launcher.style.boxShadow = '';
     });
     (document.body ?? document.documentElement).append(launcher);
     this.launcher = launcher;
+    this.startLauncherBlobAnimation(blobCanvas);
 
     const style = document.createElement('style');
     style.dataset.supernizoChatLauncher = 'true';
     style.textContent = `
-      .supernizo-chat-launcher__halo { position:absolute; inset:7px; border:1px solid rgba(180,239,255,.28); border-radius:inherit; }
-      .supernizo-chat-launcher__avatar { align-items:center; background:linear-gradient(145deg,#3bd3d0,#1182a0); border-radius:999px; box-shadow:inset 0 1px 2px rgba(255,255,255,.44); display:flex; font:700 20px/1 Arial,sans-serif; height:42px; justify-content:center; position:relative; width:42px; }
-      .supernizo-chat-launcher__badge { background:#35e0b1; border:2px solid #082337; border-radius:999px; bottom:7px; box-shadow:0 0 0 3px rgba(53,224,177,.14); display:none; height:10px; position:absolute; right:7px; width:10px; }
+      .supernizo-chat-launcher__blob-fallback { background:#18181b; border-radius:48% 52% 43% 57% / 55% 44% 56% 45%; height:48px; inset:12px; position:absolute; transform:rotate(-8deg); width:50px; z-index:0; }
+      .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 .75px rgba(255,255,255,.5)); height:68px; inset:2px; pointer-events:none; position:absolute; transition:filter .16s ease; width:68px; z-index:1; }
+      .supernizo-chat-launcher__badge { background:#55b982; border:2px solid #f4f4f5; border-radius:999px; bottom:7px; display:none; height:10px; position:absolute; right:7px; width:10px; z-index:2; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
-      @media (max-width: 480px) { .supernizo-chat-launcher__avatar { font-size:18px; } }
+      button[aria-label='Open chat with the event team']:focus { outline:none; }
+      button[aria-label='Open chat with the event team']:focus-visible .supernizo-chat-launcher__blob { filter:drop-shadow(0 7px 10px rgba(0,0,0,.24)) drop-shadow(0 0 3px #fff) drop-shadow(0 0 2px #18181b); }
+      @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
     (document.head ?? document.documentElement).append(style);
     this.launcherStyle = style;
+  }
+
+  private startLauncherBlobAnimation(canvas: HTMLCanvasElement): void {
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const size = 68;
+    canvas.height = size * pixelRatio;
+    canvas.width = size * pixelRatio;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.scale(pixelRatio, pixelRatio);
+    const surface = context.createRadialGradient(24, 21, 2, 36, 38, 30);
+    surface.addColorStop(0, '#3a3a3d');
+    surface.addColorStop(0.52, '#252528');
+    surface.addColorStop(1, '#111113');
+
+    const render = (timestamp: number) => {
+      const elapsed = timestamp / 1_000;
+      context.clearRect(0, 0, size, size);
+      context.beginPath();
+      const centerX = size / 2 + Math.sin(elapsed * 0.82) * 2.2;
+      const centerY = size / 2 + Math.cos(elapsed * 0.67) * 1.8;
+      for (let index = 0; index <= 64; index += 1) {
+        const angle = (index / 64) * Math.PI * 2;
+        const radius =
+          24 *
+          (1 +
+            Math.sin(angle * 3 + elapsed * 1.28) * 0.13 +
+            Math.sin(angle * 5 - elapsed * 0.92) * 0.08 +
+            Math.sin(angle * 2 + elapsed * 0.58) * 0.055);
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.closePath();
+      context.fillStyle = surface;
+      context.fill();
+      context.lineWidth = 0.75;
+      context.strokeStyle = '#09090b';
+      context.stroke();
+      this.launcherAnimationFrame = window.requestAnimationFrame(render);
+    };
+
+    render(0);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if (this.launcherAnimationFrame !== undefined) {
+        window.cancelAnimationFrame(this.launcherAnimationFrame);
+        this.launcherAnimationFrame = undefined;
+      }
+    }
   }
 
   private openChat(): void {
