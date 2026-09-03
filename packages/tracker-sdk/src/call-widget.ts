@@ -23,25 +23,26 @@ const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
 const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
 const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
 const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
-const MOTION_EASE_HANDOFF = 'cubic-bezier(0.32, 0.72, 0, 1)';
+const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
+const MOTION_HANDOFF_DURATION_MS = 680;
 const CALL_FRAME_ENTER_KEYFRAMES: Keyframe[] = [
   {
     clipPath: 'inset(86% 0 0 78% round 36px)',
     offset: 0,
-    opacity: 0.2,
-    transform: 'translate3d(0, 8px, 0) scale(0.985)',
+    opacity: 0.12,
+    transform: 'translate3d(0, 5px, 0) scale(0.99)',
   },
   {
     clipPath: 'inset(86% 0 0 78% round 36px)',
-    offset: 0.12,
+    offset: 0.16,
     opacity: 1,
-    transform: 'translate3d(0, 5px, 0) scale(0.985)',
+    transform: 'translate3d(0, 4px, 0) scale(0.99)',
   },
   {
     clipPath: 'inset(0 0 0 0 round 22px)',
-    offset: 0.78,
+    offset: 0.86,
     opacity: 1,
-    transform: 'translate3d(0, 0, 0) scale(1.004)',
+    transform: 'translate3d(0, 0, 0) scale(1)',
   },
   {
     clipPath: 'inset(0 0 0 0 round 18px)',
@@ -277,7 +278,7 @@ export class CallWidgetController {
       this.frameAnimation = this.frame.animate(
         reducedMotion ? [{ opacity: 0 }, { opacity: 1 }] : CALL_FRAME_ENTER_KEYFRAMES,
         {
-          duration: reducedMotion ? 140 : 480,
+          duration: reducedMotion ? 140 : MOTION_HANDOFF_DURATION_MS,
           easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
           fill: 'both',
         },
@@ -321,23 +322,28 @@ export class CallWidgetController {
             transform: 'translate3d(0, 0, 0) scale(1)',
           },
           {
-            offset: 0.22,
+            offset: 0.18,
             opacity: 1,
-            transform: `translate3d(${translateX * 0.18}px, ${translateY * 0.18}px, 0) scale(1.12)`,
+            transform: `translate3d(${translateX * 0.1}px, ${translateY * 0.1}px, 0) scale(1.04)`,
           },
           {
-            offset: 0.78,
+            offset: 0.76,
             opacity: 1,
-            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.55)`,
+            transform: `translate3d(${translateX * 0.9}px, ${translateY * 0.9}px, 0) scale(1.38)`,
+          },
+          {
+            offset: 0.9,
+            opacity: 1,
+            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.48)`,
           },
           {
             offset: 1,
             opacity: 0,
-            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.72)`,
+            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(1.5)`,
           },
         ],
         {
-          duration: 480,
+          duration: MOTION_HANDOFF_DURATION_MS,
           easing: MOTION_EASE_HANDOFF,
           fill: 'both',
         },

@@ -142,7 +142,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const hasActiveMedia =
     media !== null && call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
   const agentName = call?.agentDisplayName ?? 'Event team';
-  const callerName = agentName.trim().toLowerCase() === 'local admin' ? 'Astra' : agentName;
+  const callerName = agentName.trim().toLowerCase() === 'local admin' ? 'Blob' : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
 
   function acceptCall(): void {
@@ -407,16 +407,16 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             sans-serif;
         }
         .call-card__verified {
-          animation: call-verified-in 200ms cubic-bezier(0.23, 1, 0.32, 1) 170ms both;
+          animation: call-verified-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 280ms both;
         }
         .call-card__hero {
-          animation: call-hero-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 220ms both;
+          animation: call-hero-in 340ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
         }
         .call-card__actions {
-          animation: call-actions-in 220ms cubic-bezier(0.23, 1, 0.32, 1) 300ms both;
+          animation: call-actions-in 280ms cubic-bezier(0.23, 1, 0.32, 1) 420ms both;
         }
         .call-card__footer {
-          animation: call-footer-in 180ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
+          animation: call-footer-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 460ms both;
         }
         .call-card__state {
           animation: call-state-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;

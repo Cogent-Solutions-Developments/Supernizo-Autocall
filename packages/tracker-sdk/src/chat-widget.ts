@@ -211,6 +211,27 @@ export class ChatWidgetController {
     surface.addColorStop(0.52, '#252528');
     surface.addColorStop(1, '#111113');
 
+    const drawEye = (
+      x: number,
+      y: number,
+      radiusX: number,
+      radiusY: number,
+      gazeX: number,
+      gazeY: number,
+    ) => {
+      context.beginPath();
+      context.ellipse(x, y, radiusX, radiusY, 0, 0, Math.PI * 2);
+      context.fillStyle = '#f4f3ed';
+      context.fill();
+      context.save();
+      context.clip();
+      context.beginPath();
+      context.ellipse(x + gazeX, y + gazeY, 1.7, Math.max(0.45, radiusY * 0.38), 0, 0, Math.PI * 2);
+      context.fillStyle = '#18181b';
+      context.fill();
+      context.restore();
+    };
+
     const render = (timestamp: number) => {
       const elapsed = timestamp / 1_000;
       context.clearRect(0, 0, size, size);
@@ -236,6 +257,14 @@ export class ChatWidgetController {
       context.lineWidth = 0.75;
       context.strokeStyle = '#09090b';
       context.stroke();
+
+      const blinkPhase = (elapsed + 1.2) % 4.6;
+      const blinkScale = blinkPhase < 0.18 ? 1 - Math.sin((blinkPhase / 0.18) * Math.PI) * 0.88 : 1;
+      const gazeX = Math.sin(elapsed * 0.72) * 1.25;
+      const gazeY = Math.sin(elapsed * 0.47 + 0.6) * 0.85;
+      drawEye(centerX - 7.4, centerY - 3.2, 4.15, 5.1 * blinkScale, gazeX, gazeY);
+      drawEye(centerX + 7.8, centerY - 2.5, 3.85, 4.65 * blinkScale, gazeX, gazeY);
+
       this.launcherAnimationFrame = window.requestAnimationFrame(render);
     };
 
