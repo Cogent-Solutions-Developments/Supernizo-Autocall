@@ -24,6 +24,7 @@ import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 import companyLogo from '@/assets/Company Logo.png';
 import callBackground from '@/assets/call bg.webp';
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
+import { withAppBasePath } from '@/lib/app-path';
 
 import { callCopy, callHeading } from './call-display';
 import { optimisticallyEndCall, shouldIgnoreCallUpdate } from './call-end-state';

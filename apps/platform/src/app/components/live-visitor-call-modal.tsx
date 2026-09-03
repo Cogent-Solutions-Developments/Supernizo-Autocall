@@ -14,6 +14,8 @@ import {
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
+import { fetchAppApi } from '@/lib/app-fetch';
+
 import { shouldIgnoreCallUpdate } from '../widget/call/call-end-state';
 import { DashboardCallMediaRoom } from './dashboard-call-media-room';
 

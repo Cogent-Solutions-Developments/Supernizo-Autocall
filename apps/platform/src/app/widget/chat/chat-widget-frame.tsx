@@ -16,6 +16,7 @@ import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 
 import { mergeChatMessage } from '@/app/components/chat-state';
 import callBackground from '@/assets/call bg.webp';
+import { withAppBasePath } from '@/lib/app-path';
 
 const WidgetConfigSchema = z.object({
   messages: z.array(ChatMessageSchema),
