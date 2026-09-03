@@ -2,6 +2,8 @@
 
 This runbook deploys the complete Supernizo Autocall application and its private PostgreSQL database on the existing Hetzner server. The checkout is `/home/deploy/app/autocall`, and the public application URL is `https://api.infrastructuresg.com/autocall-db`.
 
+Already deployed? Use the [step-by-step maintenance guide](maintenance-guide.md) for normal releases, logs, credential updates, administrator access, backups, restore practice, and troubleshooting. Do not repeat the first-time key/database setup for routine maintenance.
+
 `/autocall-db` is an HTTPS route to the Next.js application. It is not a PostgreSQL URL. The application connects to PostgreSQL privately at `postgres:5432` on an internal Docker network; users and the Internet never connect to the database directly. The existing leadgen `location /` and the separate `Supernizo-Autocall-Database` repository remain unchanged.
 
 ## 1. Final architecture

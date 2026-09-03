@@ -36,9 +36,11 @@ PostgreSQL has no host port and no public URL. It is reachable only as `postgres
 
 ## Deployment flow
 
-Pull requests and `main` pushes run lint, type-checking, unit tests, PostgreSQL repository tests, migrations, and the production build in GitHub Actions. A successful `main` run connects to Hetzner using a pinned SSH host key and asks the fixed server checkout to deploy that exact reviewed commit.
+Pull requests targeting `hetzner-prod` run quality checks in GitHub Actions. Successful pushes to `hetzner-prod` run lint, type-checking, unit tests, PostgreSQL repository tests, migrations, and the production build, then publish immutable app and migrator images to GHCR. The workflow connects to Hetzner using a pinned SSH host key and requests that exact reviewed commit and image digests. The workflow uses repository-level secrets, not GitHub Environments.
 
-The server deploy script validates its protected environment file, builds immutable commit-tagged app and migration images locally, starts PostgreSQL, applies committed Prisma migrations once, and replaces the application container. If the app fails its database-backed readiness check, the previous app image is restored when it is still present. Database migrations are never automatically reversed.
+The server deploy script validates its protected environment file, pulls the approved GHCR digests, verifies their revision labels against the commit, starts PostgreSQL, applies pending committed Prisma migrations, and replaces the application container. It does not build images locally. If the app fails its database-backed readiness check, the script attempts to restore the previous app image when previous image records exist. Database migrations are never automatically reversed, and readiness does not test every application feature.
+
+Use the [deployment guide](hetzner-deployment.md) for first-time setup and the [maintenance guide](maintenance-guide.md) for day-to-day operation and recovery procedures.
 
 ## Security boundaries
 
