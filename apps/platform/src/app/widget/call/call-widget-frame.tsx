@@ -240,9 +240,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           className="relative isolate flex h-[calc(100vh-2px)] min-h-[500px] w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b]"
         >
           <FlowingRibbons
-            animationSpeed={0.22}
+            animationSpeed={0.36}
             backgroundColor="#ffffff"
-            lineColor="rgba(113, 113, 122, 0.18)"
+            lineColor="rgba(113, 113, 122, 0.13)"
           />
           <span className="call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium text-[#71717a]">
             <NizoVerifiedIcon />

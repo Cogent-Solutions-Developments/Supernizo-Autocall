@@ -28,7 +28,7 @@ function AnimatedBlob({ reducedMotion }: Readonly<{ reducedMotion: boolean }>) {
   const mesh = useRef<THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>>(null);
   const uniforms = useMemo(
     () => ({
-      u_intensity: { value: 0.28 },
+      u_intensity: { value: 0.36 },
       u_time: { value: 0 },
     }),
     [],
@@ -38,10 +38,13 @@ function AnimatedBlob({ reducedMotion }: Readonly<{ reducedMotion: boolean }>) {
     if (!mesh.current || reducedMotion) return;
     const elapsed = clock.getElapsedTime();
     const timeUniform = mesh.current.material.uniforms.u_time;
-    if (timeUniform) timeUniform.value += delta * 0.42;
-    mesh.current.rotation.x = Math.sin(elapsed * 0.22) * 0.08;
-    mesh.current.rotation.y = elapsed * 0.09;
-    const scale = 1.42 + Math.sin(elapsed * 0.5) * 0.025;
+    const intensityUniform = mesh.current.material.uniforms.u_intensity;
+    if (timeUniform) timeUniform.value += delta * 0.82;
+    if (intensityUniform) intensityUniform.value = 0.36 + Math.sin(elapsed * 0.9) * 0.045;
+    mesh.current.rotation.x = Math.sin(elapsed * 0.5) * 0.14;
+    mesh.current.rotation.y = elapsed * 0.24;
+    mesh.current.rotation.z = Math.sin(elapsed * 0.34) * 0.07;
+    const scale = 1.42 + Math.sin(elapsed * 1.05) * 0.045 + Math.sin(elapsed * 0.43) * 0.018;
     mesh.current.scale.setScalar(scale);
   });
 
