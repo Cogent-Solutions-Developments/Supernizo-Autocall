@@ -98,8 +98,9 @@ export function FlowingRibbons({
     const currentTime = performance.now();
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
-    const gridDensity = Math.max(40, Math.min(56, Math.round(width / 6)));
-    const ribbonWidth = width * 0.85;
+    const gridDensity = Math.max(48, Math.min(84, Math.round(width / 4)));
+    // Overscan the mesh so the largest deformation still extends beyond every card edge.
+    const ribbonWidth = width * 1.8;
     const ribbonOffset = (width - ribbonWidth) / 2;
     const disturbances = disturbancesRef.current;
     timeRef.current += animationSpeed;
@@ -113,7 +114,7 @@ export function FlowingRibbons({
       const x = ribbonOffset + (column / gridDensity) * ribbonWidth;
       context.beginPath();
       for (let row = 0; row <= gridDensity; row += 1) {
-        const progress = (row / gridDensity) * 1.2 - 0.1;
+        const progress = (row / gridDensity) * 1.5 - 0.25;
         const y = progress * height;
         const offset = deform(
           x,
@@ -131,7 +132,7 @@ export function FlowingRibbons({
     }
 
     for (let row = 0; row < gridDensity; row += 1) {
-      const progress = (row / gridDensity) * 1.2 - 0.1;
+      const progress = (row / gridDensity) * 1.5 - 0.25;
       const y = progress * height;
       context.beginPath();
       for (let column = 0; column <= gridDensity; column += 1) {
