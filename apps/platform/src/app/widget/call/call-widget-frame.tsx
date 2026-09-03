@@ -324,7 +324,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 </div>
               ) : (
                 <div className="call-card__hero flex flex-col items-center">
-                  <span aria-hidden="true" className="h-56 shrink-0" />
+                  <span aria-hidden="true" className="h-72 shrink-0" />
                   <span className="sr-only">
                     {callerName}, {call.type === 'VIDEO' ? 'video call' : 'audio call'}
                   </span>
@@ -334,13 +334,15 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                       : 'Call status'}
                   </p>
                   <h1 className="!m-0 mt-2 max-w-[290px] !text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
-                    {isRinging ? `${callerName} is calling` : callHeading(call, mediaConnected)}
-                  </h1>
-                  <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
                     {isRinging
-                      ? 'Answer to speak with the event support team.'
-                      : callCopy(call, Boolean(media), mediaConnected)}
-                  </p>
+                      ? 'Event support is calling to guide you'
+                      : callHeading(call, mediaConnected)}
+                  </h1>
+                  {!isRinging ? (
+                    <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
+                      {callCopy(call, Boolean(media), mediaConnected)}
+                    </p>
+                  ) : null}
                 </div>
               )}
             </div>
