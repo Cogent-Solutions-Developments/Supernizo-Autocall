@@ -19,6 +19,9 @@ generated/
 !.env.example
 !.env.production.example
 
+# Local TLS trust material
+prisma/local ca/
+
 # Editor and operating-system files
 .DS_Store
 Thumbs.db

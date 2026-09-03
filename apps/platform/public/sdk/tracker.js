@@ -348,6 +348,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatWidgetController = void 0;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
 exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
+const platform_url_1 = require("./platform-url");
 function shouldOpenChatForNewAgentMessage(hasSyncedThread, latestAgentMessageId, nextAgentMessageId) {
     return Boolean(hasSyncedThread && nextAgentMessageId && nextAgentMessageId !== latestAgentMessageId);
 }
@@ -615,6 +616,7 @@ exports.CallWidgetController = exports.CALL_WIDGET_PERMISSIONS_POLICY = void 0;
 exports.isCallWidgetConfigRefreshDue = isCallWidgetConfigRefreshDue;
 exports.callWidgetFrameStyles = callWidgetFrameStyles;
 exports.readCallActionResponse = readCallActionResponse;
+const platform_url_1 = require("./platform-url");
 const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
 const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
 const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
@@ -823,7 +825,7 @@ class CallWidgetController {
     }
     async reportMediaFailure(call, failureCode) {
         try {
-            const response = await fetch(new URL(`/api/calls/${call.id}/fail`, this.endpoint), {
+            const response = await fetch(new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, `/api/calls/${call.id}/fail`)), {
                 body: JSON.stringify({ context: this.context, failureCode }),
                 credentials: 'omit',
                 headers: { 'content-type': 'text/plain;charset=UTF-8' },

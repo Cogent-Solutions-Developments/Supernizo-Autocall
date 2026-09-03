@@ -228,14 +228,17 @@ export class CallWidgetController {
 
   private async respond(call: Call, action: 'accept' | 'end' | 'reject'): Promise<void> {
     try {
-      const response = await fetch(new URL(`/api/calls/${call.id}/${action}`, this.endpoint), {
-        body: JSON.stringify({ context: this.context }),
-        credentials: 'omit',
-        headers: { 'content-type': 'text/plain;charset=UTF-8' },
-        keepalive: true,
-        method: 'POST',
-        mode: 'cors',
-      });
+      const response = await fetch(
+        new URL(resolveApplicationEndpoint(this.endpoint, `/api/calls/${call.id}/${action}`)),
+        {
+          body: JSON.stringify({ context: this.context }),
+          credentials: 'omit',
+          headers: { 'content-type': 'text/plain;charset=UTF-8' },
+          keepalive: true,
+          method: 'POST',
+          mode: 'cors',
+        },
+      );
       if (!response.ok) {
         this.postActionError(call, action);
         return;
@@ -269,14 +272,17 @@ export class CallWidgetController {
       | 'MEDIA_MICROPHONE_PERMISSION_DENIED',
   ): Promise<void> {
     try {
-      const response = await fetch(new URL(`/api/calls/${call.id}/fail`, this.endpoint), {
-        body: JSON.stringify({ context: this.context, failureCode }),
-        credentials: 'omit',
-        headers: { 'content-type': 'text/plain;charset=UTF-8' },
-        keepalive: true,
-        method: 'POST',
-        mode: 'cors',
-      });
+      const response = await fetch(
+        new URL(resolveApplicationEndpoint(this.endpoint, `/api/calls/${call.id}/fail`)),
+        {
+          body: JSON.stringify({ context: this.context, failureCode }),
+          credentials: 'omit',
+          headers: { 'content-type': 'text/plain;charset=UTF-8' },
+          keepalive: true,
+          method: 'POST',
+          mode: 'cors',
+        },
+      );
       if (!response.ok) return;
       const body: unknown = await response.json();
       const actionResponse = readCallActionResponse(body);
