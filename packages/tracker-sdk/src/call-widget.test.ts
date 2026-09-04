@@ -33,13 +33,13 @@ describe('call widget mounting', () => {
 
   it('removes unused height after audio and video calls are accepted', () => {
     expect(callWidgetFrameHeight('default')).toBe('min(540px, calc(100vh - 32px))');
-    expect(callWidgetFrameHeight('connected-video')).toBe('min(490px, calc(100vh - 32px))');
-    expect(callWidgetFrameHeight('connected-audio')).toBe('min(252px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-video')).toBe('min(488px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-audio')).toBe('min(240px, calc(100vh - 32px))');
     expect(callWidgetFrameStyles(true, 'connected-video')).toContain(
-      'height:min(490px, calc(100vh - 32px))',
+      'height:min(488px, calc(100vh - 32px))',
     );
     expect(callWidgetFrameStyles(true, 'connected-audio')).toContain(
-      'height:min(252px, calc(100vh - 32px))',
+      'height:min(240px, calc(100vh - 32px))',
     );
   });
 

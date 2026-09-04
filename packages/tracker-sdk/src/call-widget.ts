@@ -31,7 +31,7 @@ export type CallWidgetFrameLayout = 'connected-audio' | 'connected-video' | 'def
 
 export function callWidgetFrameHeight(layout: CallWidgetFrameLayout): string {
   const height =
-    layout === 'connected-audio' ? '252px' : layout === 'connected-video' ? '490px' : '540px';
+    layout === 'connected-audio' ? '240px' : layout === 'connected-video' ? '488px' : '540px';
   return `min(${height}, calc(100vh - 32px))`;
 }
 

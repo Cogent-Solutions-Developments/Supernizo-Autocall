@@ -278,7 +278,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             <FlowingRibbons
               animationSpeed={0.36}
               backgroundColor={isRinging ? 'transparent' : '#ffffff'}
-              lineColor={isRinging ? 'rgba(39, 39, 42, 0.1)' : 'rgba(113, 113, 122, 0.13)'}
+              lineColor={
+                isRinging
+                  ? 'rgba(39, 39, 42, 0.1)'
+                  : hasActiveMedia && call.type === 'AUDIO'
+                    ? 'rgba(113, 113, 122, 0.065)'
+                    : 'rgba(113, 113, 122, 0.13)'
+              }
               placement={isRinging ? 'bottom' : 'center'}
             />
           </div>
