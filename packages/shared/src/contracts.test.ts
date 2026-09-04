@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
+  ManagedUserCreateSchema,
   PaginationSchema,
   RequestIdSchema,
+  StaffRoleSchema,
   TrackerBootstrapResponseSchema,
   UtcDateTimeSchema,
   createApiSuccessEnvelopeSchema,
@@ -84,5 +86,24 @@ describe('shared API contracts', () => {
     expect(() =>
       CallVisitorMediaFailureRequestSchema.parse({ context, failureCode: 'UNSAFE_FAILURE' }),
     ).toThrow();
+  });
+
+  it('supports only administrator and agent staff roles', () => {
+    expect(StaffRoleSchema.parse('ADMIN')).toBe('ADMIN');
+    expect(StaffRoleSchema.parse('AGENT')).toBe('AGENT');
+    expect(() => StaffRoleSchema.parse('VIEWER')).toThrow();
+  });
+
+  it('normalizes managed users and deduplicates their site assignments', () => {
+    const result = ManagedUserCreateSchema.parse({
+      displayName: 'Agent One',
+      email: ' AGENT@EXAMPLE.COM ',
+      password: 'a-secure-password',
+      role: 'AGENT',
+      siteIds: ['site_2', 'site_1', 'site_2'],
+    });
+
+    expect(result.email).toBe('agent@example.com');
+    expect(result.siteIds).toEqual(['site_2', 'site_1']);
   });
 });

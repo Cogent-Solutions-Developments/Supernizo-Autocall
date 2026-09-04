@@ -150,13 +150,15 @@ export async function listVisitorCallHistory(
 export async function listAgentsForSite(
   siteId: string,
 ): Promise<ReadonlyArray<Readonly<{ id: string; name: string }>>> {
-  const members = await getDatabaseClient().siteMember.findMany({
-    where: { role: { in: ['ADMIN', 'AGENT'] }, siteId },
-    select: { user: { select: { displayName: true, email: true, id: true } } },
-    orderBy: { user: { email: 'asc' } },
+  const users = await getDatabaseClient().user.findMany({
+    where: {
+      OR: [{ globalRole: 'ADMIN' }, { globalRole: 'AGENT', siteMemberships: { some: { siteId } } }],
+    },
+    select: { displayName: true, email: true, id: true },
+    orderBy: { email: 'asc' },
   });
-  return members.map((member) => ({
-    id: member.user.id,
-    name: member.user.displayName ?? member.user.email,
+  return users.map((user) => ({
+    id: user.id,
+    name: user.displayName ?? user.email,
   }));
 }

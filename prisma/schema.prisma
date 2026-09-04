@@ -11,7 +11,6 @@ datasource db {
 enum UserRole {
   ADMIN
   AGENT
-  VIEWER
 }
 
 enum CallType {
@@ -47,7 +46,7 @@ model User {
   email           String        @unique @db.VarChar(191)
   displayName     String?       @db.VarChar(191)
   passwordHash    String?       @db.VarChar(255)
-  globalRole      UserRole      @default(VIEWER)
+  globalRole      UserRole      @default(AGENT)
   createdAt       DateTime      @default(now()) @db.Timestamp(3)
   updatedAt       DateTime      @updatedAt @db.Timestamp(3)
   siteMemberships SiteMember[]
@@ -88,7 +87,6 @@ model SiteMember {
   id        String   @id @default(cuid()) @db.VarChar(30)
   siteId    String   @db.VarChar(30)
   userId    String   @db.VarChar(30)
-  role      UserRole @default(VIEWER)
   createdAt DateTime @default(now()) @db.Timestamp(3)
   updatedAt DateTime @updatedAt @db.Timestamp(3)
   site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
