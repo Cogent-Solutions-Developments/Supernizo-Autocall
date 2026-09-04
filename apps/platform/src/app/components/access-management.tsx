@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { z } from 'zod';
 
 import {
+  AccessManagementSchema,
   AccessUserSchema,
   type AccessManagement as AccessManagementData,
   type AccessSite,
@@ -14,6 +15,9 @@ import {
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
+import { partitionAccessUsers, toggleSiteId } from './access-management-state';
+
+const AccessManagementResponseSchema = z.object({ data: AccessManagementSchema });
 const AccessUserResponseSchema = z.object({ data: AccessUserSchema });
 const ErrorResponseSchema = z.object({ error: z.object({ message: z.string() }) });
 
@@ -25,16 +29,19 @@ type MutationState = Readonly<{
 
 const initialMutationState: MutationState = { error: null, saving: false, success: null };
 
-function toggleSiteId(siteIds: readonly string[], siteId: string, checked: boolean): string[] {
-  return checked
-    ? Array.from(new Set([...siteIds, siteId])).sort()
-    : siteIds.filter((candidate) => candidate !== siteId);
-}
-
 async function readUserResponse(response: Response): Promise<AccessUser> {
   const body: unknown = await response.json();
   const parsedUser = AccessUserResponseSchema.safeParse(body);
   if (parsedUser.success) return parsedUser.data.data;
+
+  const parsedError = ErrorResponseSchema.safeParse(body);
+  throw new Error(parsedError.success ? parsedError.data.error.message : 'The request failed.');
+}
+
+async function readAccessManagementResponse(response: Response): Promise<AccessManagementData> {
+  const body: unknown = await response.json();
+  const parsedAccess = AccessManagementResponseSchema.safeParse(body);
+  if (parsedAccess.success) return parsedAccess.data.data;
 
   const parsedError = ErrorResponseSchema.safeParse(body);
   throw new Error(parsedError.success ? parsedError.data.error.message : 'The request failed.');
@@ -50,7 +57,11 @@ function SiteAssignments({
   sites: readonly AccessSite[];
 }>) {
   if (sites.length === 0) {
-    return <p className="text-sm text-slate-500">Register an event before assigning access.</p>;
+    return (
+      <p className="text-sm text-slate-500">
+        No sites are available yet. You can assign access after a site is registered.
+      </p>
+    );
   }
 
   return (
@@ -150,7 +161,12 @@ function UserAccessCard({
 
       {role === 'AGENT' ? (
         <fieldset className="grid gap-2">
-          <legend className="mb-2 text-sm font-semibold text-slate-800">Assigned events</legend>
+          <legend className="text-sm font-semibold text-slate-800">Site access</legend>
+          <p className="mb-2 text-xs text-slate-500">
+            {siteIds.length === 0
+              ? 'No sites assigned yet'
+              : `${siteIds.length} of ${sites.length} sites assigned`}
+          </p>
           <SiteAssignments
             onChange={(siteId, checked) =>
               setSiteIds((current) => toggleSiteId(current, siteId, checked))
@@ -161,7 +177,7 @@ function UserAccessCard({
         </fieldset>
       ) : (
         <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          Administrators can access every event and all management tools.
+          Administrators can access every site and all management tools.
         </p>
       )}
 
@@ -192,10 +208,39 @@ export function AccessManagement({
   currentUserId: string;
   initialAccess: AccessManagementData;
 }>) {
+  const [sites, setSites] = useState(initialAccess.sites);
   const [users, setUsers] = useState(initialAccess.users);
   const [newRole, setNewRole] = useState<StaffRole>('AGENT');
   const [newSiteIds, setNewSiteIds] = useState<string[]>([]);
   const [mutation, setMutation] = useState<MutationState>(initialMutationState);
+  const [refreshMutation, setRefreshMutation] = useState<MutationState>(initialMutationState);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const { administrators, agents } = partitionAccessUsers(users);
+
+  async function refreshAccess(): Promise<void> {
+    setRefreshMutation({ error: null, saving: true, success: null });
+
+    try {
+      const response = await fetchAppApi('/api/dashboard/access');
+      const access = await readAccessManagementResponse(response);
+      setSites(access.sites);
+      setUsers(access.users);
+      setRefreshVersion((current) => current + 1);
+      setRefreshMutation({ error: null, saving: false, success: 'Access list refreshed.' });
+    } catch (error: unknown) {
+      setRefreshMutation({
+        error: error instanceof Error ? error.message : 'The request failed.',
+        saving: false,
+        success: null,
+      });
+    }
+  }
+
+  function updateUser(updatedUser: AccessUser): void {
+    setUsers((current) =>
+      current.map((candidate) => (candidate.id === updatedUser.id ? updatedUser : candidate)),
+    );
+  }
 
   async function createUser(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -243,21 +288,41 @@ export function AccessManagement({
             Manage access
           </h1>
           <p className="mt-2 max-w-2xl leading-7 text-slate-600">
-            Administrators have full access. Agents can work only with their assigned events.
+            See every agent and control which sites each agent can access, now or later.
           </p>
         </div>
-        <Link
-          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          href="/dashboard"
-        >
-          Back to events
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <button
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={refreshMutation.saving}
+            onClick={() => void refreshAccess()}
+            type="button"
+          >
+            {refreshMutation.saving ? 'Refreshing…' : 'Refresh agents and sites'}
+          </button>
+          <Link
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            href="/dashboard"
+          >
+            Back to events
+          </Link>
+        </div>
+        {refreshMutation.error ? (
+          <p className="w-full text-right text-sm text-red-700" role="alert">
+            {refreshMutation.error}
+          </p>
+        ) : null}
+        {refreshMutation.success ? (
+          <p aria-live="polite" className="w-full text-right text-sm text-emerald-700">
+            {refreshMutation.success}
+          </p>
+        ) : null}
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <h2 className="text-xl font-semibold text-slate-950">Add team member</h2>
+        <h2 className="text-xl font-semibold text-slate-950">Add agent or administrator</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Create a login and choose which events an agent can access.
+          Create a login now. Site access is optional and can be assigned later.
         </p>
         <form className="mt-6 grid gap-5" onSubmit={createUser}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -307,18 +372,20 @@ export function AccessManagement({
 
           {newRole === 'AGENT' ? (
             <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm font-semibold text-slate-800">Assigned events</legend>
+              <legend className="mb-2 text-sm font-semibold text-slate-800">
+                Initial site access (optional)
+              </legend>
               <SiteAssignments
                 onChange={(siteId, checked) =>
                   setNewSiteIds((current) => toggleSiteId(current, siteId, checked))
                 }
                 selectedSiteIds={newSiteIds}
-                sites={initialAccess.sites}
+                sites={sites}
               />
             </fieldset>
           ) : (
             <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-              Administrators automatically receive access to every event.
+              Administrators automatically receive access to every site.
             </p>
           )}
 
@@ -339,23 +406,57 @@ export function AccessManagement({
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <h2 className="text-xl font-semibold text-slate-950">Team access</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Update roles and event assignments. Changes apply on the user’s next request.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">All agents</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Every agent is shown, including agents without site access. Assign or update sites at
+              any time.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
+            {agents.length} {agents.length === 1 ? 'agent' : 'agents'}
+          </span>
+        </div>
         <div className="mt-6 grid gap-4">
-          {users.map((user) => (
+          {agents.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+              No agents have been created yet.
+            </p>
+          ) : (
+            agents.map((user) => (
+              <UserAccessCard
+                currentUserId={currentUserId}
+                key={`${refreshVersion}:${user.id}`}
+                onUpdated={updateUser}
+                sites={sites}
+                user={user}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">Administrators</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Administrators can access every site and manage agent permissions.
+            </p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+            {administrators.length}{' '}
+            {administrators.length === 1 ? 'administrator' : 'administrators'}
+          </span>
+        </div>
+        <div className="mt-6 grid gap-4">
+          {administrators.map((user) => (
             <UserAccessCard
               currentUserId={currentUserId}
-              key={user.id}
-              onUpdated={(updatedUser) =>
-                setUsers((current) =>
-                  current.map((candidate) =>
-                    candidate.id === updatedUser.id ? updatedUser : candidate,
-                  ),
-                )
-              }
-              sites={initialAccess.sites}
+              key={`${refreshVersion}:${user.id}`}
+              onUpdated={updateUser}
+              sites={sites}
               user={user}
             />
           ))}
