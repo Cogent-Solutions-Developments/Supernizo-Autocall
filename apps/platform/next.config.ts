@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   output: process.env.VERCEL ? undefined : 'standalone',
   outputFileTracingRoot: resolve(import.meta.dirname, '../..'),
   reactStrictMode: true,
+  transpilePackages: ['three'],
 };
 
 export default nextConfig;

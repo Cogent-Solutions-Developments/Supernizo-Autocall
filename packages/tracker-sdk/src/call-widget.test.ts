@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CALL_WIDGET_PERMISSIONS_POLICY,
+  callWidgetFrameHeight,
   callWidgetFrameStyles,
   isCallWidgetConfigRefreshDue,
   readCallActionResponse,
@@ -12,6 +13,7 @@ describe('call widget mounting', () => {
     const initialStyles = callWidgetFrameStyles(false);
 
     expect(initialStyles).toContain('height:1px');
+    expect(initialStyles).toContain('opacity:0');
     expect(initialStyles).toContain('pointer-events:none');
     expect(initialStyles).toContain('width:1px');
   });
@@ -19,9 +21,26 @@ describe('call widget mounting', () => {
   it('expands and receives pointer input only while presenting a call', () => {
     const visibleStyles = callWidgetFrameStyles(true);
 
-    expect(visibleStyles).toContain('height:500px');
+    expect(visibleStyles).toContain('height:min(540px, calc(100vh - 32px))');
     expect(visibleStyles).toContain('pointer-events:auto');
-    expect(visibleStyles).toContain('width:330px');
+    expect(visibleStyles).toContain('width:350px');
+    expect(visibleStyles).toContain('background:transparent');
+    expect(visibleStyles).toContain('border-radius:18px');
+    expect(visibleStyles).toContain('overflow:hidden');
+    expect(visibleStyles).toContain('opacity:1');
+    expect(visibleStyles).toContain('transform-origin:bottom right');
+  });
+
+  it('removes unused height after audio and video calls are accepted', () => {
+    expect(callWidgetFrameHeight('default')).toBe('min(540px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-video')).toBe('min(488px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-audio')).toBe('min(240px, calc(100vh - 32px))');
+    expect(callWidgetFrameStyles(true, 'connected-video')).toContain(
+      'height:min(488px, calc(100vh - 32px))',
+    );
+    expect(callWidgetFrameStyles(true, 'connected-audio')).toContain(
+      'height:min(240px, calc(100vh - 32px))',
+    );
   });
 
   it('delegates media permissions to the cross-origin call iframe', () => {

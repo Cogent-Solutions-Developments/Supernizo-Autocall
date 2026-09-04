@@ -370,8 +370,7 @@ export const Tracker: TrackerRuntime = {
         createRandomUuid,
       );
       engagementManager.start();
-      chatWidget?.stop();
-      chatWidget = responseBody.features.chatEnabled
+      const nextChatWidget = responseBody.features.chatEnabled
         ? new ChatWidgetController(
             {
               sessionId: responseBody.sessionId,
@@ -381,6 +380,8 @@ export const Tracker: TrackerRuntime = {
             bootstrapEndpoint,
           )
         : undefined;
+      chatWidget?.stop();
+      chatWidget = nextChatWidget;
       chatWidget?.start();
       callWidget?.stop();
       callWidget =
@@ -398,6 +399,7 @@ export const Tracker: TrackerRuntime = {
                 token: responseBody.realtime.authorizationToken,
               },
               renewCallWidgetConfig,
+              (visible) => nextChatWidget?.setCallActive(visible),
             )
           : undefined;
       callWidget?.start();

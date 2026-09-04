@@ -1,10 +1,18 @@
 import type { Metadata } from 'next';
+import { Google_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { RealtimeClientProvider } from '@/app/components/realtime-client-provider';
 
 import './globals.css';
 import '@livekit/components-styles';
+
+const googleSans = Google_Sans({
+  display: 'swap',
+  subsets: ['latin'],
+  variable: '--font-google-sans',
+  weight: 'variable',
+});
 
 export const metadata: Metadata = {
   title: 'Supernizo Autocall | Your visitor coworker',
@@ -19,7 +27,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>
+      <body className={googleSans.variable}>
         <RealtimeClientProvider>{children}</RealtimeClientProvider>
       </body>
     </html>
