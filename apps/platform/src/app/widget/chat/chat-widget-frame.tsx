@@ -39,9 +39,9 @@ const messageDayFormatter = new Intl.DateTimeFormat(undefined, {
 function displayAgentName(name: string | null | undefined): string {
   const normalizedName = name?.trim().toLowerCase();
   if (!normalizedName || ['support team', 'local admin', 'nizo'].includes(normalizedName)) {
-    return 'Soniya Sahanya';
+    return 'Swetha Sahanya';
   }
-  return name?.trim() || 'Soniya Sahanya';
+  return name?.trim() || 'Swetha Sahanya';
 }
 
 function messageTime(sentAt: string): string {
@@ -289,7 +289,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                     How Can We Help?
                   </h1>
                   <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
-                    Send a message. Soniya and the event team are ready to help.
+                    Send a message. Swetha and the event team are ready to help.
                   </p>
                 </div>
               )}
