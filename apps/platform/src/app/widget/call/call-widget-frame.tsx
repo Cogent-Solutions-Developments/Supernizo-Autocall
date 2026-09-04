@@ -148,6 +148,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       ? 'Soniya Sahanya'
       : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
+  const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
 
   function acceptCall(): void {
     if (!call) return;
@@ -244,7 +245,11 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           className="relative isolate flex h-[calc(100vh-2px)] min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b]"
         >
           {isRinging ? (
-            <div className="absolute inset-0 z-0">
+            <div
+              className={`call-card__portrait-media absolute inset-0 z-0 ${
+                showPermissionPrompt ? 'call-card__portrait-media--permission' : ''
+              }`}
+            >
               <CallerIdentityVideo variant="cover" />
             </div>
           ) : null}
@@ -254,7 +259,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
               className="call-card__portrait-blend pointer-events-none absolute inset-0 z-[1]"
             />
           ) : null}
-          <div className="absolute inset-0 z-[2]">
+          {showPermissionPrompt ? (
+            <div
+              aria-hidden="true"
+              className="call-card__permission-veil pointer-events-none absolute inset-0 z-[2]"
+            />
+          ) : null}
+          <div className="absolute inset-0 z-[3]">
             <FlowingRibbons
               animationSpeed={0.36}
               backgroundColor={isRinging ? 'transparent' : '#ffffff'}
@@ -262,12 +273,18 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
               placement={isRinging ? 'bottom' : 'center'}
             />
           </div>
-          <span className="call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.32)]">
+          <span
+            className={`call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium transition-[color,filter] duration-300 ${
+              isRinging && !showPermissionPrompt
+                ? 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.32)]'
+                : 'text-[#18181b] drop-shadow-none'
+            }`}
+          >
             <NizoVerifiedIcon />
             Nizo Verified
           </span>
 
-          <div className="relative z-[3] flex h-full min-h-0 w-full flex-col">
+          <div className="relative z-[4] flex h-full min-h-0 w-full flex-col">
             <div
               className={
                 hasActiveMedia
@@ -275,26 +292,43 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                   : 'flex min-h-0 flex-1 flex-col items-center justify-center px-6 pt-12 pb-5 text-center'
               }
             >
-              {isRinging && isPermissionPromptOpen ? (
-                <div className="call-card__state flex flex-col items-center">
-                  <span className="text-[#18181b]">
-                    {call.type === 'VIDEO' ? (
-                      <VideoCameraIcon aria-hidden="true" size={28} weight="fill" />
-                    ) : (
-                      <MicrophoneIcon aria-hidden="true" size={28} weight="fill" />
-                    )}
-                  </span>
-                  <p className="m-0 mt-5 text-[12px] font-medium text-[#71717a]">Device access</p>
-                  <h1 className="!m-0 mt-2 max-w-[280px] !text-[22px] !font-semibold !leading-[1.2] !tracking-[-0.03em] text-[#18181b]">
-                    {call.type === 'VIDEO'
-                      ? 'Allow camera and microphone'
-                      : 'Allow microphone access'}
+              {showPermissionPrompt ? (
+                <div className="call-card__permission-panel flex w-full max-w-[300px] flex-col items-center rounded-[18px] border border-white/75 bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(24,24,27,0.16),0_2px_8px_rgba(24,24,27,0.08)] backdrop-blur-2xl">
+                  <h1 className="!m-0 max-w-[260px] !text-[22px] !font-semibold !leading-[1.15] !tracking-[-0.035em] text-[#18181b]">
+                    {call.type === 'VIDEO' ? 'Camera & Microphone' : 'Microphone Access'}
                   </h1>
-                  <p className="m-0 mt-3 max-w-[280px] text-[13px] leading-5 text-[#71717a]">
+                  <p className="m-0 mt-3 max-w-[250px] text-[12px] leading-[1.55] text-[#71717a]">
                     {call.type === 'VIDEO'
-                      ? 'Your browser will ask for camera and microphone permission before the call begins.'
-                      : 'Your browser will ask for microphone permission before the call begins.'}
+                      ? 'Allow access so the event team can see and hear you. Your browser will ask once.'
+                      : 'Allow access so the event team can hear you. Your browser will ask once.'}
                   </p>
+
+                  {permissionError ? (
+                    <p
+                      className="m-0 mt-4 w-full rounded-[10px] border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-left text-[11px] leading-4 text-[#be123c]"
+                      role="alert"
+                    >
+                      {permissionError}
+                    </p>
+                  ) : null}
+
+                  <button
+                    className="call-card__permission-action mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#18181b] px-4 text-[13px] font-semibold text-white shadow-[0_7px_18px_rgba(24,24,27,0.2)] transition-[transform,background-color,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-wait disabled:opacity-50"
+                    disabled={callMedia.isCapturing || !callMedia.room}
+                    onClick={acceptCall}
+                    type="button"
+                  >
+                    {call.type === 'VIDEO' ? (
+                      <VideoCameraIcon aria-hidden="true" size={17} weight="fill" />
+                    ) : (
+                      <MicrophoneIcon aria-hidden="true" size={17} weight="fill" />
+                    )}
+                    {callMedia.isCapturing
+                      ? 'Requesting access…'
+                      : call.type === 'VIDEO'
+                        ? 'Allow camera & microphone'
+                        : 'Allow microphone'}
+                  </button>
                 </div>
               ) : hasActiveMedia ? (
                 <div className="w-full">
@@ -347,30 +381,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
               )}
             </div>
 
-            {permissionError ? (
-              <p className="mx-5 mb-3 rounded-[10px] border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-left text-xs leading-5 text-[#be123c]">
-                {permissionError}
-              </p>
-            ) : null}
-
             {isRinging ? (
-              isPermissionPromptOpen ? (
-                <div className="px-5 pb-5">
-                  <button
-                    className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-[#18181b] px-5 text-sm font-semibold text-white transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-wait disabled:opacity-50"
-                    disabled={callMedia.isCapturing || !callMedia.room}
-                    onClick={acceptCall}
-                    type="button"
-                  >
-                    {call.type === 'VIDEO' ? (
-                      <VideoCameraIcon aria-hidden="true" size={18} weight="fill" />
-                    ) : (
-                      <MicrophoneIcon aria-hidden="true" size={18} weight="fill" />
-                    )}
-                    {callMedia.isCapturing ? 'Requesting access…' : 'Allow access'}
-                  </button>
-                </div>
-              ) : (
+              !isPermissionPromptOpen ? (
                 <div className="call-card__actions flex justify-center gap-4 px-6 pb-5">
                   <button
                     className="inline-flex min-h-10 w-[120px] items-center justify-center gap-2 rounded-[10px] border border-[#dc2626] bg-[#dc2626] px-2.5 text-xs font-semibold text-white shadow-[0_2px_4px_rgba(127,29,29,0.14)] transition-[transform,box-shadow,background-color] hover:bg-[#c81e1e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626] active:translate-y-px active:shadow-none"
@@ -393,7 +405,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                     Accept call
                   </button>
                 </div>
-              )
+              ) : null
             ) : null}
 
             <div className="call-card__footer flex items-center justify-center gap-1 px-5 py-3 text-[10px] font-medium text-[#a1a1aa]">
@@ -439,6 +451,40 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             #fff 100%
           );
         }
+        .call-card__portrait-media {
+          filter: blur(0) saturate(1);
+          transform: scale(1);
+          transition:
+            filter 360ms cubic-bezier(0.65, 0, 0.35, 1),
+            transform 360ms cubic-bezier(0.65, 0, 0.35, 1);
+        }
+        .call-card__portrait-media--permission {
+          filter: blur(11px) saturate(0.78);
+          transform: scale(1.06);
+        }
+        .call-card__permission-veil {
+          animation: call-permission-veil-in 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.3) 0%,
+            rgba(255, 255, 255, 0.42) 42%,
+            rgba(255, 255, 255, 0.68) 100%
+          );
+        }
+        .call-card__permission-panel {
+          animation: call-permission-panel-in 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
+        }
+        .call-card__permission-action:active {
+          box-shadow: 0 2px 7px rgba(24, 24, 27, 0.16);
+          transform: scale(0.98);
+        }
+        @media (hover: hover) and (pointer: fine) {
+          .call-card__permission-action:not(:disabled):hover {
+            background: #000;
+            box-shadow: 0 9px 22px rgba(24, 24, 27, 0.26);
+            transform: translateY(-1px);
+          }
+        }
         .call-card__hero {
           animation: call-hero-in 340ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
         }
@@ -447,9 +493,6 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
         .call-card__footer {
           animation: call-footer-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 460ms both;
-        }
-        .call-card__state {
-          animation: call-state-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
         }
         @keyframes call-verified-in {
           from {
@@ -489,14 +532,22 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             opacity: 1;
           }
         }
-        @keyframes call-state-in {
+        @keyframes call-permission-veil-in {
           from {
             opacity: 0;
-            transform: translateY(5px);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+          }
+        }
+        @keyframes call-permission-panel-in {
+          from {
+            opacity: 0;
+            transform: translateY(9px) scale(0.975);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -504,8 +555,14 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           .call-card__hero,
           .call-card__actions,
           .call-card__footer,
-          .call-card__state {
+          .call-card__permission-panel,
+          .call-card__permission-veil {
             animation: none;
+          }
+          .call-card__portrait-media,
+          .call-card__permission-action,
+          .call-card__verified {
+            transition: none;
           }
         }
       `}</style>
