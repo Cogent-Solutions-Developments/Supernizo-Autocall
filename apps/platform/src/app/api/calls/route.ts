@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { CallCreateRequestSchema } from '@supernizo/shared';
 
@@ -7,7 +7,7 @@ import { assertRole } from '@/server/auth/roles';
 import { ValidationError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { createCall } from '@/server/services/call-service';
+import { createCallWithAgentMedia } from '@/server/services/livekit-token-service';
 
 export const runtime = 'nodejs';
 
@@ -25,8 +25,14 @@ export async function POST(request: Request): Promise<Response> {
     if (!parsed.success) throw new ValidationError('The call payload is invalid.');
     const siteAccess = await requireSiteAccess(parsed.data.siteId);
     assertRole(siteAccess.siteRole, ['ADMIN', 'AGENT']);
-    const call = await createCall({ ...parsed.data, agentId: user.id });
-    return withRequestId(NextResponse.json({ data: call, requestId }), requestId);
+    const started = await createCallWithAgentMedia(
+      { ...parsed.data, agentId: user.id },
+      { scheduleOperationalSync: after },
+    );
+    return withRequestId(
+      NextResponse.json({ data: started.call, media: started.media, requestId }),
+      requestId,
+    );
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);
   }

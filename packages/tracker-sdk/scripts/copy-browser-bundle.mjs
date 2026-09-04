@@ -49,7 +49,8 @@ ${indexModule}
   require('./index');
 })();
 `;
+const normalizedBrowserBundle = browserBundle.replace(/\r\n/g, '\n');
 
 await mkdir(destinationDirectory, { recursive: true });
-await writeFile(packageBundle, browserBundle, 'utf8');
-await writeFile(destination, browserBundle, 'utf8');
+await writeFile(packageBundle, normalizedBrowserBundle, 'utf8');
+await writeFile(destination, normalizedBrowserBundle, 'utf8');

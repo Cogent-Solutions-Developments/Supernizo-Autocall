@@ -6,7 +6,8 @@ Phase 13 uses LiveKit for browser-to-browser WebRTC. Next.js only authorizes cal
 
 - Set `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` in `.env.local`.
 - In LiveKit Cloud, add `http://localhost:3000` to the development allowlist if required by the project settings.
-- Configure the LiveKit webhook as `https://api.infrastructuresg.com/autocall-db/api/livekit/webhook`. For local verification, expose the application with an HTTPS tunnel and preserve the `/autocall-db` base path.
+- Configure a LiveKit webhook to `https://<public-platform-url>/api/livekit/webhook`. For local verification, expose the platform with an HTTPS tunnel and register that tunnel URL.
+- Select the same LiveKit project/API key used by `LIVEKIT_API_KEY` as the webhook signing key.
 - Ensure the demo Site enables audio/video calling and allows the fixture origin.
 
 ## Chrome-to-Chrome or Chrome-to-Edge walkthrough
@@ -16,9 +17,12 @@ Phase 13 uses LiveKit for browser-to-browser WebRTC. Next.js only authorizes cal
 3. Start an Audio Call or Video Call for the live visitor.
 4. Confirm the visitor sees the ring card without any device-permission prompt.
 5. Choose Accept. The visitor browser should now request microphone permission; video calls also request camera permission.
-6. After the agent room connects, verify two-way audio. For video, verify the local/remote video tiles and camera/microphone toggles.
-7. Test mute, camera toggle, and End call from both browsers. The call should disconnect and persist an `ENDED` event.
-8. Repeat with Chrome on one side and Edge on the other. Deny a device permission once to verify the media error is shown without affecting the host page.
+6. Confirm the UI says **Waiting for the other participant** while only one side is in the room. It must say **Connected** only after the remote audio track is subscribed.
+7. Verify two-way audio. If browser autoplay blocks the remote audio, select **Enable call audio**. For video, verify the remote video is the large tile, the local preview is the small tile, and both camera/microphone toggles work.
+8. Test mute, camera toggle, and End call from both browsers. The call should disconnect and persist an `ENDED` event.
+9. Repeat with Chrome on one side and Edge on the other. Deny a device permission once to verify the media error is shown without affecting the host page.
+
+The durable call becomes `ACTIVE` only after signed `participant_joined` webhooks have been received for both the expected `agent:<id>` and `visitor:<id>` identities. Track publication/unpublication and aborted connection events are retained in call history for diagnosis.
 
 ## Automated tests
 

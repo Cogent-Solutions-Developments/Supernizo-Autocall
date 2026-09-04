@@ -1,31 +1,54 @@
-const readinessItems = [
-  'Next.js App Router application',
-  'Strict TypeScript workspace',
-  'Shared schemas and browser tracker package',
-];
+import { ArrowUpRight } from '@phosphor-icons/react/ssr';
+import Image from 'next/image';
+import Link from 'next/link';
 
-export default function DashboardLandingPage() {
+import callIllustration from '@/assets/login animation.svg';
+import loginBackground from '@/assets/loging  background.webp';
+import supernizoLogo from '@/assets/logo-transparent.png';
+
+import styles from './landing-page.module.css';
+
+export default function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-16 sm:px-10">
-      <section className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-sm sm:p-12">
-        <p className="text-sm font-semibold tracking-[0.2em] text-blue-600 uppercase">
-          Supernizo Autocall
-        </p>
-        <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-          Visitor intelligence foundation is ready.
+    <main className={styles.page}>
+      <Image
+        alt=""
+        className={styles.backgroundImage}
+        fill
+        priority
+        sizes="100vw"
+        src={loginBackground}
+      />
+      <div aria-hidden="true" className={styles.backgroundOverlay} />
+
+      <header className={styles.header}>
+        <Link aria-label="Supernizo Autocall home" className={styles.logoLink} href="/">
+          <Image alt="Supernizo Autocall" className={styles.logo} priority src={supernizoLogo} />
+        </Link>
+
+        <Link className={styles.headerAction} href="/login">
+          Get started
+          <ArrowUpRight aria-hidden="true" size={18} weight="bold" />
+        </Link>
+      </header>
+
+      <section className={styles.hero}>
+        <h1>
+          Meet your live
+          <br />
+          visitor coworker.
         </h1>
-        <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-          The dashboard application is running. Tracking, realtime intelligence, chat, and browser
-          calling will be added in their planned phases.
-        </p>
-        <ul className="mt-8 grid gap-3 sm:grid-cols-3">
-          {readinessItems.map((item) => (
-            <li key={item} className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              {item}
-            </li>
-          ))}
-        </ul>
       </section>
+
+      <div className={styles.illustrationWrap}>
+        <Image
+          alt="A friendly support specialist ready to connect with a website visitor"
+          className={styles.illustration}
+          priority
+          src={callIllustration}
+          unoptimized
+        />
+      </div>
     </main>
   );
 }

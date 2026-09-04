@@ -1,11 +1,10 @@
 import type { Call } from '@supernizo/shared';
 
-type MediaPreview = Readonly<{
-  getTracks: () => readonly Readonly<{ stop: () => void }>[];
-}>;
-
 export type MediaPermission = 'camera' | 'microphone';
-export type MediaRequester = (constraints: MediaStreamConstraints) => Promise<MediaPreview>;
+export type CallMediaConstraints = Readonly<{ audio: boolean; video: boolean }>;
+export type MediaRequester<TTrack> = (
+  constraints: CallMediaConstraints,
+) => Promise<readonly TTrack[]>;
 
 export class MediaPermissionError extends Error {
   public constructor(public readonly permission: MediaPermission) {
@@ -14,25 +13,24 @@ export class MediaPermissionError extends Error {
   }
 }
 
-async function requestAndRelease(
-  constraints: MediaStreamConstraints,
-  requestMedia: MediaRequester,
+async function requestTracks<TTrack>(
+  constraints: CallMediaConstraints,
+  requestMedia: MediaRequester<TTrack>,
   permission: MediaPermission,
-): Promise<void> {
+): Promise<readonly TTrack[]> {
   try {
-    const stream = await requestMedia(constraints);
-    stream.getTracks().forEach((track) => track.stop());
+    return await requestMedia(constraints);
   } catch {
     throw new MediaPermissionError(permission);
   }
 }
 
-export async function requestMediaPermissions(
+export async function requestMediaPermissions<TTrack>(
   type: Call['type'],
-  requestMedia: MediaRequester,
-): Promise<void> {
-  await requestAndRelease({ audio: true, video: false }, requestMedia, 'microphone');
+  requestMedia: MediaRequester<TTrack>,
+): Promise<readonly TTrack[]> {
   if (type === 'VIDEO') {
-    await requestAndRelease({ audio: false, video: true }, requestMedia, 'camera');
+    return requestTracks({ audio: true, video: true }, requestMedia, 'camera');
   }
+  return requestTracks({ audio: true, video: false }, requestMedia, 'microphone');
 }

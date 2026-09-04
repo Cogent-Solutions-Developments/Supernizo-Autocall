@@ -105,39 +105,41 @@ export async function resolveTrackingContext(
   origin: string,
 ): Promise<ResolvedTrackingContext> {
   const database = getDatabaseClient();
-  const site = await database.site.findUnique({
-    where: { publicKey: context.sitePublicKey },
-  });
-  assertTrackingSiteAccess(site, origin);
-  if (!site) {
-    throw new NotFoundError('The tracking site was not found.');
-  }
-
-  const visitor = await database.visitor.findUnique({
+  const session = await database.session.findFirst({
     where: {
-      siteId_anonymousId: {
-        anonymousId: context.visitorId,
-        siteId: site.id,
+      anonymousSessionId: context.sessionId,
+      site: { publicKey: context.sitePublicKey },
+      visitor: { anonymousId: context.visitorId },
+    },
+    select: {
+      id: true,
+      site: {
+        select: {
+          allowedOrigins: true,
+          id: true,
+          status: true,
+          trackingEnabled: true,
+        },
       },
+      siteId: true,
+      visitor: { select: { id: true, siteId: true } },
+      visitorId: true,
     },
   });
-  const session = await database.session.findUnique({
-    where: { anonymousSessionId: context.sessionId },
-  });
-
-  if (!visitor || !session) {
+  if (!session) {
     throw new NotFoundError('The tracking visitor or session was not found.');
   }
+  assertTrackingSiteAccess(session.site, origin);
 
   assertTrackingContextRelationships({
     sessionSiteId: session.siteId,
     sessionVisitorId: session.visitorId,
-    siteId: site.id,
-    visitorId: visitor.id,
-    visitorSiteId: visitor.siteId,
+    siteId: session.site.id,
+    visitorId: session.visitor.id,
+    visitorSiteId: session.visitor.siteId,
   });
 
-  return { sessionId: session.id, siteId: site.id, visitorId: visitor.id };
+  return { sessionId: session.id, siteId: session.site.id, visitorId: session.visitor.id };
 }
 
 async function requirePageView(pageViewId: string, sessionId: string): Promise<string> {

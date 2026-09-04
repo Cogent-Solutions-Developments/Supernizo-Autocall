@@ -1,30 +1,37 @@
 'use client';
 
-import {
-  PhoneIncomingIcon,
-  PhoneXIcon,
-  ShieldCheckIcon,
-  VideoCameraIcon,
-} from '@phosphor-icons/react';
+import { MicrophoneIcon, VideoCameraIcon } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import {
   CallSchema,
   LiveKitTokenResponseSchema,
   type Call,
+  type CallMediaFailureCode,
   type LiveKitTokenResponse,
 } from '@supernizo/shared';
 
+import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
+import { FlowingRibbons } from '@/app/components/flowing-ribbons';
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
+import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
 import { withAppBasePath } from '@/lib/app-path';
 
+import {
+  AnswerCallIcon,
+  DeclineCallIcon,
+  EncryptedCallIcon,
+  NizoVerifiedIcon,
+} from './call-action-icons';
 import { callCopy, callHeading } from './call-display';
-import { MediaPermissionError, requestMediaPermissions } from './media-permissions';
+import { optimisticallyEndCall, shouldIgnoreCallUpdate } from './call-end-state';
+import { MediaPermissionError } from './media-permissions';
 
 const CallWidgetConfigSchema = z.object({
   channel: z.string().min(1),
+  livekitUrl: z.url().optional(),
   token: z.string().min(1),
 });
 const { useRealtime } = createRealtime<{
@@ -53,29 +60,34 @@ function CallSubscription({
   return null;
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('');
-}
-
 export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [config, setConfig] = useState<CallWidgetConfig | null>(null);
   const [call, setCall] = useState<Call | null>(null);
   const [media, setMedia] = useState<LiveKitTokenResponse | null>(null);
-  const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
-  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const [isPermissionPromptOpen, setIsPermissionPromptOpen] = useState(false);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
+  const endingCallId = useRef<string | null>(null);
+  const mediaFailureCallId = useRef<string | null>(null);
+  const callIsTerminal =
+    call !== null && ['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(call.status);
+  const callMedia = useLiveKitCallSession(
+    call && !callIsTerminal && (config?.livekitUrl || media?.url)
+      ? {
+          callId: call.id,
+          url: config?.livekitUrl ?? media?.url ?? '',
+        }
+      : null,
+  );
+  const releaseLocalTracks = callMedia.releaseLocalTracks;
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
       if (event.origin !== hostOrigin || !event.data || typeof event.data !== 'object') return;
       const data = event.data as {
+        action?: unknown;
         call?: unknown;
+        callId?: unknown;
         config?: unknown;
         media?: unknown;
         type?: unknown;
@@ -86,17 +98,39 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       }
       if (data.type === 'supernizo-call-status') {
         const parsed = CallSchema.safeParse(data.call);
-        if (parsed.success) setCall(parsed.data);
+        if (parsed.success && !shouldIgnoreCallUpdate(parsed.data.id, endingCallId.current)) {
+          setCall(parsed.data);
+          if (['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(parsed.data.status)) {
+            setMedia(null);
+          }
+        }
       }
       if (data.type === 'supernizo-call-media') {
         const parsed = LiveKitTokenResponseSchema.safeParse(data.media);
-        if (parsed.success) setMedia(parsed.data);
+        if (
+          parsed.success &&
+          typeof data.callId === 'string' &&
+          data.callId === call?.id &&
+          data.callId !== mediaFailureCallId.current
+        ) {
+          setMedia(parsed.data);
+        }
+      }
+      if (
+        data.type === 'supernizo-call-action-error' &&
+        data.action === 'accept' &&
+        typeof data.callId === 'string' &&
+        data.callId === call?.id &&
+        data.callId !== mediaFailureCallId.current
+      ) {
+        releaseLocalTracks();
+        setPermissionError('The call could not be accepted. Please try again.');
       }
     };
     window.addEventListener('message', receive);
     window.parent.postMessage({ type: 'supernizo-call-ready' }, hostOrigin);
     return () => window.removeEventListener('message', receive);
-  }, [hostOrigin]);
+  }, [call?.id, hostOrigin, releaseLocalTracks]);
 
   useEffect(() => {
     const visible =
@@ -109,38 +143,72 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const hasActiveMedia =
     media !== null && call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
   const agentName = call?.agentDisplayName ?? 'Event team';
-  const showAvatar = Boolean(call?.agentAvatarUrl && call.agentAvatarUrl !== failedAvatarUrl);
+  const normalizedAgentName = agentName.trim().toLowerCase();
+  const callerName =
+    normalizedAgentName === 'local admin' || normalizedAgentName === 'nizo'
+      ? 'Soniya Sahanya'
+      : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
+  const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
 
-  async function acceptCall(): Promise<void> {
-    if (!call || !navigator.mediaDevices?.getUserMedia) {
+  useEffect(() => {
+    const layout = hasActiveMedia
+      ? call.type === 'VIDEO'
+        ? 'connected-video'
+        : 'connected-audio'
+      : 'default';
+    window.parent.postMessage({ layout, type: 'supernizo-call-layout' }, hostOrigin);
+  }, [call?.type, hasActiveMedia, hostOrigin]);
+
+  function acceptCall(): void {
+    if (!call) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
       setPermissionError('This browser cannot request microphone or camera access for the call.');
+      window.parent.postMessage(
+        {
+          call,
+          failureCode: 'MEDIA_DEVICE_UNAVAILABLE' satisfies CallMediaFailureCode,
+          type: 'supernizo-call-media-failure',
+        },
+        hostOrigin,
+      );
+      return;
+    }
+    if (!callMedia.room) {
+      setPermissionError('The secure media room is still preparing. Please try again.');
       return;
     }
 
-    setIsRequestingPermission(true);
+    mediaFailureCallId.current = null;
     setPermissionError(null);
-    try {
-      await requestMediaPermissions(call.type, (constraints) =>
-        navigator.mediaDevices.getUserMedia(constraints),
-      );
-      window.parent.postMessage(
-        { action: 'accept', call, type: 'supernizo-call-action' },
-        hostOrigin,
-      );
-    } catch (error: unknown) {
+    const capture = callMedia.captureLocalTracks(call.type);
+    window.parent.postMessage(
+      { action: 'accept', call, type: 'supernizo-call-action' },
+      hostOrigin,
+    );
+    void capture.catch((error: unknown) => {
+      mediaFailureCallId.current = call.id;
+      const failureCode: CallMediaFailureCode =
+        error instanceof MediaPermissionError
+          ? error.permission === 'camera'
+            ? 'MEDIA_CAMERA_PERMISSION_DENIED'
+            : 'MEDIA_MICROPHONE_PERMISSION_DENIED'
+          : 'MEDIA_DEVICE_UNAVAILABLE';
       setPermissionError(
         error instanceof MediaPermissionError && error.permission === 'camera'
           ? 'Camera access is required to accept this video call. Allow camera access and try again.'
           : 'Microphone access is required to accept this call. Allow microphone access and try again.',
       );
-    } finally {
-      setIsRequestingPermission(false);
-    }
+      window.parent.postMessage(
+        { call, failureCode, type: 'supernizo-call-media-failure' },
+        hostOrigin,
+      );
+    });
   }
 
   function declineCall(): void {
     if (!call) return;
+    setIsPermissionPromptOpen(false);
     window.parent.postMessage(
       { action: 'reject', call, type: 'supernizo-call-action' },
       hostOrigin,
@@ -149,6 +217,12 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
 
   function endCall(): void {
     if (!call) return;
+    endingCallId.current = call.id;
+    setConnectedMediaCallId(null);
+    setIsPermissionPromptOpen(false);
+    setMedia(null);
+    callMedia.releaseLocalTracks();
+    setCall(optimisticallyEndCall(call));
     window.parent.postMessage({ call, type: 'supernizo-call-end' }, hostOrigin);
   }
 
@@ -162,420 +236,350 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         withCredentials: false,
       }}
     >
-      <CallSubscription config={config} onCall={setCall} />
+      <CallSubscription
+        config={config}
+        onCall={(nextCall) => {
+          if (shouldIgnoreCallUpdate(nextCall.id, endingCallId.current)) return;
+          if (nextCall.status === 'RINGING' && nextCall.id !== call?.id) {
+            mediaFailureCallId.current = null;
+            setConnectedMediaCallId(null);
+            setMedia(null);
+            setPermissionError(null);
+            setIsPermissionPromptOpen(false);
+          }
+          setCall(nextCall);
+        }}
+      />
       {call ? (
         <section
+          aria-label="Official event call"
           aria-live="assertive"
-          className={`call-card ${call.type === 'AUDIO' ? 'audio-call' : 'video-call'} ${hasActiveMedia ? 'has-media' : ''}`}
+          className="relative isolate flex h-[calc(100vh-2px)] min-h-0 w-full flex-col overflow-hidden rounded-[18px] border border-[#e4e4e7] bg-white text-[#18181b]"
         >
-          <div aria-hidden="true" className="ambient ambient-one" />
-          <div aria-hidden="true" className="ambient ambient-two" />
-
-          <header className="call-header">
-            <span className="brand">SUPERNIZO</span>
-            <span className="secure">
-              <ShieldCheckIcon aria-hidden="true" size={15} weight="fill" />
-              Secure call
-            </span>
-          </header>
-
-          <div className="caller">
-            <div className={`avatar-ring ${isRinging ? 'is-ringing' : ''}`}>
-              <div className="avatar">
-                {showAvatar && call.agentAvatarUrl ? (
-                  // User-configured cross-origin avatar URLs cannot use Next Image host allowlists.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt={`${agentName} profile`}
-                    onError={() => setFailedAvatarUrl(call.agentAvatarUrl ?? null)}
-                    src={call.agentAvatarUrl}
-                  />
-                ) : (
-                  <span aria-label={`${agentName} initials`}>{initials(agentName) || 'S'}</span>
-                )}
-              </div>
-              <span aria-hidden="true" className="online-dot" />
-            </div>
-
-            <p className="eyebrow">{agentName}</p>
-            <h1>{callHeading(call, mediaConnected)}</h1>
-            <p className="copy">{callCopy(call, Boolean(media), mediaConnected)}</p>
-            <p className="call-kind">
-              {call.type === 'VIDEO' ? (
-                <VideoCameraIcon aria-hidden="true" size={15} weight="fill" />
-              ) : (
-                <PhoneIncomingIcon aria-hidden="true" size={15} weight="fill" />
-              )}
-              {call.type === 'VIDEO' ? 'Video call' : 'Audio call'}
-            </p>
-          </div>
-
-          {permissionError ? <p className="error">{permissionError}</p> : null}
-
           {isRinging ? (
-            <div className="incoming-actions">
-              <button className="phone-action decline" onClick={declineCall} type="button">
-                <span className="action-icon">
-                  <PhoneXIcon aria-hidden="true" size={25} weight="fill" />
-                </span>
-                <span>Decline</span>
-              </button>
-              <button
-                className="phone-action accept"
-                disabled={isRequestingPermission}
-                onClick={() => void acceptCall()}
-                type="button"
-              >
-                <span className="action-icon">
-                  <PhoneIncomingIcon aria-hidden="true" size={25} weight="fill" />
-                </span>
-                <span>{isRequestingPermission ? 'Allowing...' : 'Accept'}</span>
-              </button>
+            <div
+              className={`call-card__portrait-media absolute inset-0 z-0 ${
+                showPermissionPrompt ? 'call-card__portrait-media--permission' : ''
+              }`}
+            >
+              <CallerIdentityVideo variant="cover" />
             </div>
           ) : null}
-
-          {hasActiveMedia && media ? (
-            <LiveKitMediaRoom
-              call={call}
-              media={media}
-              onConnected={() => setConnectedMediaCallId(call.id)}
-              onEnd={endCall}
+          {isRinging ? (
+            <div
+              aria-hidden="true"
+              className="call-card__portrait-blend pointer-events-none absolute inset-0 z-[1]"
             />
           ) : null}
+          {showPermissionPrompt ? (
+            <div
+              aria-hidden="true"
+              className="call-card__permission-veil pointer-events-none absolute inset-0 z-[2]"
+            />
+          ) : null}
+          <div className="absolute inset-0 z-[3]">
+            <FlowingRibbons
+              animationSpeed={0.36}
+              backgroundColor={isRinging ? 'transparent' : '#ffffff'}
+              lineColor={
+                isRinging
+                  ? 'rgba(39, 39, 42, 0.1)'
+                  : hasActiveMedia && call.type === 'AUDIO'
+                    ? 'rgba(113, 113, 122, 0.065)'
+                    : 'rgba(113, 113, 122, 0.13)'
+              }
+              placement={isRinging ? 'bottom' : 'center'}
+            />
+          </div>
+          <span
+            className={`call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium transition-[color,filter] duration-300 ${
+              isRinging && !showPermissionPrompt
+                ? 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.32)]'
+                : 'text-[#a1a1aa] drop-shadow-none'
+            }`}
+          >
+            <NizoVerifiedIcon />
+            Nizo Verified
+          </span>
 
-          <footer>
-            <ShieldCheckIcon aria-hidden="true" size={14} weight="fill" />
-            Encrypted connection
-          </footer>
+          <div className="relative z-[4] flex h-full min-h-0 w-full flex-col">
+            <div
+              className={
+                hasActiveMedia
+                  ? 'flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-12 pb-4'
+                  : 'flex min-h-0 flex-1 flex-col items-center justify-center px-6 pt-12 pb-5 text-center'
+              }
+            >
+              {showPermissionPrompt ? (
+                <div className="call-card__permission-panel flex w-full max-w-[300px] flex-col items-center rounded-[18px] border border-white/75 bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(24,24,27,0.16),0_2px_8px_rgba(24,24,27,0.08)] backdrop-blur-2xl">
+                  <h1 className="!m-0 max-w-[260px] !text-[22px] !font-semibold !leading-[1.15] !tracking-[-0.035em] text-[#18181b]">
+                    {call.type === 'VIDEO' ? 'Camera & Microphone' : 'Microphone Access'}
+                  </h1>
+                  <p className="m-0 mt-3 max-w-[250px] text-[12px] leading-[1.55] text-[#71717a]">
+                    {call.type === 'VIDEO'
+                      ? 'Allow access so the event team can see and hear you. Your browser will ask once.'
+                      : 'Allow access so the event team can hear you. Your browser will ask once.'}
+                  </p>
+
+                  {permissionError ? (
+                    <p
+                      className="m-0 mt-4 w-full rounded-[10px] border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-left text-[11px] leading-4 text-[#be123c]"
+                      role="alert"
+                    >
+                      {permissionError}
+                    </p>
+                  ) : null}
+
+                  <button
+                    className="call-card__permission-action mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-[#18181b] px-4 text-[13px] font-semibold text-white shadow-[0_7px_18px_rgba(24,24,27,0.2)] transition-[transform,background-color,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-wait disabled:opacity-50"
+                    disabled={callMedia.isCapturing || !callMedia.room}
+                    onClick={acceptCall}
+                    type="button"
+                  >
+                    {call.type === 'VIDEO' ? (
+                      <VideoCameraIcon aria-hidden="true" size={17} weight="fill" />
+                    ) : (
+                      <MicrophoneIcon aria-hidden="true" size={17} weight="fill" />
+                    )}
+                    {callMedia.isCapturing
+                      ? 'Requesting access…'
+                      : call.type === 'VIDEO'
+                        ? 'Allow camera & microphone'
+                        : 'Allow microphone'}
+                  </button>
+                </div>
+              ) : hasActiveMedia ? (
+                <div className="w-full">
+                  <div className="mb-3 flex items-end justify-between gap-3">
+                    <div className="text-left">
+                      <h1 className="!m-0 !text-[19px] !font-semibold !leading-[1.25] !tracking-[-0.025em] text-[#18181b]">
+                        {callHeading(call, mediaConnected)}
+                      </h1>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium text-[#16835b]">
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#22a06b]" />
+                      Live
+                    </span>
+                  </div>
+                  {media && callMedia.room ? (
+                    <LiveKitMediaRoom
+                      agentName={callerName}
+                      call={call}
+                      localTracks={callMedia.localTracks}
+                      media={media}
+                      onConnected={() => setConnectedMediaCallId(call.id)}
+                      onEnd={endCall}
+                      room={callMedia.room}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <div className="call-card__hero flex flex-col items-center">
+                  <span aria-hidden="true" className="h-72 shrink-0" />
+                  <span className="sr-only">
+                    {callerName}, {call.type === 'VIDEO' ? 'video call' : 'audio call'}
+                  </span>
+                  <p className="m-0 mt-5 text-[12px] font-medium text-[#71717a]">
+                    {isRinging
+                      ? `Incoming ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Call`
+                      : 'Call status'}
+                  </p>
+                  <h1 className="!m-0 mt-2 max-w-[290px] !text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
+                    {isRinging
+                      ? 'Event Team Is Calling To Guide You'
+                      : callHeading(call, mediaConnected)}
+                  </h1>
+                  {!isRinging ? (
+                    <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
+                      {callCopy(call, Boolean(media), mediaConnected)}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            {isRinging ? (
+              !isPermissionPromptOpen ? (
+                <div className="call-card__actions flex justify-center gap-4 px-6 pb-5">
+                  <button
+                    className="inline-flex min-h-10 w-[120px] items-center justify-center gap-2 rounded-[10px] border border-[#dc2626] bg-[#dc2626] px-2.5 text-xs font-semibold text-white shadow-[0_2px_4px_rgba(127,29,29,0.14)] transition-[transform,box-shadow,background-color] hover:bg-[#c81e1e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626] active:translate-y-px active:shadow-none"
+                    onClick={declineCall}
+                    type="button"
+                  >
+                    <DeclineCallIcon />
+                    Decline
+                  </button>
+                  <button
+                    className="inline-flex min-h-10 w-[120px] items-center justify-center gap-2 rounded-[10px] border border-[#16a34a] bg-[#16a34a] px-2.5 text-xs font-semibold text-white shadow-[0_2px_4px_rgba(20,83,45,0.14)] transition-[transform,box-shadow,background-color] hover:bg-[#158f43] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#16a34a] active:translate-y-px active:shadow-none disabled:cursor-wait disabled:opacity-50"
+                    disabled={callMedia.isCapturing || !callMedia.room}
+                    onClick={() => {
+                      setPermissionError(null);
+                      setIsPermissionPromptOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <AnswerCallIcon />
+                    Accept call
+                  </button>
+                </div>
+              ) : null
+            ) : null}
+
+            <div className="call-card__footer flex items-center justify-center gap-1 px-5 py-3 text-[10px] font-medium text-[#a1a1aa]">
+              <EncryptedCallIcon />
+              Private Encrypted Call
+            </div>
+          </div>
         </section>
       ) : null}
 
       <style jsx>{`
         :global(html),
         :global(body) {
-          background: transparent;
+          background: transparent !important;
           height: 100%;
           margin: 0;
           overflow: hidden;
         }
-        .call-card {
-          background:
-            radial-gradient(circle at 18% 15%, rgba(26, 151, 169, 0.32), transparent 27%),
-            radial-gradient(circle at 88% 88%, rgba(13, 86, 119, 0.34), transparent 34%),
-            linear-gradient(155deg, #0c3448 0%, #061c2d 54%, #031522 100%);
-          border: 1px solid rgba(166, 228, 237, 0.34);
-          border-radius: 27px;
-          box-shadow:
-            0 24px 60px rgba(1, 14, 25, 0.44),
-            inset 0 1px 0 rgba(255, 255, 255, 0.12);
-          box-sizing: border-box;
-          color: #effbff;
-          display: flex;
-          flex-direction: column;
-          font-family: Arial, sans-serif;
-          height: calc(100vh - 2px);
-          min-height: 500px;
-          overflow: hidden;
-          padding: 18px 22px 16px;
-          position: relative;
-          width: 100%;
+        :global(body) {
+          color-scheme: light;
+          font-family:
+            var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            'Segoe UI',
+            sans-serif;
         }
-        .ambient {
-          border: 1px solid rgba(104, 218, 223, 0.09);
-          border-radius: 50%;
-          pointer-events: none;
-          position: absolute;
+        .call-card__verified {
+          animation: call-verified-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 280ms both;
         }
-        .ambient-one {
-          height: 250px;
-          right: -120px;
-          top: -120px;
-          width: 250px;
+        .call-card__portrait-blend {
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0) 46%,
+            rgba(255, 255, 255, 0.14) 55%,
+            rgba(255, 255, 255, 0.62) 67%,
+            rgba(255, 255, 255, 0.94) 79%,
+            #fff 88%,
+            #fff 100%
+          );
         }
-        .ambient-two {
-          bottom: -150px;
-          height: 310px;
-          left: -160px;
-          width: 310px;
-        }
-        .call-header {
-          align-items: center;
-          display: flex;
-          justify-content: space-between;
-          position: relative;
-          z-index: 1;
-        }
-        .brand {
-          color: #72e3dd;
-          font-size: 10px;
-          font-weight: 800;
-          letter-spacing: 0.18em;
-        }
-        .secure {
-          align-items: center;
-          background: rgba(164, 222, 231, 0.08);
-          border: 1px solid rgba(174, 229, 237, 0.14);
-          border-radius: 999px;
-          color: #a9cbd3;
-          display: inline-flex;
-          font-size: 10px;
-          gap: 5px;
-          padding: 6px 9px;
-        }
-        .caller {
-          align-items: center;
-          display: flex;
-          flex: 1;
-          flex-direction: column;
-          justify-content: center;
-          min-height: 0;
-          position: relative;
-          text-align: center;
-          z-index: 1;
-        }
-        .avatar-ring {
-          border: 1px solid rgba(105, 231, 224, 0.28);
-          border-radius: 50%;
-          box-shadow:
-            0 0 0 8px rgba(61, 206, 205, 0.08),
-            0 18px 42px rgba(0, 8, 18, 0.3);
-          height: 116px;
-          margin: 8px 0 24px;
-          padding: 6px;
-          position: relative;
-          width: 116px;
-        }
-        .avatar-ring::before,
-        .avatar-ring::after {
-          border: 1px solid rgba(92, 226, 218, 0.16);
-          border-radius: inherit;
-          content: '';
-          inset: -13px;
-          opacity: 0;
-          position: absolute;
-        }
-        .avatar-ring.is-ringing::before {
-          animation: ring-pulse 2s ease-out infinite;
-        }
-        .avatar-ring.is-ringing::after {
-          animation: ring-pulse 2s 0.75s ease-out infinite;
-        }
-        .avatar {
-          align-items: center;
-          background: linear-gradient(145deg, #45d6cf, #126b8c);
-          border-radius: 50%;
-          display: flex;
-          height: 100%;
-          justify-content: center;
-          overflow: hidden;
-          width: 100%;
-        }
-        .avatar img {
-          height: 100%;
-          object-fit: cover;
-          width: 100%;
-        }
-        .avatar span {
-          color: #fff;
-          font-size: 36px;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-        }
-        .online-dot {
-          background: #35e1af;
-          border: 4px solid #082438;
-          border-radius: 50%;
-          bottom: 5px;
-          box-shadow: 0 0 0 3px rgba(53, 225, 175, 0.16);
-          height: 12px;
-          position: absolute;
-          right: 5px;
-          width: 12px;
-        }
-        .eyebrow {
-          color: #72e3dd;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.14em;
-          margin: 0 0 8px;
-          text-transform: uppercase;
-        }
-        h1 {
-          font-size: 27px;
-          letter-spacing: -0.035em;
-          line-height: 1.12;
-          margin: 0;
-        }
-        .copy {
-          color: #adcad3;
-          font-size: 13px;
-          line-height: 1.5;
-          margin: 10px auto 0;
-          max-width: 265px;
-        }
-        .call-kind {
-          align-items: center;
-          color: #739ba8;
-          display: inline-flex;
-          font-size: 11px;
-          gap: 6px;
-          margin: 13px 0 0;
-        }
-        .error {
-          background: rgba(190, 53, 69, 0.16);
-          border: 1px solid rgba(255, 164, 170, 0.28);
-          border-radius: 12px;
-          color: #ffc6cb;
-          font-size: 12px;
-          line-height: 1.4;
-          margin: 0 0 12px;
-          padding: 9px 11px;
-          position: relative;
-          z-index: 1;
-        }
-        .incoming-actions {
-          display: grid;
-          gap: 42px;
-          grid-template-columns: repeat(2, 74px);
-          justify-content: center;
-          padding: 8px 0 22px;
-          position: relative;
-          z-index: 1;
-        }
-        .phone-action {
-          align-items: center;
-          appearance: none;
-          background: transparent;
-          border: 0;
-          color: #b5d0d8;
-          cursor: pointer;
-          display: flex;
-          flex-direction: column;
-          font-size: 11px;
-          font-weight: 700;
-          gap: 8px;
-          padding: 0;
-        }
-        .action-icon {
-          align-items: center;
-          border-radius: 50%;
-          display: flex;
-          height: 58px;
-          justify-content: center;
+        .call-card__portrait-media {
+          filter: blur(0) saturate(1);
+          transform: scale(1);
           transition:
-            transform 0.18s ease,
-            filter 0.18s ease;
-          width: 58px;
+            filter 360ms cubic-bezier(0.65, 0, 0.35, 1),
+            transform 360ms cubic-bezier(0.65, 0, 0.35, 1);
         }
-        .phone-action:hover .action-icon {
-          filter: brightness(1.08);
-          transform: translateY(-2px);
+        .call-card__portrait-media--permission {
+          filter: blur(11px) saturate(0.78);
+          transform: scale(1.06);
         }
-        .decline .action-icon {
-          background: linear-gradient(145deg, #ff5265, #d91e45);
-          box-shadow: 0 10px 24px rgba(221, 33, 71, 0.24);
+        .call-card__permission-veil {
+          animation: call-permission-veil-in 280ms cubic-bezier(0.23, 1, 0.32, 1) both;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.3) 0%,
+            rgba(255, 255, 255, 0.42) 42%,
+            rgba(255, 255, 255, 0.68) 100%
+          );
         }
-        .accept .action-icon {
-          background: linear-gradient(145deg, #45d6a4, #15956e);
-          box-shadow: 0 10px 24px rgba(31, 184, 132, 0.24);
+        .call-card__permission-panel {
+          animation: call-permission-panel-in 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
         }
-        .phone-action:disabled {
-          cursor: wait;
-          opacity: 0.62;
+        .call-card__permission-action:active {
+          box-shadow: 0 2px 7px rgba(24, 24, 27, 0.16);
+          transform: scale(0.98);
         }
-        footer {
-          align-items: center;
-          color: #5e8491;
-          display: flex;
-          font-size: 9px;
-          gap: 5px;
-          justify-content: center;
-          letter-spacing: 0.06em;
-          padding-top: 9px;
-          position: relative;
-          text-transform: uppercase;
-          z-index: 1;
-        }
-        .video-call .avatar-ring {
-          height: 82px;
-          margin-bottom: 16px;
-          width: 82px;
-        }
-        .video-call {
-          overflow-y: auto;
-        }
-        .video-call .avatar span {
-          font-size: 28px;
-        }
-        .video-call h1 {
-          font-size: 23px;
-        }
-        .video-call.has-media {
-          overflow: hidden;
-          padding: 16px 18px 13px;
-        }
-        .video-call.has-media .caller {
-          align-items: flex-start;
-          flex: 0 0 auto;
-          padding: 12px 2px 10px;
-          text-align: left;
-        }
-        .video-call.has-media .avatar-ring,
-        .video-call.has-media .copy,
-        .video-call.has-media .call-kind {
-          display: none;
-        }
-        .video-call.has-media .eyebrow {
-          margin: 0 0 3px;
-        }
-        .video-call.has-media h1 {
-          color: #dceef2;
-          font-size: 17px;
-          letter-spacing: -0.02em;
-        }
-        .video-call.has-media footer {
-          padding-top: 4px;
-        }
-        @keyframes ring-pulse {
-          0% {
-            opacity: 0.8;
-            transform: scale(0.92);
+        @media (hover: hover) and (pointer: fine) {
+          .call-card__permission-action:not(:disabled):hover {
+            background: #000;
+            box-shadow: 0 9px 22px rgba(24, 24, 27, 0.26);
+            transform: translateY(-1px);
           }
-          80%,
-          100% {
+        }
+        .call-card__hero {
+          animation: call-hero-in 340ms cubic-bezier(0.23, 1, 0.32, 1) 330ms both;
+        }
+        .call-card__actions {
+          animation: call-actions-in 280ms cubic-bezier(0.23, 1, 0.32, 1) 420ms both;
+        }
+        .call-card__footer {
+          animation: call-footer-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 460ms both;
+        }
+        @keyframes call-verified-in {
+          from {
             opacity: 0;
-            transform: scale(1.22);
+            transform: translateY(4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes call-hero-in {
+          from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes call-actions-in {
+          from {
+            opacity: 0;
+            transform: translateY(7px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes call-footer-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes call-permission-veil-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes call-permission-panel-in {
+          from {
+            opacity: 0;
+            transform: translateY(9px) scale(0.975);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .avatar-ring.is-ringing::before,
-          .avatar-ring.is-ringing::after {
+          .call-card__verified,
+          .call-card__hero,
+          .call-card__actions,
+          .call-card__footer,
+          .call-card__permission-panel,
+          .call-card__permission-veil {
             animation: none;
           }
-          .action-icon {
+          .call-card__portrait-media,
+          .call-card__permission-action,
+          .call-card__verified {
             transition: none;
-          }
-        }
-        @media (max-height: 520px) {
-          .call-card {
-            min-height: 0;
-          }
-          .avatar-ring {
-            height: 82px;
-            margin: 4px 0 15px;
-            width: 82px;
-          }
-          .avatar span {
-            font-size: 27px;
-          }
-          h1 {
-            font-size: 23px;
-          }
-          .copy {
-            margin-top: 7px;
-          }
-          .incoming-actions {
-            padding-bottom: 12px;
           }
         }
       `}</style>

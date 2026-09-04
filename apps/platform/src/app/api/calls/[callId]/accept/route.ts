@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 
 import { CallVisitorActionRequestSchema, IdSchema } from '@supernizo/shared';
 
@@ -6,7 +6,7 @@ import { handlePublicChatRequest } from '@/server/chat/public-route';
 import { ValidationError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { acceptVisitorCall } from '@/server/services/call-service';
+import { acceptVisitorCallWithMedia } from '@/server/services/livekit-token-service';
 
 type CallRouteContext = Readonly<{ params: Promise<{ callId: string }> }>;
 
@@ -26,7 +26,11 @@ export async function POST(request: Request, context: CallRouteContext): Promise
     request,
     CallVisitorActionRequestSchema,
     'call-accept',
-    async ({ origin, payload }) =>
-      NextResponse.json({ data: await acceptVisitorCall(parsedId.data, origin, payload.context) }),
+    async ({ origin, payload }) => {
+      const accepted = await acceptVisitorCallWithMedia(parsedId.data, origin, payload.context, {
+        scheduleOperationalSync: after,
+      });
+      return NextResponse.json({ data: accepted.call, media: accepted.media });
+    },
   );
 }

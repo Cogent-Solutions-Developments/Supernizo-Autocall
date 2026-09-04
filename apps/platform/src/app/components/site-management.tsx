@@ -459,8 +459,20 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
           )}
           {canManage ? (
             <div
-              className={`mt-4 border-t border-white/15 pt-4 ${isSidebarCollapsed ? 'flex justify-center' : 'px-1'}`}
+              className={`mt-4 grid gap-2 border-t border-white/15 pt-4 ${isSidebarCollapsed ? 'justify-center' : 'px-1'}`}
             >
+              <Link
+                aria-label="Manage access"
+                className={`text-sm font-semibold transition ${
+                  isSidebarCollapsed
+                    ? 'grid size-14 place-items-center rounded-full bg-white/10 p-0 text-base text-white hover:bg-white/15'
+                    : 'w-full rounded-xl border border-sky-100/15 bg-white/10 px-3 py-2.5 text-left text-white hover:bg-white/15'
+                }`}
+                href="/dashboard/access"
+                title="Manage access"
+              >
+                {isSidebarCollapsed ? 'A' : 'Manage access'}
+              </Link>
               <button
                 aria-label="Register event"
                 className={`text-sm font-semibold transition ${

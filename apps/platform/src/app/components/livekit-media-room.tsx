@@ -3,8 +3,11 @@
 import {
   LiveKitRoom,
   RoomAudioRenderer,
+  StartAudio,
   TrackToggle,
   VideoTrack,
+  isTrackReference,
+  useRemoteParticipants,
   useTracks,
 } from '@livekit/components-react';
 import {
@@ -14,31 +17,40 @@ import {
   VideoCameraIcon,
   VideoCameraSlashIcon,
 } from '@phosphor-icons/react';
-import { Track } from 'livekit-client';
+import { Track, type LocalTrack, type Room } from 'livekit-client';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Call, LiveKitTokenResponse } from '@supernizo/shared';
 
+import { deriveLiveKitMediaState, getLiveKitMediaErrorMessage } from './livekit-media-state';
+
 type LiveKitMediaRoomProps = Readonly<{
+  agentName?: string;
   call: Call;
+  localTracks: readonly LocalTrack[];
   media: LiveKitTokenResponse;
   onConnected?: () => void;
   onEnd: () => void;
+  room: Room;
 }>;
 
 function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
   const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
-  const remoteTrack =
-    tracks.find((track) => !track.participant.isLocal && track.publication) ??
-    tracks.find((track) => !track.participant.isLocal);
-  const localTrack =
-    tracks.find((track) => track.participant.isLocal && track.publication) ??
-    tracks.find((track) => track.participant.isLocal);
+  const remoteTrack = tracks.find(
+    (track) =>
+      !track.participant.isLocal &&
+      isTrackReference(track) &&
+      track.publication.isSubscribed &&
+      track.publication.track,
+  );
+  const localTrack = tracks.find(
+    (track) => track.participant.isLocal && isTrackReference(track) && track.publication.track,
+  );
 
   return (
     <div className="video-stage">
       <div className="remote-video">
-        {remoteTrack?.publication ? (
+        {remoteTrack && isTrackReference(remoteTrack) ? (
           <VideoTrack className="supernizo-remote-video" trackRef={remoteTrack} />
         ) : (
           <div className="remote-placeholder">
@@ -53,7 +65,7 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
       </div>
 
       <div className="local-video">
-        {localTrack?.publication ? (
+        {localTrack && isTrackReference(localTrack) ? (
           <VideoTrack className="supernizo-local-video" trackRef={localTrack} />
         ) : (
           <div className="local-placeholder">
@@ -66,17 +78,18 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
       <style jsx>{`
         .video-stage {
           aspect-ratio: 4 / 3;
-          background: #020d16;
-          border: 1px solid rgba(171, 229, 237, 0.19);
-          border-radius: 18px;
-          box-shadow: 0 16px 34px rgba(0, 8, 16, 0.3);
-          min-height: 230px;
+          background: #f4f4f5;
+          border: 1px solid #e4e4e7;
+          border-radius: 12px;
+          margin: 0 auto;
+          max-width: 100%;
+          min-height: 0;
           overflow: hidden;
           position: relative;
           width: 100%;
         }
         .remote-video {
-          background: linear-gradient(145deg, #09283b, #03131f);
+          background: #f4f4f5;
           height: 100%;
           position: relative;
           width: 100%;
@@ -88,78 +101,85 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
         }
         .remote-placeholder {
           align-items: center;
-          color: #80a4af;
+          color: #71717a;
           display: flex;
           flex-direction: column;
           font:
-            11px/1.45 Arial,
+            11px/1.45 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           height: 100%;
           justify-content: center;
-          padding: 24px 74px 24px 24px;
+          padding: 16px 56px 16px 16px;
           text-align: center;
         }
         .remote-placeholder strong {
-          color: #dceef2;
-          font-size: 13px;
+          color: #27272a;
+          font-size: 11px;
           margin: 10px 0 3px;
         }
         .placeholder-icon {
           align-items: center;
-          background: rgba(121, 197, 210, 0.11);
-          border: 1px solid rgba(164, 222, 231, 0.13);
-          border-radius: 50%;
-          color: #9bc5ce;
+          background: #fff;
+          border: 1px solid #e4e4e7;
+          border-radius: 10px;
+          color: #71717a;
           display: flex;
-          height: 50px;
+          height: 38px;
           justify-content: center;
-          width: 50px;
+          width: 38px;
         }
         .local-video {
-          background: #061725;
-          border: 2px solid rgba(229, 250, 252, 0.85);
-          border-radius: 13px;
-          bottom: 12px;
-          box-shadow: 0 10px 28px rgba(0, 7, 13, 0.5);
-          height: 94px;
+          background: #fafafa;
+          border: 2px solid #fff;
+          border-radius: 10px;
+          bottom: 8px;
+          height: 70px;
           overflow: hidden;
           position: absolute;
-          right: 12px;
-          width: 76px;
+          right: 8px;
+          width: 56px;
           z-index: 2;
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
         }
         :global(.supernizo-local-video) {
           height: 100%;
           object-fit: cover;
+          transform: scaleX(-1);
           width: 100%;
         }
         .local-placeholder {
           align-items: center;
-          color: #789aa5;
+          color: #a1a1aa;
           display: flex;
           height: 100%;
           justify-content: center;
         }
         .participant-label {
-          backdrop-filter: blur(8px);
-          background: rgba(1, 13, 22, 0.62);
-          border-radius: 999px;
-          bottom: 10px;
-          color: #e7f7fa;
+          background: rgba(16, 16, 17, 0.88);
+          border: 1px solid rgba(82, 82, 91, 0.72);
+          border-radius: 6px;
+          bottom: 7px;
+          color: #f8fafc;
           font:
-            700 9px/1 Arial,
+            600 9px/1 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
             sans-serif;
-          left: 10px;
-          max-width: calc(100% - 112px);
+          left: 7px;
+          max-width: calc(100% - 78px);
           overflow: hidden;
-          padding: 5px 8px;
+          padding: 4px 6px;
           position: absolute;
           text-overflow: ellipsis;
           white-space: nowrap;
         }
         .local-label {
-          bottom: 6px;
-          left: 6px;
+          bottom: 4px;
+          left: 4px;
           max-width: calc(100% - 12px);
           padding: 4px 6px;
         }
@@ -168,28 +188,132 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
   );
 }
 
-export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMediaRoomProps) {
-  const videoEnabled = call.type === 'VIDEO';
-  const [error, setError] = useState<string | null>(null);
-  const [connectionMessage, setConnectionMessage] = useState('Connecting...');
-  const [connectedAt, setConnectedAt] = useState<number | null>(null);
+function MediaConnectionStatus({
+  onConnected,
+  transportConnected,
+  videoEnabled,
+}: Readonly<{
+  onConnected: (() => void) | undefined;
+  transportConnected: boolean;
+  videoEnabled: boolean;
+}>) {
+  const remoteParticipants = useRemoteParticipants();
+  const audioTracks = useTracks([Track.Source.Microphone]);
+  const cameraTracks = useTracks([Track.Source.Camera]);
+  const localMicrophonePublished = audioTracks.some(
+    (track) => track.participant.isLocal && Boolean(track.publication.track),
+  );
+  const remoteMicrophoneSubscribed = audioTracks.some(
+    (track) =>
+      !track.participant.isLocal &&
+      track.publication.isSubscribed &&
+      Boolean(track.publication.track),
+  );
+  const remoteCameraSubscribed = cameraTracks.some(
+    (track) =>
+      !track.participant.isLocal &&
+      track.publication.isSubscribed &&
+      Boolean(track.publication.track),
+  );
+  const mediaState = deriveLiveKitMediaState({
+    localMicrophonePublished,
+    remoteCameraSubscribed,
+    remoteMicrophoneSubscribed,
+    remoteParticipantPresent: remoteParticipants.length > 0,
+    transportConnected,
+    videoEnabled,
+  });
+  const connectedAt = useRef<number | null>(null);
+  const connectedNotified = useRef(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
-  const [cameraEnabled, setCameraEnabled] = useState(videoEnabled);
-  const ended = useRef(false);
 
   useEffect(() => {
-    if (connectedAt === null) return;
-    const timer = window.setInterval(
-      () => setElapsedSeconds(Math.floor((Date.now() - connectedAt) / 1_000)),
-      1_000,
-    );
+    if (!mediaState.connected) return;
+    if (connectedAt.current === null) connectedAt.current = Date.now();
+    if (!connectedNotified.current) {
+      connectedNotified.current = true;
+      onConnected?.();
+    }
+    const timer = window.setInterval(() => {
+      if (connectedAt.current !== null) {
+        setElapsedSeconds(Math.floor((Date.now() - connectedAt.current) / 1_000));
+      }
+    }, 1_000);
     return () => window.clearInterval(timer);
-  }, [connectedAt]);
+  }, [mediaState.connected, onConnected]);
 
   const duration = `${Math.floor(elapsedSeconds / 60)
     .toString()
     .padStart(2, '0')}:${(elapsedSeconds % 60).toString().padStart(2, '0')}`;
+
+  return (
+    <>
+      <div className="connection-status">
+        <span
+          aria-hidden="true"
+          className={mediaState.connected ? 'status-dot connected' : 'status-dot'}
+        />
+        <span>{mediaState.message}</span>
+        {mediaState.connected ? <time>{duration}</time> : null}
+      </div>
+      <StartAudio className="enable-audio" label="Enable call audio" />
+    </>
+  );
+}
+
+export function LiveKitMediaRoom({
+  agentName,
+  call,
+  localTracks,
+  media,
+  onConnected,
+  onEnd,
+  room,
+}: LiveKitMediaRoomProps) {
+  const videoEnabled = call.type === 'VIDEO';
+  const [error, setError] = useState<string | null>(null);
+  const [transportConnected, setTransportConnected] = useState(false);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
+  const [cameraEnabled, setCameraEnabled] = useState(videoEnabled);
+  const ended = useRef(false);
+  const publishedTracks = useRef(new Set<LocalTrack>());
+
+  useEffect(() => {
+    publishedTracks.current.clear();
+  }, [call.id, room]);
+
+  useEffect(() => {
+    if (!transportConnected) return;
+    const hasMicrophone = localTracks.some((track) => track.kind === Track.Kind.Audio);
+    const hasCamera = localTracks.some((track) => track.kind === Track.Kind.Video);
+    if (!hasMicrophone || (videoEnabled && !hasCamera)) return;
+
+    let active = true;
+    const unpublishedTracks = localTracks.filter((track) => !publishedTracks.current.has(track));
+    if (unpublishedTracks.length === 0) return;
+
+    // Reserve each track before the asynchronous publish starts. React can rerun
+    // this effect while publication is in flight; reserving avoids a duplicate
+    // publish request for the same camera or microphone track.
+    unpublishedTracks.forEach((track) => publishedTracks.current.add(track));
+
+    void Promise.all(
+      unpublishedTracks.map(async (track) => {
+        try {
+          await room.localParticipant.publishTrack(track);
+        } catch (publishError: unknown) {
+          publishedTracks.current.delete(track);
+          throw publishError;
+        }
+      }),
+    ).catch((publishError: unknown) => {
+      if (active) setError(getLiveKitMediaErrorMessage(publishError));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [localTracks, room, transportConnected, videoEnabled]);
 
   function endOnce(): void {
     if (ended.current) return;
@@ -199,39 +323,34 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
 
   return (
     <LiveKitRoom
-      audio
+      audio={false}
       className="supernizo-livekit-room"
       connect
       onConnected={() => {
-        setConnectionMessage('Connected');
-        setConnectedAt(Date.now());
-        onConnected?.();
+        setError(null);
+        setTransportConnected(true);
       }}
       onDisconnected={() => {
-        setConnectionMessage('Disconnected');
+        setTransportConnected(false);
         endOnce();
       }}
-      onError={() => setError('The media connection failed. Check your network and try again.')}
-      onMediaDeviceFailure={() =>
-        setError(
-          'Camera or microphone permission was denied, or no compatible device is available.',
-        )
-      }
+      onError={(mediaError) => setError(getLiveKitMediaErrorMessage(mediaError))}
+      onMediaDeviceFailure={(failure) => setError(getLiveKitMediaErrorMessage(failure))}
+      room={room}
       serverUrl={media.url}
       token={media.token}
-      video={videoEnabled}
+      video={false}
     >
       <div className="media-room">
-        <div className="connection-status">
-          <span
-            aria-hidden="true"
-            className={connectedAt ? 'status-dot connected' : 'status-dot'}
-          />
-          <span>{connectionMessage}</span>
-          {connectedAt ? <time>{duration}</time> : null}
-        </div>
+        <MediaConnectionStatus
+          onConnected={onConnected}
+          transportConnected={transportConnected}
+          videoEnabled={videoEnabled}
+        />
         {error ? <p className="media-error">{error}</p> : null}
-        {videoEnabled ? <VideoTiles agentName={call.agentDisplayName || 'Event team'} /> : null}
+        {videoEnabled ? (
+          <VideoTiles agentName={agentName ?? call.agentDisplayName ?? 'Event team'} />
+        ) : null}
         <RoomAudioRenderer />
         <div className="media-controls">
           <div className="control-item">
@@ -287,102 +406,133 @@ export function LiveKitMediaRoom({ call, media, onConnected, onEnd }: LiveKitMed
         }
         .media-room {
           display: grid;
-          gap: 14px;
+          gap: 12px;
           position: relative;
           z-index: 2;
         }
-        .connection-status {
+        :global(.connection-status) {
           align-items: center;
-          border-bottom: 1px solid rgba(162, 221, 232, 0.12);
-          color: #8fadb7;
+          border-bottom: 1px solid #e4e4e7;
+          color: #71717a;
           display: flex;
           font:
-            11px/1.4 Arial,
+            11px/1.4 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           gap: 7px;
-          padding: 0 2px 11px;
+          padding: 0 2px 9px;
         }
-        .connection-status time {
-          color: #d7eaee;
+        :global(.connection-status time) {
+          color: #52525b;
           font-variant-numeric: tabular-nums;
           margin-left: auto;
         }
-        .status-dot {
-          background: #e5aa4d;
+        :global(.status-dot) {
+          background: #d6a547;
           border-radius: 50%;
-          box-shadow: 0 0 0 3px rgba(229, 170, 77, 0.1);
           height: 7px;
           width: 7px;
         }
-        .status-dot.connected {
-          background: #35e0ac;
-          box-shadow: 0 0 0 3px rgba(53, 224, 172, 0.1);
+        :global(.status-dot.connected) {
+          background: #55b982;
         }
         .media-error {
-          background: rgba(190, 53, 69, 0.16);
-          border: 1px solid rgba(255, 164, 170, 0.28);
-          border-radius: 11px;
-          color: #ffc6cb;
+          background: #fff1f2;
+          border: 1px solid #fecdd3;
+          border-radius: 9px;
+          color: #be123c;
           font:
-            11px/1.4 Arial,
+            11px/1.4 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
             sans-serif;
           margin: 0;
           padding: 8px 10px;
         }
+        :global(button.enable-audio) {
+          appearance: none;
+          background: #18181b;
+          border: 1px solid #18181b;
+          border-radius: 9px;
+          color: #fff;
+          cursor: pointer;
+          font:
+            600 11px/1 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
+            sans-serif;
+          justify-self: center;
+          padding: 10px 16px;
+        }
+        :global(button.enable-audio:focus-visible) {
+          outline: 2px solid #18181b;
+          outline-offset: 2px;
+        }
         .media-controls {
           display: flex;
-          gap: 34px;
+          gap: 18px;
           justify-content: center;
-          padding: 0 0 8px;
+          padding: 2px 0 0;
         }
         .control-item {
           align-items: center;
-          color: #9dbbc4;
+          color: #71717a;
           display: flex;
           flex-direction: column;
           font:
-            700 10px/1 Arial,
+            500 10px/1 var(--font-app-sans),
+            Geist,
+            ui-sans-serif,
+            system-ui,
             sans-serif;
-          gap: 8px;
+          gap: 6px;
         }
         :global(button.supernizo-media-toggle),
         .end-call {
           align-items: center;
           appearance: none;
-          background: rgba(138, 201, 215, 0.11);
-          border: 1px solid rgba(167, 222, 232, 0.2);
-          border-radius: 50%;
+          background: #fff;
+          border: 1px solid #e4e4e7;
+          border-radius: 10px;
           box-sizing: border-box;
-          color: #d8edf1;
+          color: #27272a;
           cursor: pointer;
           display: flex;
-          flex: 0 0 64px;
-          height: 64px;
+          flex: 0 0 46px;
+          height: 46px;
           justify-content: center;
           padding: 0;
           transition:
             transform 0.16s ease,
             background 0.16s ease;
-          width: 64px;
+          width: 46px;
         }
         :global(button.supernizo-media-toggle:hover),
         .end-call:hover {
-          background: rgba(138, 201, 215, 0.18);
+          background: #f4f4f5;
           transform: translateY(-1px);
         }
         :global(button.supernizo-media-toggle[data-lk-enabled='false']) {
-          background: rgba(244, 97, 112, 0.13);
-          border-color: rgba(255, 150, 160, 0.24);
-          color: #ffc2c8;
+          background: #fff1f2;
+          border-color: #fecdd3;
+          color: #be123c;
         }
         .end-call {
-          background: linear-gradient(145deg, #ff5265, #db1d46);
-          border-color: transparent;
-          box-shadow: 0 10px 22px rgba(221, 33, 71, 0.22);
+          background: #e11d48;
+          border-color: #e11d48;
           color: #fff;
         }
         .end-call:hover {
-          background: linear-gradient(145deg, #ff6172, #e5224c);
+          background: #be123c;
+        }
+        :global(button.supernizo-media-toggle:focus-visible),
+        .end-call:focus-visible {
+          outline: 2px solid #18181b;
+          outline-offset: 2px;
         }
         @media (prefers-reduced-motion: reduce) {
           :global(button.supernizo-media-toggle),

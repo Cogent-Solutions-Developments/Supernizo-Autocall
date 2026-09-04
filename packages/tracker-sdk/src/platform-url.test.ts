@@ -20,6 +20,7 @@ describe('platform URLs', () => {
       '/api/livekit/token',
       '/api/realtime',
       '/api/track/heartbeat',
+      '/sdk/assets/cta-hover-loop1.mp4',
       '/widget/call',
       '/widget/chat',
     ];

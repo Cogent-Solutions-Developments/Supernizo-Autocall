@@ -11,7 +11,7 @@ export function callHeading(call: DisplayCall, mediaConnected: boolean): string 
     return call.type === 'VIDEO' ? 'Incoming video call' : 'Incoming audio call';
   }
   if (call.status === 'ACTIVE' || (mediaConnected && isMediaCallStatus(call.status))) {
-    return 'Call connected';
+    return 'Happy You’re Here';
   }
   if (call.status === 'ACCEPTED' || call.status === 'CONNECTING') return 'Call connecting';
   return `Call ${call.status.toLowerCase()}`;

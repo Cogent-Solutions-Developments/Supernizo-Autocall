@@ -6,6 +6,7 @@ import type { TrackerBootstrapRequest, TrackerBootstrapResponse } from '@superni
 
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getDatabaseClient } from '@/server/db/client';
+import { getLiveKitPublicConfig } from '@/server/livekit/config';
 import { isOriginAllowed } from '@/server/sites/origins';
 import { createVisitorRealtimeToken } from '@/server/realtime/visitor-token';
 
@@ -177,8 +178,10 @@ export async function bootstrapTracker(
   });
 
   const visitorChannel = `visitor:${site.id}:${input.payload.visitorId}`;
+  const callsEnabled = site.audioCallEnabled || site.videoCallEnabled;
 
   return {
+    ...(callsEnabled ? { calling: getLiveKitPublicConfig() } : {}),
     features: {
       audioCallEnabled: site.audioCallEnabled,
       chatEnabled: site.chatEnabled,
