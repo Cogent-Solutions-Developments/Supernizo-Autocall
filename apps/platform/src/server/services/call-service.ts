@@ -125,7 +125,7 @@ export function transitionCallStatus(current: CallStatus, action: CallAction): C
 
 export function staleCallAction(status: CallStatus): CallAction | null {
   if (status === 'RINGING') return 'timeout';
-  return status === 'ACCEPTED' || status === 'CONNECTING' || status === 'ACTIVE' ? 'fail' : null;
+  return status === 'ACCEPTED' || status === 'CONNECTING' ? 'fail' : null;
 }
 
 function roomName(): string {
@@ -557,7 +557,6 @@ export async function reconcileStaleCallsForAgent(agentId: string): Promise<numb
       OR: [
         { requestedAt: { lte: ringingCutoff }, status: 'RINGING' },
         { requestedAt: { lte: connectionCutoff }, status: { in: ['ACCEPTED', 'CONNECTING'] } },
-        { startedAt: { lte: connectionCutoff }, status: 'ACTIVE' },
       ],
     },
     select: { id: true, status: true },

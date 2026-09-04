@@ -68,10 +68,10 @@ describe('call state machine', () => {
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 30_000, 30)).toBe(true);
   });
 
-  it('reconciles stale ringing and media-connection states into terminal outcomes', () => {
+  it('reconciles only stale ringing and media-connection states into terminal outcomes', () => {
     expect(staleCallAction('RINGING')).toBe('timeout');
     expect(staleCallAction('CONNECTING')).toBe('fail');
-    expect(staleCallAction('ACTIVE')).toBe('fail');
+    expect(staleCallAction('ACTIVE')).toBeNull();
     expect(staleCallAction('ENDED')).toBeNull();
   });
 });
