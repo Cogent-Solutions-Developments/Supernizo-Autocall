@@ -147,6 +147,7 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
         :global(.supernizo-local-video) {
           height: 100%;
           object-fit: cover;
+          transform: scaleX(-1);
           width: 100%;
         }
         .local-placeholder {

@@ -277,7 +277,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             className={`call-card__verified absolute inset-x-0 top-5 z-10 flex items-center justify-center gap-0.5 text-[10px] font-medium transition-[color,filter] duration-300 ${
               isRinging && !showPermissionPrompt
                 ? 'text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.32)]'
-                : 'text-[#18181b] drop-shadow-none'
+                : 'text-[#a1a1aa] drop-shadow-none'
             }`}
           >
             <NizoVerifiedIcon />
@@ -334,8 +334,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 <div className="w-full">
                   <div className="mb-3 flex items-end justify-between gap-3">
                     <div className="text-left">
-                      <p className="m-0 text-[11px] font-medium text-[#71717a]">Secure call</p>
-                      <h1 className="!m-0 mt-1 !text-[19px] !font-semibold !leading-[1.25] !tracking-[-0.025em] text-[#18181b]">
+                      <h1 className="!m-0 !text-[19px] !font-semibold !leading-[1.25] !tracking-[-0.025em] text-[#18181b]">
                         {callHeading(call, mediaConnected)}
                       </h1>
                     </div>
