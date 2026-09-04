@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
+  ChatInboxQuerySchema,
   ManagedUserCreateSchema,
   PaginationSchema,
+  RealtimeEventSchema,
   RequestIdSchema,
   StaffRoleSchema,
   TrackerBootstrapResponseSchema,
@@ -105,5 +107,29 @@ describe('shared API contracts', () => {
 
     expect(result.email).toBe('agent@example.com');
     expect(result.siteIds).toEqual(['site_2', 'site_1']);
+  });
+
+  it('validates a visitor message sent to the agent dashboard', () => {
+    expect(
+      RealtimeEventSchema.parse({
+        message: {
+          content: 'Could you help me?',
+          id: 'message_123',
+          senderName: 'Visitor',
+          senderType: 'VISITOR',
+          sentAt: '2026-08-31T08:00:00.000Z',
+          threadId: 'thread_123',
+        },
+        type: 'chat.incoming',
+        visitorId: 'visitor_123',
+      }),
+    ).toMatchObject({ type: 'chat.incoming', visitorId: 'visitor_123' });
+  });
+
+  it('accepts a bounded chat inbox query for an authorized site', () => {
+    expect(ChatInboxQuerySchema.parse({ limit: '20', siteId: 'site_123' })).toEqual({
+      limit: 20,
+      siteId: 'site_123',
+    });
   });
 });

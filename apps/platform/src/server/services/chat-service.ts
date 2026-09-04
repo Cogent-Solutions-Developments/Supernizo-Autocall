@@ -4,9 +4,11 @@ import { Buffer } from 'node:buffer';
 
 import {
   ChatHistoryQuerySchema,
+  ChatInboxThreadSchema,
   ChatMessageSchema,
   ChatThreadSchema,
   type ChatHistoryQuery,
+  type ChatInboxThread,
   type ChatMessage,
   type ChatThread,
   type TrackingContext,
@@ -109,12 +111,24 @@ async function assertChatEnabled(siteId: string): Promise<void> {
   }
 }
 
-async function emitPersistedMessage(message: ChatMessage): Promise<void> {
+async function emitPersistedMessage(
+  message: ChatMessage,
+  scope: Readonly<{ siteId: string; visitorId: string }>,
+): Promise<void> {
   if (!getEnvironmentReadiness().realtime) return;
-  await new UpstashRealtimeProvider().emitToChannel(chatChannel(message.threadId), {
+  const realtime = new UpstashRealtimeProvider();
+  await realtime.emitToChannel(chatChannel(message.threadId), {
     type: 'chat.message',
     message,
   });
+
+  if (message.senderType === 'VISITOR') {
+    await realtime.emitToChannel(`site:${scope.siteId}`, {
+      type: 'chat.incoming',
+      message,
+      visitorId: scope.visitorId,
+    });
+  }
 }
 
 export async function getChatThreadScope(
@@ -124,6 +138,50 @@ export async function getChatThreadScope(
     where: { id: threadId },
     select: { siteId: true, visitorId: true },
   });
+}
+
+export async function listChatInboxThreads(
+  siteId: string,
+  limit: number,
+): Promise<ChatInboxThread[]> {
+  const threads = await getDatabaseClient().chatThread.findMany({
+    where: { siteId, status: 'OPEN' },
+    orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
+    select: {
+      id: true,
+      lastMessageAt: true,
+      messages: {
+        orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
+        select: { content: true },
+        take: 1,
+      },
+      siteId: true,
+      visitor: {
+        select: {
+          identities: {
+            orderBy: { linkedAt: 'desc' },
+            select: { displayName: true },
+            take: 1,
+          },
+        },
+      },
+      visitorId: true,
+    },
+    take: limit,
+  });
+
+  return threads.map((thread) =>
+    ChatInboxThreadSchema.parse({
+      id: thread.id,
+      lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
+      lastMessagePreview: thread.messages[0]?.content ?? null,
+      siteId: thread.siteId,
+      visitorId: thread.visitorId,
+      visitorLabel:
+        thread.visitor.identities[0]?.displayName?.trim() ||
+        `Visitor #${thread.visitorId.slice(-6)}`,
+    }),
+  );
 }
 
 export async function resolveOrCreateChatThread(
@@ -261,7 +319,7 @@ export async function sendAgentChatMessage(
   });
 
   const typedMessage = mapMessage(message);
-  await emitPersistedMessage(typedMessage);
+  await emitPersistedMessage(typedMessage, scope);
   return typedMessage;
 }
 
@@ -292,6 +350,6 @@ export async function sendVisitorChatMessage(
   });
 
   const typedMessage = mapMessage(message);
-  await emitPersistedMessage(typedMessage);
+  await emitPersistedMessage(typedMessage, scope);
   return typedMessage;
 }

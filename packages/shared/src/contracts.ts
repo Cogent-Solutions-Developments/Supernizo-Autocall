@@ -277,6 +277,12 @@ export const ChatThreadSchema = z.object({
   visitorId: IdSchema,
 });
 
+export const ChatInboxThreadSchema = ChatThreadSchema.extend({
+  lastMessageAt: UtcDateTimeSchema.nullable(),
+  lastMessagePreview: z.string().trim().min(1).max(2_000).nullable(),
+  visitorLabel: z.string().trim().min(1).max(191),
+});
+
 export const ChatThreadCreateRequestSchema = z.object({
   siteId: IdSchema,
   visitorId: IdSchema,
@@ -292,6 +298,7 @@ export const ChatVisitorMessageRequestSchema = z.object({
 });
 
 export const ChatHistoryQuerySchema = PaginationSchema;
+export const ChatInboxQuerySchema = PaginationSchema.extend({ siteId: IdSchema });
 
 export const CallTypeSchema = z.enum(['AUDIO', 'VIDEO']);
 export const CallStatusSchema = z.enum([
@@ -382,6 +389,11 @@ export const RealtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('visitor.offline'), visitorId: IdSchema }),
   z.object({ type: z.literal('call.incoming'), call: CallSchema }),
   z.object({ type: z.literal('call.status'), call: CallSchema }),
+  z.object({
+    type: z.literal('chat.incoming'),
+    message: ChatMessageSchema,
+    visitorId: IdSchema,
+  }),
   z.object({ type: z.literal('chat.message'), message: ChatMessageSchema }),
 ]);
 
@@ -405,6 +417,8 @@ export type ApiErrorEnvelope = z.infer<typeof ApiErrorEnvelopeSchema>;
 export type AgentAvailability = z.infer<typeof AgentAvailabilitySchema>;
 export type ChatAgentMessageRequest = z.infer<typeof ChatAgentMessageRequestSchema>;
 export type ChatHistoryQuery = z.infer<typeof ChatHistoryQuerySchema>;
+export type ChatInboxQuery = z.infer<typeof ChatInboxQuerySchema>;
+export type ChatInboxThread = z.infer<typeof ChatInboxThreadSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatSenderType = z.infer<typeof ChatSenderTypeSchema>;
 export type ChatThread = z.infer<typeof ChatThreadSchema>;
