@@ -91,7 +91,7 @@ export async function requireSiteAccess(siteId: string): Promise<SiteAccess> {
         userId: user.id,
       },
     },
-    select: { role: true },
+    select: { id: true },
   });
 
   if (!membership) {
@@ -100,7 +100,7 @@ export async function requireSiteAccess(siteId: string): Promise<SiteAccess> {
 
   return {
     siteId,
-    siteRole: membership.role,
+    siteRole: user.role,
     user,
   };
 }

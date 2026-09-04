@@ -33,14 +33,14 @@ RUN pnpm install --frozen-lockfile --prod --filter supernizo-autocall
 FROM dependencies AS builder
 
 COPY . .
-RUN pnpm build
+RUN DATABASE_URL=postgresql://build-only:build-only@127.0.0.1:5432/build-only pnpm build
 
 FROM migration-dependencies AS migrator
 
 COPY --chown=node:node prisma.config.ts ./
 COPY --chown=node:node prisma ./prisma
 
-RUN pnpm prisma:generate
+RUN DATABASE_URL=postgresql://build-only:build-only@127.0.0.1:5432/build-only pnpm prisma:generate
 
 USER node
 CMD ["./node_modules/.bin/prisma", "migrate", "deploy"]

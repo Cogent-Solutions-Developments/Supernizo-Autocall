@@ -20,9 +20,30 @@ export type CallHistoryEntry = Readonly<{
   visitorId: string;
 }>;
 
-function failureReason(status: CallStatus, failureCode: string | null): string | null {
+export function getCallFailureReason(
+  status: CallStatus,
+  failureCode: string | null,
+): string | null {
   if (failureCode === 'RING_TIMEOUT') return 'Visitor did not answer before the ring timed out.';
   if (failureCode === 'CONNECTION_TIMEOUT') return 'The media connection did not complete in time.';
+  if (failureCode === 'MEDIA_CONNECTION_ABORTED') {
+    return 'The browser could not establish the media connection.';
+  }
+  if (failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED') {
+    return 'The visitor did not grant camera access.';
+  }
+  if (failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED') {
+    return 'The visitor did not grant microphone access.';
+  }
+  if (failureCode === 'MEDIA_DEVICE_UNAVAILABLE') {
+    return 'A required camera or microphone was unavailable.';
+  }
+  if (failureCode === 'MEDIA_PARTICIPANT_LEFT') {
+    return 'A participant left before the media connection was ready.';
+  }
+  if (failureCode === 'MEDIA_ROOM_FINISHED') {
+    return 'The media room closed before the call connected.';
+  }
   if (status === 'MISSED') return 'The visitor did not answer.';
   if (status === 'FAILED') return 'The call could not be completed.';
   if (status === 'REJECTED') return 'The visitor declined the call.';
@@ -52,7 +73,7 @@ function mapCall(call: {
     callId: call.id,
     durationSeconds,
     endedAt: call.endedAt?.toISOString() ?? null,
-    failureReason: failureReason(call.status, call.failureCode),
+    failureReason: getCallFailureReason(call.status, call.failureCode),
     requestedAt: call.requestedAt.toISOString(),
     siteId: call.siteId,
     siteName: call.site.name,
@@ -129,13 +150,15 @@ export async function listVisitorCallHistory(
 export async function listAgentsForSite(
   siteId: string,
 ): Promise<ReadonlyArray<Readonly<{ id: string; name: string }>>> {
-  const members = await getDatabaseClient().siteMember.findMany({
-    where: { role: { in: ['ADMIN', 'AGENT'] }, siteId },
-    select: { user: { select: { displayName: true, email: true, id: true } } },
-    orderBy: { user: { email: 'asc' } },
+  const users = await getDatabaseClient().user.findMany({
+    where: {
+      OR: [{ globalRole: 'ADMIN' }, { globalRole: 'AGENT', siteMemberships: { some: { siteId } } }],
+    },
+    select: { displayName: true, email: true, id: true },
+    orderBy: { email: 'asc' },
   });
-  return members.map((member) => ({
-    id: member.user.id,
-    name: member.user.displayName ?? member.user.email,
+  return users.map((user) => ({
+    id: user.id,
+    name: user.displayName ?? user.email,
   }));
 }

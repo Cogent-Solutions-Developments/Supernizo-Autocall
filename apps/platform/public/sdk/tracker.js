@@ -345,11 +345,40 @@ exports.EngagementManager = EngagementManager;
   modules['./chat-widget'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatWidgetController = void 0;
+exports.ChatWidgetController = exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = void 0;
+exports.shouldScheduleChatLauncherCollapse = shouldScheduleChatLauncherCollapse;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
+exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
 const platform_url_1 = require("./platform-url");
+exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
+exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
+const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
+const CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX = 36;
+const CHAT_FRAME_OPEN_DURATION_MS = 380;
+const CHAT_FRAME_CLOSE_DURATION_MS = 320;
+const CHAT_FRAME_MOTION_EASING = 'cubic-bezier(.65,0,.35,1)';
+const CHAT_LAUNCHER_SHADOW = '0 22px 55px rgba(24,24,27,.18),0 3px 10px rgba(24,24,27,.08)';
+function shouldScheduleChatLauncherCollapse(callActive, collapsed) {
+    return !callActive && !collapsed;
+}
 function shouldOpenChatForNewAgentMessage(hasSyncedThread, latestAgentMessageId, nextAgentMessageId) {
     return Boolean(hasSyncedThread && nextAgentMessageId && nextAgentMessageId !== latestAgentMessageId);
+}
+function chatWidgetFrameStyles() {
+    return [
+        'background:transparent',
+        'border:0',
+        'border-radius:22px',
+        'bottom:16px',
+        'height:min(540px,calc(100vh - 32px))',
+        'max-width:calc(100vw - 32px)',
+        'opacity:0',
+        'position:fixed',
+        'right:16px',
+        'transform-origin:bottom right',
+        'width:350px',
+        'z-index:2147483000',
+    ];
 }
 function isChatThreadResponse(value) {
     if (!value || typeof value !== 'object')
@@ -385,8 +414,13 @@ class ChatWidgetController {
     bootstrapEndpoint;
     currentConfig;
     frame;
+    frameAnimation;
     launcher;
+    launcherCollapseAnimations = [];
+    launcherCollapseTimer;
+    launcherOpenAnimation;
     launcherStyle;
+    callActive = false;
     hasSyncedThread = false;
     latestAgentMessageId;
     openRequested = false;
@@ -410,8 +444,9 @@ class ChatWidgetController {
             window.clearInterval(this.syncTimer);
             this.syncTimer = undefined;
         }
+        this.cancelLauncherCollapse();
         window.removeEventListener('message', this.receiveMessage);
-        this.unmountFrame();
+        this.unmountFrame(false);
         this.launcher?.remove();
         this.launcher = undefined;
         this.launcherStyle?.remove();
@@ -421,6 +456,15 @@ class ChatWidgetController {
         this.openRequested = false;
         this.currentConfig = undefined;
     }
+    setCallActive(active) {
+        if (this.callActive === active)
+            return;
+        this.callActive = active;
+        this.cancelLauncherCollapse();
+        if (!active && this.launcher) {
+            this.scheduleLauncherCollapse(this.launcher);
+        }
+    }
     mount() {
         if (this.frame)
             return;
@@ -428,84 +472,405 @@ class ChatWidgetController {
         widgetUrl.searchParams.set('host_origin', window.location.origin);
         const frame = document.createElement('iframe');
         frame.setAttribute('aria-label', 'Website chat');
+        frame.dataset.supernizoChatFrame = 'true';
         frame.setAttribute('title', 'Website chat');
         frame.src = widgetUrl.toString();
-        frame.style.cssText = [
-            'background:transparent',
-            'border:0',
-            'bottom:16px',
-            'height:590px',
-            'max-height:calc(100vh - 32px)',
-            'max-width:calc(100vw - 32px)',
-            'position:fixed',
-            'right:16px',
-            'width:360px',
-            'z-index:2147483000',
-        ].join(';');
+        frame.style.cssText = chatWidgetFrameStyles().join(';');
         frame.addEventListener('load', () => this.postConfig());
         window.addEventListener('message', this.receiveMessage);
         (document.body ?? document.documentElement).append(frame);
         this.frame = frame;
     }
-    unmountFrame() {
+    unmountFrame(resumeLauncher = true) {
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherOpenAnimation?.cancel();
+        this.launcherOpenAnimation = undefined;
         this.frame?.remove();
         this.frame = undefined;
+        this.restoreLauncher();
+        if (resumeLauncher && this.launcher && !this.callActive) {
+            this.scheduleLauncherCollapse(this.launcher);
+        }
+    }
+    restoreLauncher() {
+        if (!this.launcher)
+            return;
+        this.launcher.style.opacity = '';
+        this.launcher.style.pointerEvents = '';
+        this.launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
+        this.launcher.style.transform = '';
+        this.launcher.style.visibility = '';
+    }
+    animateFrameOpen() {
+        const frame = this.frame;
+        const launcher = this.launcher;
+        if (!frame || !this.openRequested || this.frameAnimation)
+            return;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof frame.animate !== 'function') {
+            frame.style.opacity = '1';
+            if (launcher) {
+                launcher.style.opacity = '0';
+                launcher.style.pointerEvents = 'none';
+                launcher.style.visibility = 'hidden';
+            }
+            return;
+        }
+        const frameRect = frame.getBoundingClientRect();
+        const launcherRect = launcher?.getBoundingClientRect();
+        const scaleX = launcherRect ? Math.max(0.2, launcherRect.width / frameRect.width) : 0.92;
+        const scaleY = launcherRect ? Math.max(0.12, launcherRect.height / frameRect.height) : 0.86;
+        frame.style.pointerEvents = 'auto';
+        this.frameAnimation = frame.animate([
+            {
+                filter: 'blur(4px)',
+                opacity: 0,
+                transform: `translate3d(0,8px,0) scale(${scaleX},${scaleY})`,
+            },
+            {
+                filter: 'blur(0)',
+                offset: 0.76,
+                opacity: 1,
+                transform: 'translate3d(0,-2px,0) scale(1.008,.996)',
+            },
+            { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+        ], {
+            duration: CHAT_FRAME_OPEN_DURATION_MS,
+            easing: CHAT_FRAME_MOTION_EASING,
+            fill: 'both',
+        });
+        if (launcher && typeof launcher.animate === 'function') {
+            launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
+            launcher.style.pointerEvents = 'none';
+            launcher.style.transform = '';
+            this.launcherOpenAnimation = launcher.animate([
+                { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+                {
+                    filter: 'blur(3px)',
+                    opacity: 0,
+                    transform: 'translate3d(0,5px,0) scale(.97)',
+                },
+            ], {
+                duration: CHAT_FRAME_OPEN_DURATION_MS * 0.62,
+                easing: 'cubic-bezier(.23,1,.32,1)',
+                fill: 'both',
+            });
+        }
+        this.frameAnimation.addEventListener('finish', () => {
+            if (this.frame !== frame || !this.openRequested)
+                return;
+            frame.style.filter = '';
+            frame.style.opacity = '1';
+            frame.style.transform = '';
+            this.frameAnimation?.cancel();
+            this.frameAnimation = undefined;
+            if (launcher) {
+                launcher.style.opacity = '0';
+                launcher.style.visibility = 'hidden';
+                this.launcherOpenAnimation?.cancel();
+                this.launcherOpenAnimation = undefined;
+            }
+        }, { once: true });
+    }
+    animateFrameClosed() {
+        const frame = this.frame;
+        const launcher = this.launcher;
+        if (!frame)
+            return;
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherOpenAnimation?.cancel();
+        this.launcherOpenAnimation = undefined;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof frame.animate !== 'function') {
+            this.unmountFrame();
+            return;
+        }
+        const frameRect = frame.getBoundingClientRect();
+        const launcherRect = launcher?.getBoundingClientRect();
+        const scaleX = launcherRect ? Math.max(0.2, launcherRect.width / frameRect.width) : 0.92;
+        const scaleY = launcherRect ? Math.max(0.12, launcherRect.height / frameRect.height) : 0.86;
+        frame.style.pointerEvents = 'none';
+        this.frameAnimation = frame.animate([
+            { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+            {
+                filter: 'blur(4px)',
+                opacity: 0,
+                transform: `translate3d(0,8px,0) scale(${scaleX},${scaleY})`,
+            },
+        ], {
+            duration: CHAT_FRAME_CLOSE_DURATION_MS,
+            easing: CHAT_FRAME_MOTION_EASING,
+            fill: 'both',
+        });
+        if (launcher && typeof launcher.animate === 'function') {
+            launcher.style.opacity = '0';
+            launcher.style.visibility = 'visible';
+            this.launcherOpenAnimation = launcher.animate([
+                { filter: 'blur(3px)', opacity: 0, transform: 'translate3d(0,4px,0) scale(.97)' },
+                { filter: 'blur(0)', opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+            ], {
+                delay: CHAT_FRAME_CLOSE_DURATION_MS * 0.36,
+                duration: CHAT_FRAME_CLOSE_DURATION_MS * 0.64,
+                easing: 'cubic-bezier(.23,1,.32,1)',
+                fill: 'both',
+            });
+        }
+        this.frameAnimation.addEventListener('finish', () => {
+            if (this.frame !== frame || this.openRequested)
+                return;
+            this.unmountFrame();
+        }, { once: true });
     }
     mountLauncher() {
         if (this.launcher)
             return;
         const launcher = document.createElement('button');
         launcher.setAttribute('aria-label', 'Open chat with the event team');
+        launcher.dataset.supernizoLauncher = 'true';
         launcher.setAttribute('type', 'button');
-        launcher.innerHTML =
-            '<span aria-hidden="true" class="supernizo-chat-launcher__halo"></span><span aria-hidden="true" class="supernizo-chat-launcher__avatar">S</span><span aria-hidden="true" class="supernizo-chat-launcher__badge"></span>';
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const media = document.createElement('span');
+        media.ariaHidden = 'true';
+        media.className = 'supernizo-chat-launcher__media';
+        const identityVideo = document.createElement('video');
+        identityVideo.ariaHidden = 'true';
+        identityVideo.autoplay = !reducedMotion;
+        identityVideo.className = 'supernizo-chat-launcher__video';
+        identityVideo.disablePictureInPicture = true;
+        identityVideo.loop = true;
+        identityVideo.muted = true;
+        identityVideo.playsInline = true;
+        identityVideo.poster = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1-poster.jpg');
+        identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
+        identityVideo.src = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1.mp4');
+        media.append(identityVideo);
+        const footer = document.createElement('span');
+        footer.ariaHidden = 'true';
+        footer.className = 'supernizo-chat-launcher__footer';
+        const profile = document.createElement('span');
+        profile.className = 'supernizo-chat-launcher__profile';
+        const avatarWrap = document.createElement('span');
+        avatarWrap.className = 'supernizo-chat-launcher__avatar-wrap';
+        const avatar = document.createElement('img');
+        avatar.alt = '';
+        avatar.className = 'supernizo-chat-launcher__avatar';
+        avatar.src = identityVideo.poster;
+        const onlineIndicator = document.createElement('span');
+        onlineIndicator.className = 'supernizo-chat-launcher__online-indicator';
+        avatarWrap.append(avatar, onlineIndicator);
+        const profileCopy = document.createElement('span');
+        profileCopy.className = 'supernizo-chat-launcher__profile-copy';
+        const profileName = document.createElement('strong');
+        profileName.textContent = 'Soniya Sahanya';
+        const profileStatus = document.createElement('span');
+        profileStatus.textContent = 'Ready to help';
+        profileCopy.append(profileName, profileStatus);
+        profile.append(avatarWrap, profileCopy);
+        const action = document.createElement('span');
+        action.className = 'supernizo-chat-launcher__action';
+        const actionIcon = document.createElement('span');
+        actionIcon.className = 'supernizo-chat-launcher__action-icon';
+        actionIcon.textContent = '+';
+        const actionLabel = document.createElement('span');
+        actionLabel.textContent = 'Chat';
+        action.append(actionIcon, actionLabel);
+        footer.append(profile, action);
+        const unreadBadge = document.createElement('span');
+        unreadBadge.ariaHidden = 'true';
+        unreadBadge.className = 'supernizo-chat-launcher__badge';
+        launcher.append(media, footer, unreadBadge);
         launcher.style.cssText = [
-            'align-items:center',
             'appearance:none',
-            'background:linear-gradient(145deg,#0d536e,#082337)',
-            'border:1px solid rgba(159,231,255,.62)',
-            'border-radius:999px',
-            'bottom:20px',
-            'box-shadow:0 12px 30px rgba(1,14,25,.35),inset 0 1px 1px rgba(255,255,255,.22)',
-            'color:#effbff',
+            'background:#fff',
+            'border:1px solid rgba(24,24,27,.12)',
+            'border-radius:18px',
+            'bottom:16px',
+            `box-shadow:${CHAT_LAUNCHER_SHADOW}`,
+            'box-sizing:border-box',
             'cursor:pointer',
-            'display:inline-flex',
-            'height:62px',
+            'display:grid',
+            'grid-template-rows:200px 45px',
+            'height:263px',
             'isolation:isolate',
-            'justify-content:center',
-            'padding:0',
+            'max-width:calc(100vw - 32px)',
+            'overflow:hidden',
+            'padding:8px',
             'position:fixed',
-            'right:20px',
-            'transition:transform .2s ease,box-shadow .2s ease',
-            'width:62px',
+            'right:16px',
+            'text-align:left',
+            'transition:box-shadow .22s ease,transform .22s cubic-bezier(.2,.8,.2,1)',
+            'width:204px',
             'z-index:2147482999',
         ].join(';');
         launcher.addEventListener('click', () => this.openChat());
         launcher.addEventListener('mouseenter', () => {
-            launcher.style.transform = 'translateY(-3px) scale(1.03)';
-            launcher.style.boxShadow =
-                '0 16px 34px rgba(1,14,25,.42),inset 0 1px 1px rgba(255,255,255,.26)';
+            launcher.style.boxShadow = '0 26px 64px rgba(24,24,27,.22),0 4px 12px rgba(24,24,27,.09)';
+            launcher.style.transform = 'translateY(-3px) scale(1.012)';
         });
         launcher.addEventListener('mouseleave', () => {
+            launcher.style.boxShadow = CHAT_LAUNCHER_SHADOW;
             launcher.style.transform = '';
-            launcher.style.boxShadow = '';
         });
         (document.body ?? document.documentElement).append(launcher);
         this.launcher = launcher;
         const style = document.createElement('style');
         style.dataset.supernizoChatLauncher = 'true';
         style.textContent = `
-      .supernizo-chat-launcher__halo { position:absolute; inset:7px; border:1px solid rgba(180,239,255,.28); border-radius:inherit; }
-      .supernizo-chat-launcher__avatar { align-items:center; background:linear-gradient(145deg,#3bd3d0,#1182a0); border-radius:999px; box-shadow:inset 0 1px 2px rgba(255,255,255,.44); display:flex; font:700 20px/1 Arial,sans-serif; height:42px; justify-content:center; position:relative; width:42px; }
-      .supernizo-chat-launcher__badge { background:#35e0b1; border:2px solid #082337; border-radius:999px; bottom:7px; box-shadow:0 0 0 3px rgba(53,224,177,.14); display:none; height:10px; position:absolute; right:7px; width:10px; }
+      button[data-supernizo-launcher='true'], button[data-supernizo-launcher='true'] *, button[data-supernizo-launcher='true'] *::before, button[data-supernizo-launcher='true'] *::after { box-sizing:border-box; }
+      .supernizo-chat-launcher__media { background:#efefec; border-radius:12px; display:block; min-height:0; overflow:hidden; pointer-events:none; position:relative; width:100%; }
+      .supernizo-chat-launcher__video { display:block; height:100%; inset:0; object-fit:cover; object-position:50% 18%; position:absolute; transform:scale(1.02); width:100%; }
+      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; pointer-events:none; width:100%; }
+      .supernizo-chat-launcher__profile { align-items:center; display:flex; min-width:0; }
+      .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:30px; position:relative; width:30px; }
+      .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:30px; object-fit:cover; object-position:50% 18%; width:30px; }
+      .supernizo-chat-launcher__online-indicator { background:#55c985; border:2px solid #fff; border-radius:999px; bottom:-1px; height:9px; position:absolute; right:-1px; width:9px; }
+      .supernizo-chat-launcher__profile-copy { color:#18181b; display:flex; flex-direction:column; line-height:1.1; margin-left:7px; min-width:0; overflow:hidden; white-space:nowrap; }
+      .supernizo-chat-launcher__profile-copy strong { font-size:10.5px; font-weight:650; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; }
+      .supernizo-chat-launcher__profile-copy > span { color:#85858d; font-size:9px; font-weight:500; margin-top:4px; }
+      .supernizo-chat-launcher__action { align-items:center; background:#18181b; border-radius:10px; color:#fff; display:flex; flex:0 0 auto; font-size:11px; font-weight:600; gap:5px; height:36px; justify-content:center; padding:0 10px; }
+      .supernizo-chat-launcher__action-icon { font-size:17px; font-weight:300; line-height:1; margin-top:-1px; }
+      .supernizo-chat-launcher__badge { background:#ff3b4e; border:2px solid #fff; border-radius:999px; display:none; height:12px; position:absolute; right:10px; top:10px; width:12px; z-index:3; }
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
-      @media (max-width: 480px) { .supernizo-chat-launcher__avatar { font-size:18px; } }
+      button[aria-label='Open chat with the event team']:focus { outline:none; }
+      button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
+      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 45px !important; height:259px !important; width:200px !important; } }
+      button[data-supernizo-launcher='true'][data-supernizo-collapsed='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; }
+      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__media { opacity:0; visibility:hidden; }
+      button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__footer { align-items:center; }
+      @media (prefers-reduced-motion: reduce) { button[aria-label='Open chat with the event team'] { transition:none !important; } }
     `;
         (document.head ?? document.documentElement).append(style);
         this.launcherStyle = style;
+        this.scheduleLauncherCollapse(launcher);
+    }
+    scheduleLauncherCollapse(launcher) {
+        if (!shouldScheduleChatLauncherCollapse(this.callActive, launcher.dataset.supernizoCollapsed === 'true')) {
+            return;
+        }
+        if (this.launcherCollapseTimer !== undefined) {
+            window.clearTimeout(this.launcherCollapseTimer);
+        }
+        this.launcherCollapseTimer = window.setTimeout(() => {
+            this.launcherCollapseTimer = undefined;
+            if (!this.callActive)
+                this.collapseLauncher(launcher);
+        }, exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS);
+    }
+    collapseLauncher(launcher) {
+        if (this.launcher !== launcher ||
+            !launcher.isConnected ||
+            !shouldScheduleChatLauncherCollapse(this.callActive, launcher.dataset.supernizoCollapsed === 'true')) {
+            return;
+        }
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion || typeof launcher.animate !== 'function') {
+            launcher.dataset.supernizoCollapsed = 'true';
+            return;
+        }
+        const media = launcher.querySelector('.supernizo-chat-launcher__media');
+        const profile = launcher.querySelector('.supernizo-chat-launcher__profile');
+        const action = launcher.querySelector('.supernizo-chat-launcher__action');
+        const fullHeight = launcher.getBoundingClientRect().height;
+        const fullGridRows = window.getComputedStyle(launcher).gridTemplateRows;
+        const shellAnimation = launcher.animate([
+            {
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                gridTemplateRows: fullGridRows,
+                height: `${fullHeight}px`,
+                offset: 0,
+            },
+            {
+                easing: 'cubic-bezier(.22,1,.36,1)',
+                gridTemplateRows: '0px 34px',
+                height: '52px',
+                offset: 0.86,
+            },
+            {
+                gridTemplateRows: `0px ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px`,
+                height: `${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px`,
+                offset: 1,
+            },
+        ], {
+            duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+            fill: 'both',
+        });
+        const animations = [shellAnimation];
+        if (media && typeof media.animate === 'function') {
+            animations.push(media.animate([
+                {
+                    filter: 'blur(0)',
+                    opacity: 1,
+                    transform: 'translate3d(0,0,0) scale(1)',
+                },
+                {
+                    filter: 'blur(0)',
+                    offset: 0.3,
+                    opacity: 0.96,
+                    transform: 'translate3d(0,4px,0) scale(1.012)',
+                },
+                {
+                    filter: 'blur(5px)',
+                    opacity: 0,
+                    transform: 'translate3d(0,20px,0) scale(.95)',
+                },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS * 0.82,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        if (profile && typeof profile.animate === 'function') {
+            animations.push(profile.animate([
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+                {
+                    offset: 0.86,
+                    transform: 'translate3d(0,-4px,0) scaleY(.97)',
+                },
+                { transform: 'translate3d(0,-3px,0) scaleY(1)' },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        if (action && typeof action.animate === 'function') {
+            animations.push(action.animate([
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+                {
+                    offset: 0.86,
+                    transform: 'translate3d(0,0,0) scaleY(.97)',
+                },
+                { transform: 'translate3d(0,0,0) scaleY(1)' },
+            ], {
+                duration: CHAT_LAUNCHER_COLLAPSE_DURATION_MS,
+                easing: 'cubic-bezier(.65,0,.35,1)',
+                fill: 'both',
+            }));
+        }
+        this.launcherCollapseAnimations = animations;
+        shellAnimation.addEventListener('finish', () => {
+            if (this.launcher !== launcher || this.callActive)
+                return;
+            launcher.dataset.supernizoCollapsed = 'true';
+            animations.forEach((animation) => animation.cancel());
+            if (this.launcherCollapseAnimations === animations) {
+                this.launcherCollapseAnimations = [];
+            }
+        }, { once: true });
+    }
+    cancelLauncherCollapse() {
+        if (this.launcherCollapseTimer !== undefined) {
+            window.clearTimeout(this.launcherCollapseTimer);
+            this.launcherCollapseTimer = undefined;
+        }
+        this.launcherCollapseAnimations.forEach((animation) => animation.cancel());
+        this.launcherCollapseAnimations = [];
     }
     openChat() {
         this.openRequested = true;
+        this.cancelLauncherCollapse();
         this.launcher?.removeAttribute('data-supernizo-unread');
         this.mount();
         this.postConfig();
@@ -522,11 +887,12 @@ class ChatWidgetController {
         if (data.type === 'supernizo-chat-ready') {
             this.postConfig();
             this.postOpenRequest();
+            this.animateFrameOpen();
             return;
         }
         if (data.type === 'supernizo-chat-close') {
             this.openRequested = false;
-            this.unmountFrame();
+            this.animateFrameClosed();
             return;
         }
         if (data.type === 'supernizo-chat-send' && isOutboundMessage(data.message)) {
@@ -610,22 +976,76 @@ exports.ChatWidgetController = ChatWidgetController;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CallWidgetController = exports.CALL_WIDGET_PERMISSIONS_POLICY = void 0;
+exports.callWidgetFrameHeight = callWidgetFrameHeight;
+exports.isCallWidgetConfigRefreshDue = isCallWidgetConfigRefreshDue;
 exports.callWidgetFrameStyles = callWidgetFrameStyles;
+exports.readCallActionResponse = readCallActionResponse;
 const platform_url_1 = require("./platform-url");
+const CONFIG_REFRESH_AFTER_MS = 45 * 60 * 1_000;
+const CONFIG_REFRESH_RETRY_MS = 60 * 1_000;
+const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
+const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
+const MOTION_HANDOFF_DURATION_MS = 680;
+const MOTION_LAYOUT_DURATION_MS = 260;
+function callWidgetFrameHeight(layout) {
+    const height = layout === 'connected-audio' ? '240px' : layout === 'connected-video' ? '488px' : '540px';
+    return `min(${height}, calc(100vh - 32px))`;
+}
+function callFrameEnterKeyframes(frame, launcher) {
+    const frameRect = frame.getBoundingClientRect();
+    const launcherRect = launcher?.getBoundingClientRect();
+    const scaleX = launcherRect ? Math.min(1, launcherRect.width / frameRect.width) : 0.7;
+    const scaleY = launcherRect ? Math.min(1, launcherRect.height / frameRect.height) : 0.62;
+    const compactTransform = `translate3d(0, 0, 0) scale3d(${scaleX}, ${scaleY}, 1)`;
+    return [
+        {
+            filter: 'blur(1px)',
+            offset: 0,
+            opacity: 0,
+            transform: compactTransform,
+        },
+        {
+            filter: 'blur(0)',
+            offset: 0.2,
+            opacity: 0.28,
+            transform: compactTransform,
+        },
+        {
+            filter: 'blur(0)',
+            offset: 0.82,
+            opacity: 1,
+            transform: 'translate3d(0, 0, 0) scale3d(.985, .985, 1)',
+        },
+        {
+            filter: 'blur(0)',
+            offset: 1,
+            opacity: 1,
+            transform: 'translate3d(0, 0, 0) scale3d(1, 1, 1)',
+        },
+    ];
+}
+function isCallWidgetConfigRefreshDue(lastRefreshAt, lastAttemptAt, now = Date.now()) {
+    return (now - lastRefreshAt >= CONFIG_REFRESH_AFTER_MS && now - lastAttemptAt >= CONFIG_REFRESH_RETRY_MS);
+}
 // The call interface runs in a cross-origin iframe. The host page must
 // explicitly delegate these features before that interface can request them.
 exports.CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
-function callWidgetFrameStyles(visible) {
+function callWidgetFrameStyles(visible, layout = 'default') {
     return [
         'background:transparent',
         'border:0',
+        'border-radius:18px',
         'bottom:16px',
-        `height:${visible ? '560px' : '1px'}`,
+        `height:${visible ? callWidgetFrameHeight(layout) : '1px'}`,
         `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
+        'overflow:hidden',
+        `opacity:${visible ? '1' : '0'}`,
         `pointer-events:${visible ? 'auto' : 'none'}`,
         'position:fixed',
         'right:16px',
-        `width:${visible ? '360px' : '1px'}`,
+        'transform-origin:bottom right',
+        `width:${visible ? '350px' : '1px'}`,
         'z-index:2147483001',
     ];
 }
@@ -645,16 +1065,42 @@ function isLiveKitMedia(value) {
     const candidate = value;
     return typeof candidate.token === 'string' && typeof candidate.url === 'string';
 }
+function isCallWidgetFrameLayout(value) {
+    return value === 'connected-audio' || value === 'connected-video' || value === 'default';
+}
+function readCallActionResponse(value) {
+    if (!value || typeof value !== 'object')
+        return undefined;
+    const candidate = value;
+    if (!isCall(candidate.data))
+        return undefined;
+    return {
+        call: candidate.data,
+        ...(isLiveKitMedia(candidate.media) ? { media: candidate.media } : {}),
+    };
+}
 class CallWidgetController {
     context;
     endpoint;
     config;
+    renewConfig;
+    onVisibilityChange;
     frame;
+    frameAnimation;
+    frameLayout = 'default';
+    frameVisible = false;
+    configRefreshTimer;
+    configRefreshInFlight = false;
+    lastConfigRefreshAt = Date.now();
+    lastConfigRefreshAttemptAt = 0;
+    launcherAnimation;
     syncTimer;
-    constructor(context, endpoint, config) {
+    constructor(context, endpoint, config, renewConfig, onVisibilityChange) {
         this.context = context;
         this.endpoint = endpoint;
         this.config = config;
+        this.renewConfig = renewConfig;
+        this.onVisibilityChange = onVisibilityChange;
     }
     start() {
         try {
@@ -673,6 +1119,8 @@ class CallWidgetController {
             (document.body ?? document.documentElement).append(frame);
             this.frame = frame;
             this.syncTimer = window.setInterval(() => this.postConfig(), 3_000);
+            this.configRefreshTimer = window.setInterval(() => void this.refreshConfigIfDue(), CONFIG_REFRESH_TICK_MS);
+            document.addEventListener('visibilitychange', this.refreshConfigWhenVisible);
         }
         catch {
             // The optional call UI must not interrupt the tracked website.
@@ -683,9 +1131,25 @@ class CallWidgetController {
             window.clearInterval(this.syncTimer);
             this.syncTimer = undefined;
         }
+        if (this.configRefreshTimer !== undefined) {
+            window.clearInterval(this.configRefreshTimer);
+            this.configRefreshTimer = undefined;
+        }
+        document.removeEventListener('visibilitychange', this.refreshConfigWhenVisible);
         window.removeEventListener('message', this.receiveMessage);
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.launcherAnimation?.cancel();
+        this.launcherAnimation = undefined;
+        const launcher = this.findLauncher();
+        if (launcher) {
+            launcher.style.opacity = '';
+            launcher.style.pointerEvents = '';
+            launcher.style.zIndex = '2147482999';
+        }
         this.frame?.remove();
         this.frame = undefined;
+        this.frameVisible = false;
     }
     receiveMessage = (event) => {
         if (event.origin !== new URL(this.endpoint).origin ||
@@ -697,6 +1161,10 @@ class CallWidgetController {
         const data = event.data;
         if (data.type === 'supernizo-call-visibility' && typeof data.visible === 'boolean') {
             this.setFrameVisibility(data.visible);
+            return;
+        }
+        if (data.type === 'supernizo-call-layout' && isCallWidgetFrameLayout(data.layout)) {
+            this.setFrameLayout(data.layout);
             return;
         }
         if (data.type === 'supernizo-call-ready') {
@@ -711,14 +1179,138 @@ class CallWidgetController {
         if (data.type === 'supernizo-call-end' && isCall(data.call)) {
             void this.respond(data.call, 'end');
         }
+        if (data.type === 'supernizo-call-media-failure' &&
+            isCall(data.call) &&
+            (data.failureCode === 'MEDIA_CAMERA_PERMISSION_DENIED' ||
+                data.failureCode === 'MEDIA_DEVICE_UNAVAILABLE' ||
+                data.failureCode === 'MEDIA_MICROPHONE_PERMISSION_DENIED')) {
+            void this.reportMediaFailure(data.call, data.failureCode);
+        }
     };
+    refreshConfigWhenVisible = () => {
+        if (document.visibilityState === 'visible')
+            void this.refreshConfigIfDue();
+    };
+    async refreshConfigIfDue() {
+        const now = Date.now();
+        if (!this.renewConfig ||
+            this.configRefreshInFlight ||
+            !isCallWidgetConfigRefreshDue(this.lastConfigRefreshAt, this.lastConfigRefreshAttemptAt, now)) {
+            return;
+        }
+        this.configRefreshInFlight = true;
+        this.lastConfigRefreshAttemptAt = now;
+        try {
+            const refreshed = await this.renewConfig();
+            if (!refreshed)
+                return;
+            this.config = refreshed;
+            this.lastConfigRefreshAt = Date.now();
+            this.postConfig();
+        }
+        catch {
+            // Credential renewal retries after a short backoff without affecting the host page.
+        }
+        finally {
+            this.configRefreshInFlight = false;
+        }
+    }
     postConfig() {
         this.frame?.contentWindow?.postMessage({ config: this.config, type: 'supernizo-call-config' }, new URL(this.endpoint).origin);
     }
     setFrameVisibility(visible) {
-        if (!this.frame)
+        if (!this.frame || visible === this.frameVisible)
             return;
-        this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
+        this.frameVisible = visible;
+        this.onVisibilityChange?.(visible);
+        this.frameAnimation?.cancel();
+        this.frameAnimation = undefined;
+        this.frame.style.cssText = callWidgetFrameStyles(visible, this.frameLayout).join(';');
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (visible && typeof this.frame.animate === 'function') {
+            this.frameAnimation = this.frame.animate(reducedMotion
+                ? [{ opacity: 0 }, { opacity: 1 }]
+                : callFrameEnterKeyframes(this.frame, this.findLauncher()), {
+                duration: reducedMotion ? 140 : MOTION_HANDOFF_DURATION_MS,
+                easing: reducedMotion ? MOTION_EASE_OUT : MOTION_EASE_HANDOFF,
+                fill: 'both',
+            });
+        }
+        this.setLauncherVisible(!visible, reducedMotion);
+    }
+    setFrameLayout(layout) {
+        if (!this.frame || layout === this.frameLayout)
+            return;
+        this.frameLayout = layout;
+        if (!this.frameVisible)
+            return;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.frame.style.transition = reducedMotion
+            ? 'none'
+            : `height ${MOTION_LAYOUT_DURATION_MS}ms ${MOTION_EASE_HANDOFF}`;
+        this.frame.style.height = callWidgetFrameHeight(layout);
+    }
+    findLauncher() {
+        return document.querySelector('[data-supernizo-launcher="true"]');
+    }
+    setLauncherVisible(visible, reducedMotion) {
+        const launcher = this.findLauncher();
+        if (!launcher)
+            return;
+        this.launcherAnimation?.cancel();
+        this.launcherAnimation = undefined;
+        launcher.style.pointerEvents = visible ? '' : 'none';
+        if (typeof launcher.animate !== 'function') {
+            launcher.style.opacity = visible ? '1' : '0';
+            return;
+        }
+        if (!visible && !reducedMotion && this.frame) {
+            launcher.style.zIndex = '2147483002';
+            const animation = launcher.animate([
+                {
+                    offset: 0,
+                    opacity: 1,
+                    transform: 'translate3d(0, 0, 0) scale(1)',
+                },
+                {
+                    offset: 0.42,
+                    opacity: 1,
+                    transform: 'translate3d(0, 0, 0) scale(1.008)',
+                },
+                {
+                    offset: 0.78,
+                    opacity: 0.76,
+                    transform: 'translate3d(0, 1px, 0) scale(1.014)',
+                },
+                {
+                    offset: 1,
+                    opacity: 0,
+                    transform: 'translate3d(0, 3px, 0) scale(1.018)',
+                },
+            ], {
+                duration: MOTION_HANDOFF_DURATION_MS,
+                easing: MOTION_EASE_HANDOFF,
+                fill: 'both',
+            });
+            this.launcherAnimation = animation;
+            animation.addEventListener('finish', () => {
+                if (this.launcherAnimation === animation)
+                    launcher.style.zIndex = '2147482999';
+            }, { once: true });
+            return;
+        }
+        launcher.style.zIndex = '2147482999';
+        const hiddenFrame = reducedMotion
+            ? { opacity: 0 }
+            : { opacity: 0, transform: 'translate3d(0, 7px, 0) scale(0.96)' };
+        const visibleFrame = reducedMotion
+            ? { opacity: 1 }
+            : { opacity: 1, transform: 'translate3d(0, 0, 0) scale(1)' };
+        this.launcherAnimation = launcher.animate(visible ? [hiddenFrame, visibleFrame] : [visibleFrame, hiddenFrame], {
+            duration: reducedMotion ? 120 : visible ? 280 : 180,
+            easing: MOTION_EASE_OUT,
+            fill: 'both',
+        });
     }
     async respond(call, action) {
         try {
@@ -730,18 +1322,53 @@ class CallWidgetController {
                 method: 'POST',
                 mode: 'cors',
             });
+            if (!response.ok) {
+                this.postActionError(call, action);
+                return;
+            }
+            const body = await response.json();
+            const actionResponse = readCallActionResponse(body);
+            if (!actionResponse) {
+                this.postActionError(call, action);
+                return;
+            }
+            this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
+            if (action === 'accept' && actionResponse.media) {
+                this.postMedia(actionResponse.call.id, actionResponse.media);
+                return;
+            }
+            if (action === 'accept')
+                await this.requestMedia(actionResponse.call);
+        }
+        catch {
+            this.postActionError(call, action);
+            // The host page remains unaffected when the calling API is unavailable.
+        }
+    }
+    async reportMediaFailure(call, failureCode) {
+        try {
+            const response = await fetch(new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, `/api/calls/${call.id}/fail`)), {
+                body: JSON.stringify({ context: this.context, failureCode }),
+                credentials: 'omit',
+                headers: { 'content-type': 'text/plain;charset=UTF-8' },
+                keepalive: true,
+                method: 'POST',
+                mode: 'cors',
+            });
             if (!response.ok)
                 return;
             const body = await response.json();
-            if (!body || typeof body !== 'object' || !('data' in body) || !isCall(body.data))
+            const actionResponse = readCallActionResponse(body);
+            if (!actionResponse)
                 return;
-            this.frame?.contentWindow?.postMessage({ call: body.data, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
-            if (action === 'accept')
-                await this.requestMedia(body.data);
+            this.frame?.contentWindow?.postMessage({ call: actionResponse.call, type: 'supernizo-call-status' }, new URL(this.endpoint).origin);
         }
         catch {
-            // The host page remains unaffected when the calling API is unavailable.
+            // Media failure reporting is best-effort and must not affect the host page.
         }
+    }
+    postActionError(call, action) {
+        this.frame?.contentWindow?.postMessage({ action, callId: call.id, type: 'supernizo-call-action-error' }, new URL(this.endpoint).origin);
     }
     async requestMedia(call) {
         try {
@@ -762,11 +1389,14 @@ class CallWidgetController {
             const body = await response.json();
             if (!body || typeof body !== 'object' || !('data' in body) || !isLiveKitMedia(body.data))
                 return;
-            this.frame?.contentWindow?.postMessage({ media: body.data, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
+            this.postMedia(call.id, body.data);
         }
         catch {
             // A token failure must not affect the tracked website.
         }
+    }
+    postMedia(callId, media) {
+        this.frame?.contentWindow?.postMessage({ callId, media, type: 'supernizo-call-media' }, new URL(this.endpoint).origin);
     }
 }
 exports.CallWidgetController = CallWidgetController;
@@ -968,6 +1598,25 @@ function isBootstrapResponse(value) {
         Boolean(response.features) &&
         Boolean(response.realtime));
 }
+async function requestTrackerBootstrap(endpoint, payload) {
+    try {
+        const response = await fetch(endpoint, {
+            body: JSON.stringify(payload),
+            credentials: 'omit',
+            headers: { 'content-type': 'text/plain;charset=UTF-8' },
+            keepalive: true,
+            method: 'POST',
+            mode: 'cors',
+        });
+        if (!response.ok)
+            return undefined;
+        const responseBody = await response.json();
+        return isBootstrapResponse(responseBody) ? responseBody : undefined;
+    }
+    catch {
+        return undefined;
+    }
+}
 function readDisabledState() {
     if (typeof window === 'undefined') {
         return true;
@@ -1030,25 +1679,31 @@ exports.Tracker = {
                 return undefined;
             }
             const bootstrapEndpoint = resolveEndpoint(script, options.endpoint);
-            const response = await fetch(bootstrapEndpoint, {
-                body: JSON.stringify({
-                    ...identifiers,
-                    browser,
-                    sitePublicKey,
-                }),
-                credentials: 'omit',
-                headers: { 'content-type': 'text/plain;charset=UTF-8' },
-                keepalive: true,
-                method: 'POST',
-                mode: 'cors',
+            const responseBody = await requestTrackerBootstrap(bootstrapEndpoint, {
+                ...identifiers,
+                browser,
+                sitePublicKey,
             });
-            if (!response.ok) {
+            if (!responseBody) {
                 return undefined;
             }
-            const responseBody = await response.json();
-            if (!isBootstrapResponse(responseBody)) {
-                return undefined;
-            }
+            const renewCallWidgetConfig = async () => {
+                const refreshedBrowser = getBrowserMetadata();
+                if (!refreshedBrowser)
+                    return undefined;
+                const refreshed = await requestTrackerBootstrap(bootstrapEndpoint, {
+                    ...identifiers,
+                    browser: refreshedBrowser,
+                    sitePublicKey,
+                });
+                return refreshed
+                    ? {
+                        channel: refreshed.realtime.channel,
+                        ...(refreshed.calling ? { livekitUrl: refreshed.calling.url } : {}),
+                        token: refreshed.realtime.authorizationToken,
+                    }
+                    : undefined;
+            };
             engagementManager?.stop();
             engagementManager = new engagement_1.EngagementManager({
                 sessionId: responseBody.sessionId,
@@ -1056,14 +1711,15 @@ exports.Tracker = {
                 visitorId: responseBody.visitorId,
             }, bootstrapEndpoint, createRandomUuid);
             engagementManager.start();
-            chatWidget?.stop();
-            chatWidget = responseBody.features.chatEnabled
+            const nextChatWidget = responseBody.features.chatEnabled
                 ? new chat_widget_1.ChatWidgetController({
                     sessionId: responseBody.sessionId,
                     sitePublicKey,
                     visitorId: responseBody.visitorId,
                 }, bootstrapEndpoint)
                 : undefined;
+            chatWidget?.stop();
+            chatWidget = nextChatWidget;
             chatWidget?.start();
             callWidget?.stop();
             callWidget =
@@ -1074,8 +1730,9 @@ exports.Tracker = {
                         visitorId: responseBody.visitorId,
                     }, bootstrapEndpoint, {
                         channel: responseBody.realtime.channel,
+                        ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                         token: responseBody.realtime.authorizationToken,
-                    })
+                    }, renewCallWidgetConfig, (visible) => nextChatWidget?.setCallActive(visible))
                     : undefined;
             callWidget?.start();
             return responseBody;

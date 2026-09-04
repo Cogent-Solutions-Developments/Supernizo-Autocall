@@ -60,9 +60,8 @@ async function seed(): Promise<void> {
         userId: admin.id,
       },
     },
-    update: { role: 'ADMIN' },
+    update: {},
     create: {
-      role: 'ADMIN',
       siteId: site.id,
       userId: admin.id,
     },

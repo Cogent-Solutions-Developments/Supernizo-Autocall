@@ -3,22 +3,30 @@ import { describe, expect, it } from 'vitest';
 import { ConflictError } from '@/server/errors/app-error';
 
 import {
-  buildCallParticipantLockQueries,
   getConnectionTimeoutSeconds,
   getRingTimeoutSeconds,
   isRingingCallExpired,
+  lockCallParticipants,
   staleCallAction,
   transitionCallStatus,
 } from './call-service';
 
 describe('call state machine', () => {
-  it('uses PostgreSQL identifier quoting when locking call participants', () => {
-    const [agentLock, visitorLock] = buildCallParticipantLockQueries('agent-1', 'visitor-1');
+  it('executes parameterized PostgreSQL locks for both call participants', async () => {
+    const executedQueries: Array<{ text: string; values: readonly unknown[] }> = [];
 
-    expect(agentLock.text).toBe('SELECT id FROM "User" WHERE id = $1 FOR UPDATE');
-    expect(agentLock.values).toEqual(['agent-1']);
-    expect(visitorLock.text).toBe('SELECT id FROM "Visitor" WHERE id = $1 FOR UPDATE');
-    expect(visitorLock.values).toEqual(['visitor-1']);
+    await lockCallParticipants(
+      async (query) => {
+        executedQueries.push({ text: query.text, values: query.values });
+      },
+      'agent-1',
+      'visitor-1',
+    );
+
+    expect(executedQueries).toEqual([
+      { text: 'SELECT id FROM "User" WHERE id = $1 FOR UPDATE', values: ['agent-1'] },
+      { text: 'SELECT id FROM "Visitor" WHERE id = $1 FOR UPDATE', values: ['visitor-1'] },
+    ]);
   });
 
   it.each([

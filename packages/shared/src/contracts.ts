@@ -50,7 +50,7 @@ export const UtcDateTimeSchema = z
   .datetime({ offset: true })
   .refine((value) => value.endsWith('Z'), 'Must be an ISO 8601 timestamp in UTC.');
 
-export const StaffRoleSchema = z.enum(['ADMIN', 'AGENT', 'VIEWER']);
+export const StaffRoleSchema = z.enum(['ADMIN', 'AGENT']);
 export const SiteStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export const AgentAvailabilitySchema = z.enum(['AVAILABLE', 'BUSY', 'OFFLINE']);
 export const AgentPresenceHeartbeatSchema = z.object({
@@ -99,11 +99,61 @@ export const SiteSettingsSchema = SiteCreateSchema.extend({
   updatedAt: UtcDateTimeSchema,
 });
 
+export const AccessSiteSchema = z.object({
+  id: IdSchema,
+  name: z.string().trim().min(1).max(191),
+});
+
+export const AccessUserSchema = z.object({
+  createdAt: UtcDateTimeSchema,
+  displayName: z.string().trim().min(1).max(191).nullable(),
+  email: z.string().email().max(191),
+  id: IdSchema,
+  role: StaffRoleSchema,
+  siteIds: z.array(IdSchema),
+  updatedAt: UtcDateTimeSchema,
+});
+
+export const AccessManagementSchema = z.object({
+  sites: z.array(AccessSiteSchema),
+  users: z.array(AccessUserSchema),
+});
+
+const ManagedDisplayNameSchema = z.string().trim().min(1).max(191).nullable();
+const ManagedEmailSchema = z
+  .string()
+  .trim()
+  .email()
+  .max(191)
+  .transform((email) => email.toLowerCase());
+const AssignedSiteIdsSchema = z
+  .array(IdSchema)
+  .max(1_000)
+  .transform((siteIds) => Array.from(new Set(siteIds)));
+
+export const ManagedUserCreateSchema = z.object({
+  displayName: ManagedDisplayNameSchema,
+  email: ManagedEmailSchema,
+  password: z.string().min(12).max(1_024),
+  role: StaffRoleSchema,
+  siteIds: AssignedSiteIdsSchema,
+});
+
+export const ManagedUserUpdateSchema = z.object({
+  displayName: ManagedDisplayNameSchema,
+  role: StaffRoleSchema,
+  siteIds: AssignedSiteIdsSchema,
+});
+
 export const SitePublicKeySchema = z
   .string()
   .trim()
   .regex(/^site_[A-Za-z0-9_-]{8,191}$/, 'Must be a valid public site key.');
 export const AnonymousTrackerIdSchema = z.string().uuid();
+
+export const LiveKitPreparationSchema = z.object({
+  url: z.url(),
+});
 
 export const TrackerClientHintsSchema = z
   .object({
@@ -141,6 +191,7 @@ export const TrackerBootstrapRequestSchema = z.object({
 });
 
 export const TrackerBootstrapResponseSchema = z.object({
+  calling: LiveKitPreparationSchema.optional(),
   features: SiteFeatureFlagsSchema,
   heartbeatIntervalSeconds: z.number().int().positive(),
   realtime: z.object({
@@ -277,6 +328,17 @@ export const CallVisitorActionRequestSchema = z.object({
   context: TrackingContextSchema,
 });
 
+export const CallMediaFailureCodeSchema = z.enum([
+  'MEDIA_CAMERA_PERMISSION_DENIED',
+  'MEDIA_DEVICE_UNAVAILABLE',
+  'MEDIA_MICROPHONE_PERMISSION_DENIED',
+]);
+
+export const CallVisitorMediaFailureRequestSchema = z.object({
+  context: TrackingContextSchema,
+  failureCode: CallMediaFailureCodeSchema,
+});
+
 export const CallHistoryQuerySchema = z.object({
   agentId: IdSchema.optional(),
   from: z.iso.date().optional(),
@@ -350,10 +412,12 @@ export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSche
 export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
 export type Call = z.infer<typeof CallSchema>;
 export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
+export type CallMediaFailureCode = z.infer<typeof CallMediaFailureCodeSchema>;
 export type CallStatus = z.infer<typeof CallStatusSchema>;
 export type CallType = z.infer<typeof CallTypeSchema>;
 export type CallVisitorActionRequest = z.infer<typeof CallVisitorActionRequestSchema>;
 export type LiveKitParticipantRole = z.infer<typeof LiveKitParticipantRoleSchema>;
+export type LiveKitPreparation = z.infer<typeof LiveKitPreparationSchema>;
 export type LiveKitTokenRequest = z.infer<typeof LiveKitTokenRequestSchema>;
 export type LiveKitTokenResponse = z.infer<typeof LiveKitTokenResponseSchema>;
 export type Cursor = z.infer<typeof CursorSchema>;
@@ -367,6 +431,11 @@ export type SiteStatus = z.infer<typeof SiteStatusSchema>;
 export type SiteUpdateInput = z.infer<typeof SiteUpdateSchema>;
 export type SiteSettings = z.infer<typeof SiteSettingsSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
+export type AccessManagement = z.infer<typeof AccessManagementSchema>;
+export type AccessSite = z.infer<typeof AccessSiteSchema>;
+export type AccessUser = z.infer<typeof AccessUserSchema>;
+export type ManagedUserCreateInput = z.infer<typeof ManagedUserCreateSchema>;
+export type ManagedUserUpdateInput = z.infer<typeof ManagedUserUpdateSchema>;
 export type TrackerBootstrapRequest = z.infer<typeof TrackerBootstrapRequestSchema>;
 export type TrackerBootstrapResponse = z.infer<typeof TrackerBootstrapResponseSchema>;
 export type TrackerEventRequest = z.infer<typeof TrackerEventRequestSchema>;
