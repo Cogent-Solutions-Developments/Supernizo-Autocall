@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CALL_WIDGET_PERMISSIONS_POLICY,
+  callWidgetFrameHeight,
   callWidgetFrameStyles,
   isCallWidgetConfigRefreshDue,
   readCallActionResponse,
@@ -28,6 +29,18 @@ describe('call widget mounting', () => {
     expect(visibleStyles).toContain('overflow:hidden');
     expect(visibleStyles).toContain('opacity:1');
     expect(visibleStyles).toContain('transform-origin:bottom right');
+  });
+
+  it('removes unused height after audio and video calls are accepted', () => {
+    expect(callWidgetFrameHeight('default')).toBe('min(540px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-video')).toBe('min(490px, calc(100vh - 32px))');
+    expect(callWidgetFrameHeight('connected-audio')).toBe('min(252px, calc(100vh - 32px))');
+    expect(callWidgetFrameStyles(true, 'connected-video')).toContain(
+      'height:min(490px, calc(100vh - 32px))',
+    );
+    expect(callWidgetFrameStyles(true, 'connected-audio')).toContain(
+      'height:min(252px, calc(100vh - 32px))',
+    );
   });
 
   it('delegates media permissions to the cross-origin call iframe', () => {

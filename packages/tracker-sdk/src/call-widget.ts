@@ -25,6 +25,15 @@ const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
 const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MOTION_HANDOFF_DURATION_MS = 680;
+const MOTION_LAYOUT_DURATION_MS = 260;
+
+export type CallWidgetFrameLayout = 'connected-audio' | 'connected-video' | 'default';
+
+export function callWidgetFrameHeight(layout: CallWidgetFrameLayout): string {
+  const height =
+    layout === 'connected-audio' ? '252px' : layout === 'connected-video' ? '490px' : '540px';
+  return `min(${height}, calc(100vh - 32px))`;
+}
 
 function callFrameEnterKeyframes(
   frame: HTMLIFrameElement,
@@ -78,13 +87,16 @@ export function isCallWidgetConfigRefreshDue(
 // explicitly delegate these features before that interface can request them.
 export const CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
 
-export function callWidgetFrameStyles(visible: boolean): readonly string[] {
+export function callWidgetFrameStyles(
+  visible: boolean,
+  layout: CallWidgetFrameLayout = 'default',
+): readonly string[] {
   return [
     'background:transparent',
     'border:0',
     'border-radius:18px',
     'bottom:16px',
-    `height:${visible ? 'min(540px, calc(100vh - 32px))' : '1px'}`,
+    `height:${visible ? callWidgetFrameHeight(layout) : '1px'}`,
     `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
     'overflow:hidden',
     `opacity:${visible ? '1' : '0'}`,
@@ -115,6 +127,10 @@ function isLiveKitMedia(value: unknown): value is LiveKitMedia {
   return typeof candidate.token === 'string' && typeof candidate.url === 'string';
 }
 
+function isCallWidgetFrameLayout(value: unknown): value is CallWidgetFrameLayout {
+  return value === 'connected-audio' || value === 'connected-video' || value === 'default';
+}
+
 export function readCallActionResponse(
   value: unknown,
 ): Readonly<{ call: Call; media?: LiveKitMedia }> | undefined {
@@ -130,6 +146,7 @@ export function readCallActionResponse(
 export class CallWidgetController {
   private frame: HTMLIFrameElement | undefined;
   private frameAnimation: Animation | undefined;
+  private frameLayout: CallWidgetFrameLayout = 'default';
   private frameVisible = false;
   private configRefreshTimer: number | undefined;
   private configRefreshInFlight = false;
@@ -211,11 +228,16 @@ export class CallWidgetController {
       action?: unknown;
       call?: unknown;
       failureCode?: unknown;
+      layout?: unknown;
       type?: unknown;
       visible?: unknown;
     };
     if (data.type === 'supernizo-call-visibility' && typeof data.visible === 'boolean') {
       this.setFrameVisibility(data.visible);
+      return;
+    }
+    if (data.type === 'supernizo-call-layout' && isCallWidgetFrameLayout(data.layout)) {
+      this.setFrameLayout(data.layout);
       return;
     }
     if (data.type === 'supernizo-call-ready') {
@@ -285,7 +307,7 @@ export class CallWidgetController {
     this.onVisibilityChange?.(visible);
     this.frameAnimation?.cancel();
     this.frameAnimation = undefined;
-    this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
+    this.frame.style.cssText = callWidgetFrameStyles(visible, this.frameLayout).join(';');
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (visible && typeof this.frame.animate === 'function') {
@@ -302,6 +324,18 @@ export class CallWidgetController {
     }
 
     this.setLauncherVisible(!visible, reducedMotion);
+  }
+
+  private setFrameLayout(layout: CallWidgetFrameLayout): void {
+    if (!this.frame || layout === this.frameLayout) return;
+    this.frameLayout = layout;
+    if (!this.frameVisible) return;
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.frame.style.transition = reducedMotion
+      ? 'none'
+      : `height ${MOTION_LAYOUT_DURATION_MS}ms ${MOTION_EASE_HANDOFF}`;
+    this.frame.style.height = callWidgetFrameHeight(layout);
   }
 
   private findLauncher(): HTMLButtonElement | null {

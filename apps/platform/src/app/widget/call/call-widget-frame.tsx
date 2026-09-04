@@ -150,6 +150,15 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const mediaConnected = call?.id === connectedMediaCallId;
   const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
 
+  useEffect(() => {
+    const layout = hasActiveMedia
+      ? call.type === 'VIDEO'
+        ? 'connected-video'
+        : 'connected-audio'
+      : 'default';
+    window.parent.postMessage({ layout, type: 'supernizo-call-layout' }, hostOrigin);
+  }, [call?.type, hasActiveMedia, hostOrigin]);
+
   function acceptCall(): void {
     if (!call) return;
     if (!navigator.mediaDevices?.getUserMedia) {

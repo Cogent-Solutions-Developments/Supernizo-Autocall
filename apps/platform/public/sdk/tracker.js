@@ -974,6 +974,7 @@ exports.ChatWidgetController = ChatWidgetController;
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CallWidgetController = exports.CALL_WIDGET_PERMISSIONS_POLICY = void 0;
+exports.callWidgetFrameHeight = callWidgetFrameHeight;
 exports.isCallWidgetConfigRefreshDue = isCallWidgetConfigRefreshDue;
 exports.callWidgetFrameStyles = callWidgetFrameStyles;
 exports.readCallActionResponse = readCallActionResponse;
@@ -983,6 +984,11 @@ const CONFIG_REFRESH_TICK_MS = 60 * 1_000;
 const MOTION_EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
 const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MOTION_HANDOFF_DURATION_MS = 680;
+const MOTION_LAYOUT_DURATION_MS = 260;
+function callWidgetFrameHeight(layout) {
+    const height = layout === 'connected-audio' ? '252px' : layout === 'connected-video' ? '490px' : '540px';
+    return `min(${height}, calc(100vh - 32px))`;
+}
 function callFrameEnterKeyframes(frame, launcher) {
     const frameRect = frame.getBoundingClientRect();
     const launcherRect = launcher?.getBoundingClientRect();
@@ -1022,13 +1028,13 @@ function isCallWidgetConfigRefreshDue(lastRefreshAt, lastAttemptAt, now = Date.n
 // The call interface runs in a cross-origin iframe. The host page must
 // explicitly delegate these features before that interface can request them.
 exports.CALL_WIDGET_PERMISSIONS_POLICY = 'microphone; camera';
-function callWidgetFrameStyles(visible) {
+function callWidgetFrameStyles(visible, layout = 'default') {
     return [
         'background:transparent',
         'border:0',
         'border-radius:18px',
         'bottom:16px',
-        `height:${visible ? 'min(540px, calc(100vh - 32px))' : '1px'}`,
+        `height:${visible ? callWidgetFrameHeight(layout) : '1px'}`,
         `max-width:${visible ? 'calc(100vw - 32px)' : '1px'}`,
         'overflow:hidden',
         `opacity:${visible ? '1' : '0'}`,
@@ -1056,6 +1062,9 @@ function isLiveKitMedia(value) {
     const candidate = value;
     return typeof candidate.token === 'string' && typeof candidate.url === 'string';
 }
+function isCallWidgetFrameLayout(value) {
+    return value === 'connected-audio' || value === 'connected-video' || value === 'default';
+}
 function readCallActionResponse(value) {
     if (!value || typeof value !== 'object')
         return undefined;
@@ -1075,6 +1084,7 @@ class CallWidgetController {
     onVisibilityChange;
     frame;
     frameAnimation;
+    frameLayout = 'default';
     frameVisible = false;
     configRefreshTimer;
     configRefreshInFlight = false;
@@ -1150,6 +1160,10 @@ class CallWidgetController {
             this.setFrameVisibility(data.visible);
             return;
         }
+        if (data.type === 'supernizo-call-layout' && isCallWidgetFrameLayout(data.layout)) {
+            this.setFrameLayout(data.layout);
+            return;
+        }
         if (data.type === 'supernizo-call-ready') {
             this.postConfig();
             return;
@@ -1208,7 +1222,7 @@ class CallWidgetController {
         this.onVisibilityChange?.(visible);
         this.frameAnimation?.cancel();
         this.frameAnimation = undefined;
-        this.frame.style.cssText = callWidgetFrameStyles(visible).join(';');
+        this.frame.style.cssText = callWidgetFrameStyles(visible, this.frameLayout).join(';');
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (visible && typeof this.frame.animate === 'function') {
             this.frameAnimation = this.frame.animate(reducedMotion
@@ -1220,6 +1234,18 @@ class CallWidgetController {
             });
         }
         this.setLauncherVisible(!visible, reducedMotion);
+    }
+    setFrameLayout(layout) {
+        if (!this.frame || layout === this.frameLayout)
+            return;
+        this.frameLayout = layout;
+        if (!this.frameVisible)
+            return;
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.frame.style.transition = reducedMotion
+            ? 'none'
+            : `height ${MOTION_LAYOUT_DURATION_MS}ms ${MOTION_EASE_HANDOFF}`;
+        this.frame.style.height = callWidgetFrameHeight(layout);
     }
     findLauncher() {
         return document.querySelector('[data-supernizo-launcher="true"]');
