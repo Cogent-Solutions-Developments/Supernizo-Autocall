@@ -388,7 +388,7 @@ export class ChatWidgetController {
     const profileCopy = document.createElement('span');
     profileCopy.className = 'supernizo-chat-launcher__profile-copy';
     const profileName = document.createElement('strong');
-    profileName.textContent = 'Soniya Sahanya';
+    profileName.textContent = 'Swetha Sahanya';
     const profileStatus = document.createElement('span');
     profileStatus.textContent = 'Ready to help';
     profileCopy.append(profileName, profileStatus);

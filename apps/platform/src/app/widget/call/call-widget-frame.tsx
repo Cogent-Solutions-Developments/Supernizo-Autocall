@@ -146,7 +146,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const normalizedAgentName = agentName.trim().toLowerCase();
   const callerName =
     normalizedAgentName === 'local admin' || normalizedAgentName === 'nizo'
-      ? 'Soniya Sahanya'
+      ? 'Swetha Sahanya'
       : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
   const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
