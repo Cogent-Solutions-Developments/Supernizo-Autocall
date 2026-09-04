@@ -105,8 +105,8 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
           display: flex;
           flex-direction: column;
           font:
-            11px/1.45 var(--font-google-sans),
-            'Google Sans',
+            11px/1.45 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;
@@ -164,8 +164,8 @@ function VideoTiles({ agentName }: Readonly<{ agentName: string }>) {
           bottom: 7px;
           color: #f8fafc;
           font:
-            600 9px/1 var(--font-google-sans),
-            'Google Sans',
+            600 9px/1 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;
@@ -416,8 +416,8 @@ export function LiveKitMediaRoom({
           color: #71717a;
           display: flex;
           font:
-            11px/1.4 var(--font-google-sans),
-            'Google Sans',
+            11px/1.4 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;
@@ -444,8 +444,8 @@ export function LiveKitMediaRoom({
           border-radius: 9px;
           color: #be123c;
           font:
-            11px/1.4 var(--font-google-sans),
-            'Google Sans',
+            11px/1.4 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;
@@ -460,8 +460,8 @@ export function LiveKitMediaRoom({
           color: #fff;
           cursor: pointer;
           font:
-            600 11px/1 var(--font-google-sans),
-            'Google Sans',
+            600 11px/1 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;
@@ -484,8 +484,8 @@ export function LiveKitMediaRoom({
           display: flex;
           flex-direction: column;
           font:
-            500 10px/1 var(--font-google-sans),
-            'Google Sans',
+            500 10px/1 var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             sans-serif;

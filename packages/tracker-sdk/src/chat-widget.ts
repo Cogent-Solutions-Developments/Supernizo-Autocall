@@ -359,15 +359,15 @@ export class ChatWidgetController {
     identityVideo.loop = true;
     identityVideo.muted = true;
     identityVideo.playsInline = true;
-    identityVideo.poster = new URL(
+    identityVideo.poster = resolveApplicationEndpoint(
+      this.bootstrapEndpoint,
       '/sdk/assets/cta-hover-loop1-poster.jpg',
-      this.bootstrapEndpoint,
-    ).toString();
+    );
     identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
-    identityVideo.src = new URL(
-      '/sdk/assets/cta-hover-loop1.mp4',
+    identityVideo.src = resolveApplicationEndpoint(
       this.bootstrapEndpoint,
-    ).toString();
+      '/sdk/assets/cta-hover-loop1.mp4',
+    );
 
     media.append(identityVideo);
 

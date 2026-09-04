@@ -361,8 +361,8 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           margin: 0;
           overflow: hidden;
           font-family:
-            var(--font-google-sans),
-            'Google Sans',
+            var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             -apple-system,

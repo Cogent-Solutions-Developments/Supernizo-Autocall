@@ -444,8 +444,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         :global(body) {
           color-scheme: light;
           font-family:
-            var(--font-google-sans),
-            'Google Sans',
+            var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             -apple-system,

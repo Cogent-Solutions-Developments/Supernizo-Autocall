@@ -642,9 +642,9 @@ class ChatWidgetController {
         identityVideo.loop = true;
         identityVideo.muted = true;
         identityVideo.playsInline = true;
-        identityVideo.poster = new URL('/sdk/assets/cta-hover-loop1-poster.jpg', this.bootstrapEndpoint).toString();
+        identityVideo.poster = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1-poster.jpg');
         identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
-        identityVideo.src = new URL('/sdk/assets/cta-hover-loop1.mp4', this.bootstrapEndpoint).toString();
+        identityVideo.src = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1.mp4');
         media.append(identityVideo);
         const footer = document.createElement('span');
         footer.ariaHidden = 'true';
