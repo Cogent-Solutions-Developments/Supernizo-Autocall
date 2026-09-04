@@ -335,7 +335,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                   </p>
                   <h1 className="!m-0 mt-2 max-w-[290px] !text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
                     {isRinging
-                      ? 'Event Support Is Calling To Guide You'
+                      ? 'Event Team Is Calling To Guide You'
                       : callHeading(call, mediaConnected)}
                   </h1>
                   {!isRinging ? (
