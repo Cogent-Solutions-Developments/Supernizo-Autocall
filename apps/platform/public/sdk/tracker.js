@@ -986,7 +986,7 @@ const MOTION_EASE_HANDOFF = 'cubic-bezier(0.65, 0, 0.35, 1)';
 const MOTION_HANDOFF_DURATION_MS = 680;
 const MOTION_LAYOUT_DURATION_MS = 260;
 function callWidgetFrameHeight(layout) {
-    const height = layout === 'connected-audio' ? '252px' : layout === 'connected-video' ? '490px' : '540px';
+    const height = layout === 'connected-audio' ? '240px' : layout === 'connected-video' ? '488px' : '540px';
     return `min(${height}, calc(100vh - 32px))`;
 }
 function callFrameEnterKeyframes(frame, launcher) {

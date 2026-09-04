@@ -17,7 +17,7 @@ describe('connected call presentation', () => {
   it.each([audioConnecting, videoConnecting])(
     'shows a connected heading when $type media has connected',
     (call) => {
-      expect(callHeading(call, true)).toBe('Call connected');
+      expect(callHeading(call, true)).toBe('Happy You’re Here');
       expect(callCopy(call, true, true)).toBe('You are connected through a secure private call.');
     },
   );
