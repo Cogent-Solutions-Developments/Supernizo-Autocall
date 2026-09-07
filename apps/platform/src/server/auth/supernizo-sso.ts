@@ -8,6 +8,9 @@ import { z } from 'zod';
 import { APP_BASE_PATH } from '@/lib/app-path';
 import { getDatabaseClient } from '@/server/db/client';
 import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-error';
+import { directorySyncEnabled } from '@/server/integrations/supernizo-signature';
+import { fetchDirectoryUser } from '@/server/integrations/supernizo-directory-client';
+import { applyDirectoryState } from '@/server/services/supernizo-directory-service';
 
 const opaque = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const SupernizoIdentitySchema = z.object({
@@ -126,17 +129,19 @@ export async function authorizeSupernizo(credentials: unknown) {
     verifier: flow.verifier,
   });
   // Never link identities by mutable email or reuse a local administrator account.
-  const user = await getDatabaseClient().user.upsert({
-    where: { supernizoId: identity.subject },
-    create: {
-      supernizoId: identity.subject,
-      email: `${identity.subject}@supernizo.invalid`,
-      displayName: identity.name,
-      globalRole: identity.role,
-    },
-    update: { displayName: identity.name, globalRole: identity.role },
-    select: { id: true, email: true, displayName: true },
-  });
+  const user = directorySyncEnabled()
+    ? await provisionDirectoryIdentity(identity.subject)
+    : await getDatabaseClient().user.upsert({
+        where: { supernizoId: identity.subject },
+        create: {
+          supernizoId: identity.subject,
+          email: `${identity.subject}@supernizo.invalid`,
+          displayName: identity.name,
+          globalRole: identity.role,
+        },
+        update: { displayName: identity.name, globalRole: identity.role },
+        select: { id: true, email: true, displayName: true },
+      });
   jar.delete({ name: flowCookie, path: APP_BASE_PATH });
   return {
     id: user.id,
@@ -145,4 +150,17 @@ export async function authorizeSupernizo(credentials: unknown) {
     role: identity.role,
     supernizo: { ...identity, portal: flow.portal },
   };
+}
+
+async function provisionDirectoryIdentity(subject: string) {
+  const state = await fetchDirectoryUser(subject);
+  return getDatabaseClient().$transaction(async (transaction) => {
+    const user = await applyDirectoryState(transaction, state);
+    const eligibility = await transaction.supernizoUserState.findUniqueOrThrow({
+      where: { userId: user.id },
+    });
+    if (eligibility.eligibility !== 'ELIGIBLE')
+      throw new UnauthorizedError('Autocall access is not assigned.');
+    return user;
+  });
 }

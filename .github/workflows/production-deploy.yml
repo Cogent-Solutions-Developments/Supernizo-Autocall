@@ -43,6 +43,7 @@ jobs:
     env:
       APP_URL: http://localhost:3000/autocall-db
       AUTH_SECRET: ci-only-auth-secret-with-at-least-32-characters
+      BRIDGE_TEST_DATABASE_URL: postgresql://autocall_ci:ci-postgres-password@127.0.0.1:5432/bridge_test
       DATABASE_URL: postgresql://autocall_ci:ci-postgres-password@127.0.0.1:5432/autocall_ci
       LIVEKIT_API_KEY: ci-api-key
       LIVEKIT_API_SECRET: ci-api-secret
@@ -73,6 +74,11 @@ jobs:
           pnpm exec prisma validate
           pnpm prisma:generate
           pnpm prisma:deploy
+
+      - name: Prepare isolated directory integration database
+        run: |
+          PGPASSWORD=ci-postgres-password psql -h 127.0.0.1 -U autocall_ci -d autocall_ci -c 'CREATE DATABASE bridge_test'
+          DATABASE_URL="$BRIDGE_TEST_DATABASE_URL" pnpm prisma:deploy
 
       - name: Lint
         run: pnpm lint

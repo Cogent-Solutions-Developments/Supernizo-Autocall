@@ -99,6 +99,8 @@ function UserAccessCard({
   const [role, setRole] = useState<StaffRole>(user.role);
   const [siteIds, setSiteIds] = useState<string[]>(user.siteIds);
   const [mutation, setMutation] = useState<MutationState>(initialMutationState);
+  const isSupernizo = user.source === 'SUPERNIZO';
+  const isUnavailable = isSupernizo ? user.eligibility !== 'ELIGIBLE' : user.role === 'AGENT';
   const isCurrentAdministrator = user.id === currentUserId && user.role === 'ADMIN';
 
   async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -140,6 +142,7 @@ function UserAccessCard({
           Display name
           <input
             className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+            readOnly={isSupernizo || isUnavailable}
             onChange={(event) => setDisplayName(event.currentTarget.value)}
             value={displayName}
           />
@@ -149,18 +152,20 @@ function UserAccessCard({
           Role
           <select
             className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 disabled:bg-slate-100"
-            disabled={isCurrentAdministrator}
+            disabled={isCurrentAdministrator || isSupernizo || isUnavailable}
             onChange={(event) => setRole(event.currentTarget.value as StaffRole)}
             value={role}
           >
-            <option value="AGENT">Agent</option>
+            <option disabled value="AGENT">
+              Agent
+            </option>
             <option value="ADMIN">Admin</option>
           </select>
         </label>
       </div>
 
       {role === 'AGENT' ? (
-        <fieldset className="grid gap-2">
+        <fieldset disabled={isUnavailable} className="grid gap-2">
           <legend className="text-sm font-semibold text-slate-800">Site access</legend>
           <p className="mb-2 text-xs text-slate-500">
             {siteIds.length === 0
@@ -181,10 +186,23 @@ function UserAccessCard({
         </p>
       )}
 
+      {isSupernizo ? (
+        <p className="text-sm text-slate-600">
+          Managed in Supernizo ·{' '}
+          {user.eligibility === 'ELIGIBLE' ? 'Access granted' : user.eligibility?.toLowerCase()}
+          {user.lastSyncedAt
+            ? ` · Last synced ${new Date(user.lastSyncedAt).toLocaleString()}`
+            : ' · Awaiting synchronization'}
+        </p>
+      ) : isUnavailable ? (
+        <p className="text-sm text-slate-600">
+          Historical local agent. Grant this person access through Supernizo to use Autocall.
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-3">
         <button
           className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={mutation.saving}
+          disabled={mutation.saving || isUnavailable}
           type="submit"
         >
           {mutation.saving ? 'Saving…' : 'Save access'}
@@ -210,8 +228,6 @@ export function AccessManagement({
 }>) {
   const [sites, setSites] = useState(initialAccess.sites);
   const [users, setUsers] = useState(initialAccess.users);
-  const [newRole, setNewRole] = useState<StaffRole>('AGENT');
-  const [newSiteIds, setNewSiteIds] = useState<string[]>([]);
   const [mutation, setMutation] = useState<MutationState>(initialMutationState);
   const [refreshMutation, setRefreshMutation] = useState<MutationState>(initialMutationState);
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -254,8 +270,8 @@ export function AccessManagement({
           displayName: String(formData.get('displayName') ?? '').trim() || null,
           email: String(formData.get('email') ?? '').trim(),
           password: String(formData.get('password') ?? ''),
-          role: newRole,
-          siteIds: newRole === 'AGENT' ? newSiteIds : [],
+          role: 'ADMIN',
+          siteIds: [],
         }),
         headers: { 'content-type': 'application/json' },
         method: 'POST',
@@ -264,8 +280,6 @@ export function AccessManagement({
       setUsers((current) =>
         [...current, createdUser].sort((left, right) => left.email.localeCompare(right.email)),
       );
-      setNewRole('AGENT');
-      setNewSiteIds([]);
       form.reset();
       setMutation({ error: null, saving: false, success: 'User created.' });
     } catch (error: unknown) {
@@ -320,9 +334,10 @@ export function AccessManagement({
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <h2 className="text-xl font-semibold text-slate-950">Add agent or administrator</h2>
+        <h2 className="text-xl font-semibold text-slate-950">Add local administrator</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Create a login now. Site access is optional and can be assigned later.
+          Agents are managed in Supernizo and appear below after Autocall access is granted. Local
+          administrator accounts are managed here.
         </p>
         <form className="mt-6 grid gap-5" onSubmit={createUser}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -357,37 +372,10 @@ export function AccessManagement({
               />
               <span className="text-xs font-normal text-slate-500">At least 12 characters.</span>
             </label>
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-              Role
-              <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                onChange={(event) => setNewRole(event.currentTarget.value as StaffRole)}
-                value={newRole}
-              >
-                <option value="AGENT">Agent</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </label>
           </div>
-
-          {newRole === 'AGENT' ? (
-            <fieldset className="grid gap-2">
-              <legend className="mb-2 text-sm font-semibold text-slate-800">
-                Initial site access (optional)
-              </legend>
-              <SiteAssignments
-                onChange={(siteId, checked) =>
-                  setNewSiteIds((current) => toggleSiteId(current, siteId, checked))
-                }
-                selectedSiteIds={newSiteIds}
-                sites={sites}
-              />
-            </fieldset>
-          ) : (
-            <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-              Administrators automatically receive access to every site.
-            </p>
-          )}
+          <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
+            Local administrators can access every site and manage assignments.
+          </p>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -395,7 +383,7 @@ export function AccessManagement({
               disabled={mutation.saving}
               type="submit"
             >
-              {mutation.saving ? 'Creating…' : 'Create user'}
+              {mutation.saving ? 'Creating…' : 'Create administrator'}
             </button>
             {mutation.error ? <span className="text-sm text-red-700">{mutation.error}</span> : null}
             {mutation.success ? (
@@ -410,8 +398,8 @@ export function AccessManagement({
           <div>
             <h2 className="text-xl font-semibold text-slate-950">All agents</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Every agent is shown, including agents without site access. Assign or update sites at
-              any time.
+              Assign sites to agents whose Supernizo access is granted. Revoked and historical users
+              remain visible for reference.
             </p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
@@ -421,7 +409,8 @@ export function AccessManagement({
         <div className="mt-6 grid gap-4">
           {agents.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
-              No agents have been created yet.
+              No agents are available yet. Grant Autocall access in Supernizo, then refresh this
+              list.
             </p>
           ) : (
             agents.map((user) => (

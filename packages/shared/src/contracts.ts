@@ -105,6 +105,11 @@ export const AccessSiteSchema = z.object({
 });
 
 export const AccessUserSchema = z.object({
+  source: z.enum(['LOCAL', 'SUPERNIZO']).optional(),
+  eligibility: z
+    .enum(['ELIGIBLE', 'REVOKED', 'DISABLED', 'DELETED', 'UNKNOWN', 'LOCAL'])
+    .optional(),
+  lastSyncedAt: UtcDateTimeSchema.nullable().optional(),
   createdAt: UtcDateTimeSchema,
   displayName: z.string().trim().min(1).max(191).nullable(),
   email: z.string().email().max(191),
@@ -135,8 +140,8 @@ export const ManagedUserCreateSchema = z.object({
   displayName: ManagedDisplayNameSchema,
   email: ManagedEmailSchema,
   password: z.string().min(12).max(1_024),
-  role: StaffRoleSchema,
-  siteIds: AssignedSiteIdsSchema,
+  role: z.literal('ADMIN'),
+  siteIds: z.array(IdSchema).max(0),
 });
 
 export const ManagedUserUpdateSchema = z.object({

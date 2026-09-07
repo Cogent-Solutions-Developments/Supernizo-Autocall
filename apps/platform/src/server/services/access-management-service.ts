@@ -14,6 +14,9 @@ import {
 import { Prisma } from '@generated/prisma/client';
 
 import { getDatabaseClient } from '@/server/db/client';
+import { directorySyncEnabled } from '@/server/integrations/supernizo-signature';
+import { fetchDirectoryUser } from '@/server/integrations/supernizo-directory-client';
+import { applyDirectoryState } from './supernizo-directory-service';
 import {
   ConflictError,
   ForbiddenError,
@@ -22,6 +25,8 @@ import {
 } from '@/server/errors/app-error';
 
 const accessUserSelect = {
+  supernizoId: true,
+  supernizoState: { select: { eligibility: true, lastSyncedAt: true } },
   createdAt: true,
   displayName: true,
   email: true,
@@ -35,6 +40,9 @@ type AccessUserRecord = Prisma.UserGetPayload<{ select: typeof accessUserSelect 
 
 function mapAccessUser(user: AccessUserRecord): AccessUser {
   return AccessUserSchema.parse({
+    source: user.supernizoId ? 'SUPERNIZO' : 'LOCAL',
+    eligibility: user.supernizoId ? (user.supernizoState?.eligibility ?? 'UNKNOWN') : 'LOCAL',
+    lastSyncedAt: user.supernizoState?.lastSyncedAt.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
     displayName: user.displayName,
     email: user.email,
@@ -113,6 +121,14 @@ export async function createManagedUser(
   actorUserId: string,
   input: ManagedUserCreateInput,
 ): Promise<AccessUser> {
+  if (input.role !== 'ADMIN' || input.siteIds.length > 0) {
+    throw new ForbiddenError(
+      'Create agents and grant Autocall access in Supernizo. Only local administrators can be created here.',
+    );
+  }
+  if (input.email.toLowerCase().endsWith('@supernizo.invalid')) {
+    throw new ForbiddenError('This email namespace is reserved for Supernizo identities.');
+  }
   const database = getDatabaseClient();
   const siteIds = assignedSiteIdsForRole(input.role, input.siteIds);
   const passwordHash = await hash(input.password, 12);
@@ -159,6 +175,63 @@ export async function updateManagedUser(
   input: ManagedUserUpdateInput,
 ): Promise<AccessUser> {
   const database = getDatabaseClient();
+  const target = await database.user.findUnique({
+    where: { id: targetUserId },
+    select: { supernizoId: true, globalRole: true },
+  });
+  if (!target) throw new NotFoundError('The requested user does not exist.');
+  if (target.supernizoId) {
+    if (!directorySyncEnabled())
+      throw new ForbiddenError(
+        'Enable Supernizo directory synchronization before assigning this user.',
+      );
+    const state = await fetchDirectoryUser(target.supernizoId);
+    return database.$transaction(async (transaction) => {
+      await applyDirectoryState(transaction, state);
+      const current = await transaction.user.findUniqueOrThrow({
+        where: { id: targetUserId },
+        select: accessUserSelect,
+      });
+      if (current.displayName !== input.displayName || current.globalRole !== input.role)
+        throw new ForbiddenError(
+          'Names and roles are managed in Supernizo. Refresh the user list.',
+        );
+      if (current.supernizoState?.eligibility !== 'ELIGIBLE')
+        throw new ForbiddenError('This user no longer has Autocall access.');
+      if (current.globalRole !== 'AGENT') {
+        if (input.siteIds.length)
+          throw new ForbiddenError('Supernizo administrators already have global access.');
+        return mapAccessUser(current); // Do not erase memberships on promotion.
+      }
+      await assertSitesExist(transaction, input.siteIds);
+      await transaction.siteMember.deleteMany({
+        where: { userId: targetUserId, siteId: { notIn: input.siteIds } },
+      });
+      await transaction.siteMember.createMany({
+        data: input.siteIds.map((siteId) => ({ siteId, userId: targetUserId })),
+        skipDuplicates: true,
+      });
+      await transaction.auditLog.create({
+        data: {
+          action: 'user.sites.updated',
+          actorUserId,
+          entityId: targetUserId,
+          entityType: 'User',
+          metadata: { siteIds: input.siteIds, directoryRevision: state.directoryRevision },
+        },
+      });
+      return mapAccessUser(
+        await transaction.user.findUniqueOrThrow({
+          where: { id: targetUserId },
+          select: accessUserSelect,
+        }),
+      );
+    });
+  }
+  if (target.globalRole !== 'ADMIN' || input.role !== 'ADMIN' || input.siteIds.length > 0)
+    throw new ForbiddenError(
+      'Local agents are historical records. Manage agent identity in Supernizo.',
+    );
   const siteIds = assignedSiteIdsForRole(input.role, input.siteIds);
 
   return database.$transaction(

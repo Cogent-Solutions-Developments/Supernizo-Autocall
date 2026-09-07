@@ -96,17 +96,17 @@ describe('shared API contracts', () => {
     expect(() => StaffRoleSchema.parse('VIEWER')).toThrow();
   });
 
-  it('normalizes managed users and deduplicates their site assignments', () => {
+  it('normalizes local administrator accounts', () => {
     const result = ManagedUserCreateSchema.parse({
       displayName: 'Agent One',
       email: ' AGENT@EXAMPLE.COM ',
       password: 'a-secure-password',
-      role: 'AGENT',
-      siteIds: ['site_2', 'site_1', 'site_2'],
+      role: 'ADMIN',
+      siteIds: [],
     });
 
     expect(result.email).toBe('agent@example.com');
-    expect(result.siteIds).toEqual(['site_2', 'site_1']);
+    expect(result.siteIds).toEqual([]);
   });
 
   it('validates a visitor message sent to the agent dashboard', () => {

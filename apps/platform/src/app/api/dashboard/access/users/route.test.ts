@@ -22,8 +22,8 @@ const createdUser = {
   displayName: 'Agent One',
   email: 'agent@example.com',
   id: 'agent_1',
-  role: 'AGENT' as const,
-  siteIds: ['site_1'],
+  role: 'ADMIN' as const,
+  siteIds: [],
   updatedAt: '2026-09-04T00:00:00.000Z',
 };
 
@@ -46,8 +46,8 @@ describe('POST /api/dashboard/access/users', () => {
         displayName: 'Agent One',
         email: 'agent@example.com',
         password: 'a-secure-password',
-        role: 'AGENT',
-        siteIds: ['site_1'],
+        role: 'ADMIN',
+        siteIds: [],
       }),
     );
 
@@ -55,7 +55,7 @@ describe('POST /api/dashboard/access/users', () => {
     expect(createManagedUser).not.toHaveBeenCalled();
   });
 
-  it('validates and creates an agent as an administrator', async () => {
+  it('validates and creates a local administrator', async () => {
     vi.mocked(requireRole).mockResolvedValue(administrator);
     vi.mocked(createManagedUser).mockResolvedValue(createdUser);
 
@@ -64,15 +64,15 @@ describe('POST /api/dashboard/access/users', () => {
         displayName: 'Agent One',
         email: ' AGENT@EXAMPLE.COM ',
         password: 'a-secure-password',
-        role: 'AGENT',
-        siteIds: ['site_1'],
+        role: 'ADMIN',
+        siteIds: [],
       }),
     );
 
     expect(response.status).toBe(201);
     expect(createManagedUser).toHaveBeenCalledWith(
       administrator.id,
-      expect.objectContaining({ email: 'agent@example.com', role: 'AGENT' }),
+      expect.objectContaining({ email: 'agent@example.com', role: 'ADMIN' }),
     );
     await expect(response.json()).resolves.toMatchObject({ data: createdUser });
   });
