@@ -75,6 +75,14 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           <div className="hidden shrink-0 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0b1a24] 2xl:block">
             {user.name ?? user.email}
           </div>
+          {user.returnTo ? (
+            <a
+              className="whitespace-nowrap rounded-full px-3 py-2 text-sm text-sky-200 hover:bg-white/10"
+              href={user.returnTo}
+            >
+              Supernizo
+            </a>
+          ) : null}
           <div className="shrink-0">
             <AuthClientProvider>
               <LogoutButton />

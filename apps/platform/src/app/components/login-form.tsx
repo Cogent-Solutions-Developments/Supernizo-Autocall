@@ -88,8 +88,14 @@ export function LoginForm() {
         <span aria-hidden="true" className="mr-2 text-sky-300">
           ◈
         </span>
-        Confidential workspace. Authorized access only.
+        Direct sign-in is available to local administrators only.
       </p>
+      <a
+        className="text-center text-sm text-sky-300 hover:underline"
+        href={withAppBasePath('/sso/start')}
+      >
+        Continue through Supernizo
+      </a>
     </form>
   );
 }

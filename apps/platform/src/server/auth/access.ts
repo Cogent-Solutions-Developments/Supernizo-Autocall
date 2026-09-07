@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { cache } from 'react';
 import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 
@@ -10,8 +11,10 @@ import { getAuthOptions } from '@/server/auth/auth-options';
 import { assertRole } from '@/server/auth/roles';
 import { getDatabaseClient } from '@/server/db/client';
 import { ForbiddenError, UnauthorizedError } from '@/server/errors/app-error';
+import { portalUrl, requestSupernizoIdentity } from '@/server/auth/supernizo-sso';
 
 export type AuthenticatedUser = Readonly<{
+  returnTo?: string | undefined;
   email: string;
   id: string;
   name: string | null;
@@ -24,7 +27,7 @@ export type SiteAccess = Readonly<{
   user: AuthenticatedUser;
 }>;
 
-export async function requireUser(): Promise<AuthenticatedUser> {
+export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
   const prisma = getDatabaseClient();
   const session = await getServerSession(getAuthOptions());
   const userId = session?.user?.id;
@@ -40,6 +43,7 @@ export async function requireUser(): Promise<AuthenticatedUser> {
       email: true,
       globalRole: true,
       id: true,
+      supernizoId: true,
     },
   });
 
@@ -47,13 +51,36 @@ export async function requireUser(): Promise<AuthenticatedUser> {
     throw new UnauthorizedError('Authentication is required.');
   }
 
+  let role = user.globalRole;
+  const upstream = session?.user?.supernizo;
+  if (upstream) {
+    if (user.supernizoId !== upstream.subject) throw new UnauthorizedError('Invalid identity.');
+    try {
+      const identity = await requestSupernizoIdentity('introspect', {
+        subject: upstream.subject,
+        version: upstream.version,
+        expiresAt: upstream.expiresAt,
+      });
+      if (identity.subject !== upstream.subject) throw new Error('Identity mismatch.');
+      role = identity.role;
+    } catch {
+      throw new UnauthorizedError('Supernizo access is unavailable or revoked.');
+    }
+  } else if (user.globalRole !== 'ADMIN' || user.supernizoId) {
+    // Also reject pre-existing local agent sessions after rollout.
+    throw new UnauthorizedError('Sign in through Supernizo.');
+  }
+
   return {
+    returnTo: upstream?.portal
+      ? portalUrl(upstream.portal).href.replace(/\/autocall$/, '')
+      : undefined,
     email: user.email,
     id: user.id,
     name: user.displayName,
-    role: user.globalRole,
+    role,
   };
-}
+});
 
 export async function requireDashboardUser(): Promise<AuthenticatedUser> {
   try {
