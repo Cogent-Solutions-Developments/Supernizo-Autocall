@@ -10,6 +10,7 @@ vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
 vi.mock('@/server/services/access-management-service', () => ({ createManagedUser: vi.fn() }));
 
 const administrator = {
+  signInMethod: 'local' as const,
   email: 'admin@example.com',
   id: 'admin_1',
   name: 'Admin',

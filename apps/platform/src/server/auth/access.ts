@@ -14,6 +14,7 @@ import { ForbiddenError, UnauthorizedError } from '@/server/errors/app-error';
 import { portalUrl, requestSupernizoIdentity } from '@/server/auth/supernizo-sso';
 
 export type AuthenticatedUser = Readonly<{
+  signInMethod: 'local' | 'supernizo';
   returnTo?: string | undefined;
   email: string;
   id: string;
@@ -68,6 +69,7 @@ export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
   }
 
   return {
+    signInMethod: upstream ? 'supernizo' : 'local',
     returnTo: upstream?.portal
       ? portalUrl(upstream.portal).href.replace(/\/autocall$/, '')
       : undefined,

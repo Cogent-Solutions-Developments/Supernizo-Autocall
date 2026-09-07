@@ -32,9 +32,28 @@ it('rejects existing local agent sessions', async () => {
 it('retains local administrator access without contacting Supernizo', async () => {
   mocks.session.mockResolvedValue({ user: { id: 'admin' } });
   mocks.user.mockResolvedValue({ id: 'admin', globalRole: 'ADMIN' });
-  await expect(requireUser()).resolves.toMatchObject({ id: 'admin', role: 'ADMIN' });
+  await expect(requireUser()).resolves.toMatchObject({
+    id: 'admin',
+    role: 'ADMIN',
+    signInMethod: 'local',
+  });
   expect(mocks.introspect).not.toHaveBeenCalled();
 });
+it.each(['ADMIN', 'AGENT'])(
+  'identifies Supernizo sign-in independently of the %s role or return link',
+  async (role) => {
+    mocks.session.mockResolvedValue({
+      user: { id: 'sso-user', supernizo: { subject, version: 2, expiresAt: 9999999999 } },
+    });
+    mocks.user.mockResolvedValue({ id: 'sso-user', supernizoId: subject, globalRole: role });
+    mocks.introspect.mockResolvedValue({ subject, role });
+    await expect(requireUser()).resolves.toMatchObject({
+      signInMethod: 'supernizo',
+      role,
+      returnTo: undefined,
+    });
+  },
+);
 it('uses live upstream permissions even when local role says ADMIN', async () => {
   mocks.session.mockResolvedValue({
     user: { id: 'agent', supernizo: { subject, version: 2, expiresAt: 9999999999 } },

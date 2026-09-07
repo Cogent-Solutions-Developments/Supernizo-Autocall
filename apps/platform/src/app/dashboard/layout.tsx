@@ -83,11 +83,13 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               Supernizo
             </a>
           ) : null}
-          <div className="shrink-0">
-            <AuthClientProvider>
-              <LogoutButton />
-            </AuthClientProvider>
-          </div>
+          {user.signInMethod === 'local' ? (
+            <div className="shrink-0">
+              <AuthClientProvider>
+                <LogoutButton />
+              </AuthClientProvider>
+            </div>
+          ) : null}
         </div>
       </header>
       <div className="dashboard-content relative mx-auto w-full max-w-7xl px-6 py-8 sm:px-10 sm:py-10">

@@ -1,5 +1,13 @@
 # Autocall launch and refresh fix — 2026-09-07
 
+## Follow-up: sign-out visibility
+
+The Autocall dashboard now displays Sign out only for direct local administrator login. Users arriving through Supernizo, including administrators, do not receive an Autocall Sign out button. The server derives `signInMethod` from the authenticated session, independently of role or the return link.
+
+Changed files: `apps/platform/src/app/dashboard/layout.tsx`, `apps/platform/src/server/auth/access.ts`, its `access.test.ts`, and authentication fixtures in `apps/platform/src/app/api/chat/threads/route.test.ts`, `apps/platform/src/app/api/dashboard/access/route.test.ts`, `apps/platform/src/app/api/dashboard/access/users/route.test.ts`, and `apps/platform/src/app/api/dashboard/access/users/[userId]/route.test.ts`.
+
+Validation: the five affected Vitest files passed (15 tests); platform ESLint and changed-file Prettier checks passed; `pnpm build` passed including TypeScript checking. A live local browser confirmed the Sign out button is absent after Supernizo administrator login and dashboard refreshes still work. No migrations or production deployment; no remaining blockers for this change.
+
 Branch in all four repositories: `feat/imp/supernizo-autocall-access`.
 
 ## Problems fixed
