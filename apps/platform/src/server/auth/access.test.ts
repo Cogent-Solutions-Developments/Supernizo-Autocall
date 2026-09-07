@@ -17,7 +17,8 @@ vi.mock('@/server/auth/supernizo-sso', () => ({
   requestSupernizoIdentity: mocks.introspect,
   portalUrl: () => new URL('https://app.example/autocall'),
 }));
-import { requireUser, requireRole, requireSiteAccess } from './access';
+import { requireUser, requireDashboardUser, requireRole, requireSiteAccess } from './access';
+import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-error';
 const subject = '17e772b0-2a9b-4ea6-8d35-e6045e97f8a6';
 beforeEach(() => {
   vi.resetAllMocks();
@@ -51,8 +52,22 @@ it('rejects revoked sessions and mismatched identity mappings', async () => {
     user: { id: 'agent', supernizo: { subject, version: 2, expiresAt: 9999999999 } },
   });
   mocks.user.mockResolvedValue({ id: 'agent', supernizoId: subject, globalRole: 'AGENT' });
-  mocks.introspect.mockRejectedValue(new Error('revoked'));
-  await expect(requireUser()).rejects.toThrow('unavailable or revoked');
+  mocks.introspect.mockRejectedValue(new UnauthorizedError('revoked'));
+  await expect(requireUser()).rejects.toThrow('revoked');
   mocks.user.mockResolvedValue({ id: 'agent', supernizoId: 'another-user', globalRole: 'ADMIN' });
   await expect(requireUser()).rejects.toThrow('Invalid identity');
+});
+
+it('denies access during temporary outages without redirecting the session to login', async () => {
+  mocks.session.mockResolvedValue({
+    user: { id: 'agent', supernizo: { subject, version: 2, expiresAt: 9999999999 } },
+  });
+  mocks.user.mockResolvedValue({ id: 'agent', supernizoId: subject, globalRole: 'AGENT' });
+  const unavailable = new ServiceUnavailableError('Please retry.');
+  mocks.introspect.mockRejectedValue(unavailable);
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await expect(requireDashboardUser()).rejects.toBe(unavailable);
+  }
+  mocks.introspect.mockResolvedValue({ subject, role: 'AGENT' });
+  await expect(requireDashboardUser()).resolves.toMatchObject({ id: 'agent', role: 'AGENT' });
 });

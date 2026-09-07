@@ -55,17 +55,13 @@ export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
   const upstream = session?.user?.supernizo;
   if (upstream) {
     if (user.supernizoId !== upstream.subject) throw new UnauthorizedError('Invalid identity.');
-    try {
-      const identity = await requestSupernizoIdentity('introspect', {
-        subject: upstream.subject,
-        version: upstream.version,
-        expiresAt: upstream.expiresAt,
-      });
-      if (identity.subject !== upstream.subject) throw new Error('Identity mismatch.');
-      role = identity.role;
-    } catch {
-      throw new UnauthorizedError('Supernizo access is unavailable or revoked.');
-    }
+    const identity = await requestSupernizoIdentity('introspect', {
+      subject: upstream.subject,
+      version: upstream.version,
+      expiresAt: upstream.expiresAt,
+    });
+    if (identity.subject !== upstream.subject) throw new UnauthorizedError('Invalid identity.');
+    role = identity.role;
   } else if (user.globalRole !== 'ADMIN' || user.supernizoId) {
     // Also reject pre-existing local agent sessions after rollout.
     throw new UnauthorizedError('Sign in through Supernizo.');

@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import { APP_BASE_PATH } from '@/lib/app-path';
 import { getDatabaseClient } from '@/server/db/client';
-import { UnauthorizedError } from '@/server/errors/app-error';
+import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-error';
 
 const opaque = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const SupernizoIdentitySchema = z.object({
@@ -27,9 +27,19 @@ const flowSchema = z.object({
   portal: z.enum(['light', 'heavy']),
 });
 
-function httpsUrl(value: string | undefined): URL {
+export function ssoUrl(value: string | undefined): URL {
   const url = new URL(z.string().url().parse(value));
-  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+  const localHttp =
+    process.env.NODE_ENV === 'development' &&
+    url.protocol === 'http:' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if (
+    (!localHttp && url.protocol !== 'https:') ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
     throw new Error('Invalid SSO URL configuration.');
   }
   return url;
@@ -37,7 +47,7 @@ function httpsUrl(value: string | undefined): URL {
 
 export function portalUrl(portal: string): URL {
   if (portal !== 'light' && portal !== 'heavy') throw new UnauthorizedError('Invalid portal.');
-  const url = httpsUrl(
+  const url = ssoUrl(
     portal === 'light' ? process.env.SUPERNIZO_LIGHT_URL : process.env.SUPERNIZO_HEAVY_URL,
   );
   url.pathname = `${url.pathname.replace(/\/$/, '')}/autocall`;
@@ -58,7 +68,7 @@ export function startSupernizoSignIn(portal: string): NextResponse {
     JSON.stringify({ state, verifier, createdAt: Date.now(), portal }),
     {
       httpOnly: true,
-      secure: true,
+      secure: ssoUrl(process.env.APP_URL).protocol === 'https:',
       sameSite: 'lax',
       path: APP_BASE_PATH,
       maxAge: 180,
@@ -71,18 +81,26 @@ export async function requestSupernizoIdentity(
   action: 'exchange' | 'introspect',
   payload: unknown,
 ): Promise<SupernizoIdentity> {
-  const url = httpsUrl(process.env.SUPERNIZO_BACKEND_URL);
+  const url = ssoUrl(process.env.SUPERNIZO_BACKEND_URL);
   url.pathname = `${url.pathname.replace(/\/$/, '')}/api/auth/autocall/${action}`;
   const secret = z.string().min(32).parse(process.env.SUPERNIZO_AUTOCALL_CLIENT_SECRET);
-  const response = await fetch(url, {
-    method: 'POST',
-    cache: 'no-store',
-    redirect: 'error',
-    signal: AbortSignal.timeout(4000),
-    headers: { 'Content-Type': 'application/json', 'X-Autocall-Secret': secret },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new UnauthorizedError('Supernizo access is unavailable or revoked.');
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      cache: 'no-store',
+      redirect: 'error',
+      signal: AbortSignal.timeout(4000),
+      headers: { 'Content-Type': 'application/json', 'X-Autocall-Secret': secret },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ServiceUnavailableError('Supernizo is temporarily unavailable. Please retry.');
+  }
+  if (response.status === 401 || response.status === 403)
+    throw new UnauthorizedError('Supernizo session expired or access was revoked.');
+  if (!response.ok)
+    throw new ServiceUnavailableError('Supernizo is temporarily unavailable. Please retry.');
   const identity = SupernizoIdentitySchema.parse(await response.json());
   if (identity.expiresAt <= Math.floor(Date.now() / 1000)) {
     throw new UnauthorizedError('Supernizo session has expired.');

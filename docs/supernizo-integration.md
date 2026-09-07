@@ -1,6 +1,6 @@
 # Supernizo access integration
 
-All four repositories use `feat/imp/supernizo-autocall-access`. The Autocall branch starts from `hetzner-prod`; the other three start from their local `main`. Nothing has been deployed and no production migration has been applied.
+All four repositories use `feat/imp/supernizo-autocall-access`. The Autocall branch starts from `hetzner-prod`; the other three start from their local `main`. Nothing has been deployed to production and no production migration has been applied.
 
 ## User journey and authority
 
@@ -60,3 +60,18 @@ Rollback frontends first (they now call the backend logout endpoint), then Autoc
 ## References
 
 The handoff uses [RFC 7636 S256 PKCE](https://www.rfc-editor.org/rfc/rfc7636) and the installed [NextAuth credentials provider](https://next-auth.js.org/configuration/providers/credentials). Next.js Route Handler/cookie behavior was checked against the locally installed Next.js documentation.
+
+## Local development and refresh recovery
+
+Use distinct local ports: light frontend `3000`, Autocall `3001`, heavy frontend `3002`, backend `8000`.
+
+- Both frontends: `AUTOCALL_PUBLIC_URL=http://localhost:3001/autocall-db`.
+- Backend: the same `AUTOCALL_PUBLIC_URL`, plus `AUTOCALL_ALLOW_LOCAL_HTTP=true` and a non-production `ENV`.
+- Autocall: `APP_URL=http://localhost:3001/autocall-db`, `SUPERNIZO_BACKEND_URL=http://127.0.0.1:8000`, `SUPERNIZO_LIGHT_URL=http://localhost:3000`, and `SUPERNIZO_HEAVY_URL=http://localhost:3002`.
+- Keep backend `AUTOCALL_CLIENT_SECRET` and Autocall `SUPERNIZO_AUTOCALL_CLIENT_SECRET` identical. Store them only in ignored local environment files.
+- Run Next.js with `next dev`; do not set `NODE_ENV` in `.env.local`. Restart development servers after changing settings if they have not reloaded them. Set Autocall's dev port to `3001` and heavy's to `3002` when starting them.
+- The backend Docker image copies source files. After local source/settings changes, run `docker compose up -d --no-deps --build api` from the backend repository. Editing its `.env` alone does not change an existing container's environment.
+
+HTTP is allowed only for loopback hosts (`localhost`, `127.0.0.1`, IPv6 loopback) in Next.js development mode; the backend additionally requires the explicit local flag. Production continues to require HTTPS, including the private exchange. The local HTTP flow cookie stays HttpOnly, SameSite=Lax and scoped to `/autocall-db`; HTTPS uses Secure cookies.
+
+Reload validation retains the stored Supernizo session on network failures, rate limits, forbidden resources and server errors. Only a 401 for the current login clears it; delayed failures from an earlier login are ignored. Concurrent profile lookups share an in-flight request, and stale responses cannot overwrite a newer login. Autocall denies protected requests when upstream authorization is unavailable but propagates a temporary service error instead of redirecting that session to sign-in. Expired/revoked sessions still require authentication.

@@ -19,7 +19,9 @@ import {
   authorizeSupernizo,
   requestSupernizoIdentity,
   startSupernizoSignIn,
+  ssoUrl,
 } from './supernizo-sso';
+import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-error';
 import { authorizeLocalAdmin } from './local-admin-login';
 
 const subject = '17e772b0-2a9b-4ea6-8d35-e6045e97f8a6';
@@ -33,6 +35,8 @@ const identity = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('APP_URL', 'https://autocall.example/autocall-db');
   vi.stubEnv('SUPERNIZO_LIGHT_URL', 'https://app.example');
   vi.stubEnv('SUPERNIZO_HEAVY_URL', 'https://heavy.example');
   vi.stubEnv('SUPERNIZO_BACKEND_URL', 'https://backend.example');
@@ -40,6 +44,43 @@ beforeEach(() => {
 });
 
 describe('Supernizo browser-bound handoff', () => {
+  it('supports HTTP loopback only in development, including the flow cookie', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('APP_URL', 'http://localhost:3001/autocall-db');
+    vi.stubEnv('SUPERNIZO_LIGHT_URL', 'http://localhost:3000');
+    const response = startSupernizoSignIn('light');
+    expect(new URL(response.headers.get('location')!).origin).toBe('http://localhost:3000');
+    expect(response.cookies.get('autocall.sso-flow')).toMatchObject({
+      httpOnly: true,
+      secure: false,
+    });
+    for (const host of ['localhost.evil.example', '192.168.1.1', 'example.com']) {
+      expect(() => ssoUrl(`http://${host}`)).toThrow();
+    }
+    vi.stubEnv('NODE_ENV', 'production');
+    expect(() => ssoUrl('http://localhost:3001')).toThrow();
+    expect(() => startSupernizoSignIn('light')).toThrow();
+  });
+
+  it('distinguishes temporary authorization outages from revoked sessions', async () => {
+    for (const status of [429, 500, 503]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status })));
+      await expect(requestSupernizoIdentity('introspect', {})).rejects.toBeInstanceOf(
+        ServiceUnavailableError,
+      );
+    }
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+    await expect(requestSupernizoIdentity('introspect', {})).rejects.toBeInstanceOf(
+      ServiceUnavailableError,
+    );
+    for (const status of [401, 403]) {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status })));
+      await expect(requestSupernizoIdentity('introspect', {})).rejects.toBeInstanceOf(
+        UnauthorizedError,
+      );
+    }
+  });
+
   it('starts only at an allowlisted portal and keeps verifier in an HttpOnly cookie', () => {
     const response = startSupernizoSignIn('heavy');
     const target = new URL(response.headers.get('location')!);
