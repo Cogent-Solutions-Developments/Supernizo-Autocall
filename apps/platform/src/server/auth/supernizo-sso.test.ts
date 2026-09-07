@@ -7,14 +7,29 @@ const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   findUnique: vi.fn(),
   compare: vi.fn(),
+  findDirectoryState: vi.fn(),
+  fetchDirectoryUser: vi.fn(),
+  applyDirectoryState: vi.fn(),
 }));
 vi.mock('next/headers', () => ({
   cookies: async () => ({ get: mocks.get, delete: mocks.remove }),
 }));
 vi.mock('@/server/db/client', () => ({
-  getDatabaseClient: () => ({ user: { upsert: mocks.upsert, findUnique: mocks.findUnique } }),
+  getDatabaseClient: () => ({
+    user: { upsert: mocks.upsert, findUnique: mocks.findUnique },
+    $transaction: async (callback: (transaction: unknown) => unknown) =>
+      callback({
+        supernizoUserState: { findUniqueOrThrow: mocks.findDirectoryState },
+      }),
+  }),
 }));
 vi.mock('bcryptjs', () => ({ compare: mocks.compare }));
+vi.mock('@/server/integrations/supernizo-directory-client', () => ({
+  fetchDirectoryUser: mocks.fetchDirectoryUser,
+}));
+vi.mock('@/server/services/supernizo-directory-service', () => ({
+  applyDirectoryState: mocks.applyDirectoryState,
+}));
 import {
   authorizeSupernizo,
   requestSupernizoIdentity,
@@ -31,6 +46,12 @@ const identity = {
   role: 'AGENT',
   version: 2,
   expiresAt: Math.floor(Date.now() / 1000) + 600,
+};
+const directoryState = {
+  subject,
+  directoryRevision: '2',
+  changedAt: '2026-09-07T14:00:00.000Z',
+  user: { displayName: 'Agent', role: 'AGENT', eligibility: 'ELIGIBLE' },
 };
 
 beforeEach(() => {
@@ -134,11 +155,19 @@ describe('Supernizo browser-bound handoff', () => {
       email: 'agent@example.com',
       displayName: 'Agent',
     });
+    mocks.fetchDirectoryUser.mockResolvedValue(directoryState);
+    mocks.applyDirectoryState.mockResolvedValue({
+      id: 'local-id',
+      email: 'agent@example.com',
+      displayName: 'Agent',
+    });
+    mocks.findDirectoryState.mockResolvedValue({ eligibility: 'ELIGIBLE' });
     const fetchMock = vi.fn().mockResolvedValue(Response.json(identity));
     vi.stubGlobal('fetch', fetchMock);
     const user = await authorizeSupernizo({ code: 'c'.repeat(43), state: 's'.repeat(43) });
     expect(user?.supernizo.subject).toBe(subject);
-    expect(mocks.upsert.mock.calls[0]?.[0]?.where).toEqual({ supernizoId: subject });
+    expect(mocks.fetchDirectoryUser).toHaveBeenCalledWith(subject);
+    expect(mocks.applyDirectoryState).toHaveBeenCalledWith(expect.anything(), directoryState);
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       cache: 'no-store',
       redirect: 'error',

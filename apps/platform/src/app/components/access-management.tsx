@@ -121,8 +121,6 @@ export function AccessManagement({
     }
   }
 
-  const assignmentsAreAvailable = agents.length > 0 && sites.length > 0;
-
   return (
     <div className="grid gap-8">
       <section className="flex flex-wrap items-start justify-between gap-4">
@@ -156,82 +154,92 @@ export function AccessManagement({
           </p>
         </div>
 
-        {assignmentsAreAvailable ? (
-          <div className="mt-6 grid gap-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="agent">
-                Agent
-                <select
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900"
-                  id="agent"
-                  onChange={(event) => {
-                    setAgentId(event.currentTarget.value);
-                    setMutation(initialMutationState);
-                  }}
-                  value={agentId}
-                >
-                  <option value="">Select an agent</option>
-                  {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.displayName ?? agent.email}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="event">
-                Event
-                <select
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900"
-                  id="event"
-                  onChange={(event) => {
-                    setSiteId(event.currentTarget.value);
-                    setMutation(initialMutationState);
-                  }}
-                  value={siteId}
-                >
-                  <option value="">Select an event</option>
-                  {sites.map((site) => (
-                    <option key={site.id} value={site.id}>
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!selectedAgent || !selectedSite || isAssigned || mutation.saving}
-                onClick={() => void saveAssignment(true)}
-                type="button"
+        <div className="mt-6 grid gap-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="agent">
+              Agent
+              <select
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={agents.length === 0}
+                id="agent"
+                onChange={(event) => {
+                  setAgentId(event.currentTarget.value);
+                  setMutation(initialMutationState);
+                }}
+                value={agentId}
               >
-                {mutation.saving ? 'Saving…' : 'Assign event'}
-              </button>
-              <button
-                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={!selectedAgent || !selectedSite || !isAssigned || mutation.saving}
-                onClick={() => void saveAssignment(false)}
-                type="button"
+                <option value="">
+                  {agents.length === 0 ? 'No eligible agents available' : 'Select an agent'}
+                </option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.displayName ?? agent.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="event">
+              Event
+              <select
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={sites.length === 0}
+                id="event"
+                onChange={(event) => {
+                  setSiteId(event.currentTarget.value);
+                  setMutation(initialMutationState);
+                }}
+                value={siteId}
               >
-                Remove assignment
-              </button>
-              {selectedAgent && selectedSite ? (
-                <span className="text-sm text-slate-600">
-                  {isAssigned
-                    ? 'This agent is assigned to this event.'
-                    : 'This event is not assigned yet.'}
-                </span>
-              ) : null}
-            </div>
+                <option value="">
+                  {sites.length === 0 ? 'No events available' : 'Select an event'}
+                </option>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        ) : (
-          <p className="mt-6 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-600">
-            {agents.length === 0
-              ? 'No eligible Supernizo agents are available. Grant Autocall access in Supernizo, then refresh.'
-              : 'No events are available yet. Register an event before creating an assignment.'}
-          </p>
-        )}
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!selectedAgent || !selectedSite || isAssigned || mutation.saving}
+              onClick={() => void saveAssignment(true)}
+              type="button"
+            >
+              {mutation.saving ? 'Saving…' : 'Assign event'}
+            </button>
+            <button
+              className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={!selectedAgent || !selectedSite || !isAssigned || mutation.saving}
+              onClick={() => void saveAssignment(false)}
+              type="button"
+            >
+              Remove assignment
+            </button>
+            {selectedAgent && selectedSite ? (
+              <span className="text-sm text-slate-600">
+                {isAssigned
+                  ? 'This agent is assigned to this event.'
+                  : 'This event is not assigned yet.'}
+              </span>
+            ) : null}
+          </div>
+
+          {agents.length === 0 ? (
+            <p className="text-sm text-amber-700">
+              No eligible Supernizo agents are available. Grant Autocall access in Supernizo, then
+              refresh.
+            </p>
+          ) : null}
+          {sites.length === 0 ? (
+            <p className="text-sm text-amber-700">
+              No events are available yet. Register an event before creating an assignment.
+            </p>
+          ) : null}
+        </div>
 
         {mutation.error ? (
           <p className="mt-5 text-sm text-red-700" role="alert">
