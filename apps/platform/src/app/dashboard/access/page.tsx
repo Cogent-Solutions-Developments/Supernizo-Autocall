@@ -8,7 +8,7 @@ import { listAccessManagement } from '@/server/services/access-management-servic
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Manage access | Supernizo Autocall',
+  title: 'Event assignments | Supernizo Autocall',
 };
 
 export default async function AccessManagementPage() {
@@ -19,5 +19,5 @@ export default async function AccessManagementPage() {
 
   const access = await listAccessManagement();
 
-  return <AccessManagement currentUserId={user.id} initialAccess={access} />;
+  return <AccessManagement initialAccess={access} />;
 }

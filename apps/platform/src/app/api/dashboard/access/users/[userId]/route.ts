@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { IdSchema, ManagedUserUpdateSchema } from '@supernizo/shared';
+import { EventAssignmentUpdateSchema, IdSchema } from '@supernizo/shared';
 
 import { requireRole } from '@/server/auth/access';
 import { ValidationError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { updateManagedUser } from '@/server/services/access-management-service';
+import { updateAgentEventAssignments } from '@/server/services/access-management-service';
 
 type ManagedUserRouteContext = Readonly<{
   params: Promise<{ userId: string }>;
@@ -26,12 +26,12 @@ export async function PATCH(request: Request, context: ManagedUserRouteContext):
       context.params,
     ]);
     const userId = IdSchema.safeParse(rawUserId);
-    const parsed = ManagedUserUpdateSchema.safeParse(body);
+    const parsed = EventAssignmentUpdateSchema.safeParse(body);
     if (!userId.success || !parsed.success) {
       throw new ValidationError('The user access settings are invalid.');
     }
 
-    const user = await updateManagedUser(actor.id, userId.data, parsed.data);
+    const user = await updateAgentEventAssignments(actor.id, userId.data, parsed.data.siteIds);
     return withRequestId(NextResponse.json({ data: user, requestId }), requestId);
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);

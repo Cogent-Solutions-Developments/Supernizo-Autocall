@@ -124,31 +124,16 @@ export const AccessManagementSchema = z.object({
   users: z.array(AccessUserSchema),
 });
 
-const ManagedDisplayNameSchema = z.string().trim().min(1).max(191).nullable();
-const ManagedEmailSchema = z
-  .string()
-  .trim()
-  .email()
-  .max(191)
-  .transform((email) => email.toLowerCase());
 const AssignedSiteIdsSchema = z
   .array(IdSchema)
   .max(1_000)
   .transform((siteIds) => Array.from(new Set(siteIds)));
 
-export const ManagedUserCreateSchema = z.object({
-  displayName: ManagedDisplayNameSchema,
-  email: ManagedEmailSchema,
-  password: z.string().min(12).max(1_024),
-  role: z.literal('ADMIN'),
-  siteIds: z.array(IdSchema).max(0),
-});
-
-export const ManagedUserUpdateSchema = z.object({
-  displayName: ManagedDisplayNameSchema,
-  role: StaffRoleSchema,
-  siteIds: AssignedSiteIdsSchema,
-});
+export const EventAssignmentUpdateSchema = z
+  .object({
+    siteIds: AssignedSiteIdsSchema,
+  })
+  .strict();
 
 export const SitePublicKeySchema = z
   .string()
@@ -453,8 +438,7 @@ export type StaffRole = z.infer<typeof StaffRoleSchema>;
 export type AccessManagement = z.infer<typeof AccessManagementSchema>;
 export type AccessSite = z.infer<typeof AccessSiteSchema>;
 export type AccessUser = z.infer<typeof AccessUserSchema>;
-export type ManagedUserCreateInput = z.infer<typeof ManagedUserCreateSchema>;
-export type ManagedUserUpdateInput = z.infer<typeof ManagedUserUpdateSchema>;
+export type EventAssignmentUpdateInput = z.infer<typeof EventAssignmentUpdateSchema>;
 export type TrackerBootstrapRequest = z.infer<typeof TrackerBootstrapRequestSchema>;
 export type TrackerBootstrapResponse = z.infer<typeof TrackerBootstrapResponseSchema>;
 export type TrackerEventRequest = z.infer<typeof TrackerEventRequestSchema>;

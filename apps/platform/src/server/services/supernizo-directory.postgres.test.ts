@@ -1,12 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { ManagedUserCreateSchema } from '@supernizo/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@generated/prisma/client';
 import { getDatabaseClient } from '@/server/db/client';
 import { DirectoryEventSchema } from '@/server/integrations/supernizo-contract';
 import { synchronizeDirectoryEvent, applyDirectoryState } from './supernizo-directory-service';
-import { updateManagedUser } from './access-management-service';
+import { updateAgentEventAssignments } from './access-management-service';
 import { fetchDirectoryUser } from '@/server/integrations/supernizo-directory-client';
 
 vi.mock('@/server/db/client', () => ({ getDatabaseClient: vi.fn() }));
@@ -117,19 +116,10 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
       }),
     ).rejects.toThrow('Conflicting');
   });
-  it('keeps tombstones and rejects local agent creation', async () => {
+  it('keeps deletion tombstones', async () => {
     const value = event('2', 'DELETED');
     await synchronizeDirectoryEvent(value);
     expect(await db.user.count({ where: { supernizoId: value.subject } })).toBe(1);
-    expect(
-      ManagedUserCreateSchema.safeParse({
-        displayName: 'Local agent',
-        email: 'a@example.com',
-        password: 'not-created-password',
-        role: 'AGENT',
-        siteIds: [],
-      }).success,
-    ).toBe(false);
   });
   it('does not merge a reserved-email collision into a local account', async () => {
     const value = event();
@@ -144,7 +134,7 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
       await db.user.delete({ where: { id: local.id } });
     }
   });
-  it('revalidates assignment, rejects managed field edits and preserves existing membership', async () => {
+  it('revalidates assignments and preserves existing membership after revocation', async () => {
     const value = event();
     await synchronizeDirectoryEvent(value);
     const user = await db.user.findUniqueOrThrow({ where: { supernizoId: value.subject } });
@@ -156,26 +146,9 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
     });
     try {
       vi.mocked(fetchDirectoryUser).mockResolvedValue(value);
-      await updateManagedUser(actor.id, user.id, {
-        displayName: value.user.displayName,
-        role: 'AGENT',
-        siteIds: [site.id],
-      });
-      await expect(
-        updateManagedUser(actor.id, user.id, {
-          displayName: 'Override',
-          role: 'ADMIN',
-          siteIds: [],
-        }),
-      ).rejects.toThrow('managed in Supernizo');
+      await updateAgentEventAssignments(actor.id, user.id, [site.id]);
       vi.mocked(fetchDirectoryUser).mockResolvedValue(event('2', 'REVOKED', value.subject));
-      await expect(
-        updateManagedUser(actor.id, user.id, {
-          displayName: value.user.displayName,
-          role: 'AGENT',
-          siteIds: [],
-        }),
-      ).rejects.toThrow('no longer');
+      await expect(updateAgentEventAssignments(actor.id, user.id, [])).rejects.toThrow('no longer');
       expect(await db.siteMember.count({ where: { userId: user.id, siteId: site.id } })).toBe(1);
     } finally {
       await db.site.delete({ where: { id: site.id } });

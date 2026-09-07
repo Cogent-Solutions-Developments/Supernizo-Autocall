@@ -1,21 +1,18 @@
 'use client';
 
-import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 
 import {
   AccessManagementSchema,
   AccessUserSchema,
   type AccessManagement as AccessManagementData,
-  type AccessSite,
   type AccessUser,
-  type StaffRole,
 } from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
-import { partitionAccessUsers, toggleSiteId } from './access-management-state';
+import { updateEventAssignment } from './access-management-state';
 
 const AccessManagementResponseSchema = z.object({ data: AccessManagementSchema });
 const AccessUserResponseSchema = z.object({ data: AccessUserSchema });
@@ -47,249 +44,84 @@ async function readAccessManagementResponse(response: Response): Promise<AccessM
   throw new Error(parsedError.success ? parsedError.data.error.message : 'The request failed.');
 }
 
-function SiteAssignments({
-  onChange,
-  selectedSiteIds,
-  sites,
-}: Readonly<{
-  onChange: (siteId: string, checked: boolean) => void;
-  selectedSiteIds: readonly string[];
-  sites: readonly AccessSite[];
-}>) {
-  if (sites.length === 0) {
-    return (
-      <p className="text-sm text-slate-500">
-        No sites are available yet. You can assign access after a site is registered.
-      </p>
-    );
-  }
-
-  return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {sites.map((site) => (
-        <label
-          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700"
-          key={site.id}
-        >
-          <input
-            checked={selectedSiteIds.includes(site.id)}
-            className="size-4 accent-blue-600"
-            onChange={(event) => onChange(site.id, event.currentTarget.checked)}
-            type="checkbox"
-          />
-          <span className="min-w-0 truncate">{site.name}</span>
-        </label>
-      ))}
-    </div>
-  );
-}
-
-function UserAccessCard({
-  currentUserId,
-  onUpdated,
-  sites,
-  user,
-}: Readonly<{
-  currentUserId: string;
-  onUpdated: (user: AccessUser) => void;
-  sites: readonly AccessSite[];
-  user: AccessUser;
-}>) {
-  const [displayName, setDisplayName] = useState(user.displayName ?? '');
-  const [role, setRole] = useState<StaffRole>(user.role);
-  const [siteIds, setSiteIds] = useState<string[]>(user.siteIds);
-  const [mutation, setMutation] = useState<MutationState>(initialMutationState);
-  const isSupernizo = user.source === 'SUPERNIZO';
-  const isUnavailable = isSupernizo ? user.eligibility !== 'ELIGIBLE' : user.role === 'AGENT';
-  const isCurrentAdministrator = user.id === currentUserId && user.role === 'ADMIN';
-
-  async function save(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setMutation({ error: null, saving: true, success: null });
-
-    try {
-      const response = await fetchAppApi(`/api/dashboard/access/users/${user.id}`, {
-        body: JSON.stringify({
-          displayName: displayName.trim() || null,
-          role,
-          siteIds: role === 'AGENT' ? siteIds : [],
-        }),
-        headers: { 'content-type': 'application/json' },
-        method: 'PATCH',
-      });
-      const updatedUser = await readUserResponse(response);
-      setDisplayName(updatedUser.displayName ?? '');
-      setRole(updatedUser.role);
-      setSiteIds(updatedUser.siteIds);
-      onUpdated(updatedUser);
-      setMutation({ error: null, saving: false, success: 'Access updated.' });
-    } catch (error: unknown) {
-      setMutation({
-        error: error instanceof Error ? error.message : 'The request failed.',
-        saving: false,
-        success: null,
-      });
-    }
-  }
-
-  return (
-    <form
-      className="grid gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4"
-      onSubmit={save}
-    >
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_11rem]">
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-          Display name
-          <input
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-            readOnly={isSupernizo || isUnavailable}
-            onChange={(event) => setDisplayName(event.currentTarget.value)}
-            value={displayName}
-          />
-          <span className="text-xs font-normal text-slate-500">{user.email}</span>
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-          Role
-          <select
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 disabled:bg-slate-100"
-            disabled={isCurrentAdministrator || isSupernizo || isUnavailable}
-            onChange={(event) => setRole(event.currentTarget.value as StaffRole)}
-            value={role}
-          >
-            <option disabled value="AGENT">
-              Agent
-            </option>
-            <option value="ADMIN">Admin</option>
-          </select>
-        </label>
-      </div>
-
-      {role === 'AGENT' ? (
-        <fieldset disabled={isUnavailable} className="grid gap-2">
-          <legend className="text-sm font-semibold text-slate-800">Site access</legend>
-          <p className="mb-2 text-xs text-slate-500">
-            {siteIds.length === 0
-              ? 'No sites assigned yet'
-              : `${siteIds.length} of ${sites.length} sites assigned`}
-          </p>
-          <SiteAssignments
-            onChange={(siteId, checked) =>
-              setSiteIds((current) => toggleSiteId(current, siteId, checked))
-            }
-            selectedSiteIds={siteIds}
-            sites={sites}
-          />
-        </fieldset>
-      ) : (
-        <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          Administrators can access every site and all management tools.
-        </p>
-      )}
-
-      {isSupernizo ? (
-        <p className="text-sm text-slate-600">
-          Managed in Supernizo ·{' '}
-          {user.eligibility === 'ELIGIBLE' ? 'Access granted' : user.eligibility?.toLowerCase()}
-          {user.lastSyncedAt
-            ? ` · Last synced ${new Date(user.lastSyncedAt).toLocaleString()}`
-            : ' · Awaiting synchronization'}
-        </p>
-      ) : isUnavailable ? (
-        <p className="text-sm text-slate-600">
-          Historical local agent. Grant this person access through Supernizo to use Autocall.
-        </p>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={mutation.saving || isUnavailable}
-          type="submit"
-        >
-          {mutation.saving ? 'Saving…' : 'Save access'}
-        </button>
-        {isCurrentAdministrator ? (
-          <span className="text-xs text-slate-500">Your own administrator role is protected.</span>
-        ) : null}
-        {mutation.error ? <span className="text-sm text-red-700">{mutation.error}</span> : null}
-        {mutation.success ? (
-          <span className="text-sm text-emerald-700">{mutation.success}</span>
-        ) : null}
-      </div>
-    </form>
+function availableAgents(users: readonly AccessUser[]): AccessUser[] {
+  return users.filter(
+    (user) =>
+      user.source === 'SUPERNIZO' && user.role === 'AGENT' && user.eligibility === 'ELIGIBLE',
   );
 }
 
 export function AccessManagement({
-  currentUserId,
   initialAccess,
 }: Readonly<{
-  currentUserId: string;
   initialAccess: AccessManagementData;
 }>) {
   const [sites, setSites] = useState(initialAccess.sites);
   const [users, setUsers] = useState(initialAccess.users);
+  const [agentId, setAgentId] = useState('');
+  const [siteId, setSiteId] = useState('');
   const [mutation, setMutation] = useState<MutationState>(initialMutationState);
-  const [refreshMutation, setRefreshMutation] = useState<MutationState>(initialMutationState);
-  const [refreshVersion, setRefreshVersion] = useState(0);
-  const { administrators, agents } = partitionAccessUsers(users);
+  const [refreshing, setRefreshing] = useState(false);
+  const agents = availableAgents(users);
+  const selectedAgent = agents.find((agent) => agent.id === agentId) ?? null;
+  const selectedSite = sites.find((site) => site.id === siteId) ?? null;
+  const isAssigned = Boolean(
+    selectedAgent && selectedSite && selectedAgent.siteIds.includes(siteId),
+  );
 
-  async function refreshAccess(): Promise<void> {
-    setRefreshMutation({ error: null, saving: true, success: null });
+  async function refresh(): Promise<void> {
+    setRefreshing(true);
+    setMutation(initialMutationState);
 
     try {
       const response = await fetchAppApi('/api/dashboard/access');
       const access = await readAccessManagementResponse(response);
       setSites(access.sites);
       setUsers(access.users);
-      setRefreshVersion((current) => current + 1);
-      setRefreshMutation({ error: null, saving: false, success: 'Access list refreshed.' });
-    } catch (error: unknown) {
-      setRefreshMutation({
-        error: error instanceof Error ? error.message : 'The request failed.',
-        saving: false,
-        success: null,
-      });
-    }
-  }
-
-  function updateUser(updatedUser: AccessUser): void {
-    setUsers((current) =>
-      current.map((candidate) => (candidate.id === updatedUser.id ? updatedUser : candidate)),
-    );
-  }
-
-  async function createUser(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    setMutation({ error: null, saving: true, success: null });
-
-    try {
-      const response = await fetchAppApi('/api/dashboard/access/users', {
-        body: JSON.stringify({
-          displayName: String(formData.get('displayName') ?? '').trim() || null,
-          email: String(formData.get('email') ?? '').trim(),
-          password: String(formData.get('password') ?? ''),
-          role: 'ADMIN',
-          siteIds: [],
-        }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      });
-      const createdUser = await readUserResponse(response);
-      setUsers((current) =>
-        [...current, createdUser].sort((left, right) => left.email.localeCompare(right.email)),
-      );
-      form.reset();
-      setMutation({ error: null, saving: false, success: 'User created.' });
     } catch (error: unknown) {
       setMutation({
-        error: error instanceof Error ? error.message : 'The request failed.',
+        error:
+          error instanceof Error ? error.message : 'The assignment list could not be refreshed.',
+        saving: false,
+        success: null,
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function saveAssignment(assigned: boolean): Promise<void> {
+    if (!selectedAgent || !selectedSite) return;
+
+    setMutation({ error: null, saving: true, success: null });
+    const siteIds = updateEventAssignment(selectedAgent.siteIds, selectedSite.id, assigned);
+
+    try {
+      const response = await fetchAppApi(`/api/dashboard/access/users/${selectedAgent.id}`, {
+        body: JSON.stringify({ siteIds }),
+        headers: { 'content-type': 'application/json' },
+        method: 'PATCH',
+      });
+      const updatedUser = await readUserResponse(response);
+      setUsers((current) =>
+        current.map((candidate) => (candidate.id === updatedUser.id ? updatedUser : candidate)),
+      );
+      setMutation({
+        error: null,
+        saving: false,
+        success: assigned ? 'Event assigned.' : 'Event assignment removed.',
+      });
+    } catch (error: unknown) {
+      setMutation({
+        error:
+          error instanceof Error ? error.message : 'The event assignment could not be updated.',
         saving: false,
         success: null,
       });
     }
   }
+
+  const assignmentsAreAvailable = agents.length > 0 && sites.length > 0;
 
   return (
     <div className="grid gap-8">
@@ -299,157 +131,118 @@ export function AccessManagement({
             Administration
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            Manage access
+            Event assignments
           </h1>
           <p className="mt-2 max-w-2xl leading-7 text-slate-600">
-            See every agent and control which sites each agent can access, now or later.
+            Assign Supernizo agents to the events they can handle in Autocall.
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <button
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={refreshMutation.saving}
-            onClick={() => void refreshAccess()}
-            type="button"
-          >
-            {refreshMutation.saving ? 'Refreshing…' : 'Refresh agents and sites'}
-          </button>
-          <Link
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            href="/dashboard"
-          >
-            Back to events
-          </Link>
+        <button
+          className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={refreshing}
+          onClick={() => void refresh()}
+          type="button"
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+        <div className="border-b border-slate-100 pb-6">
+          <h2 className="text-xl font-semibold text-slate-950">Assign an event</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            Supernizo manages users, roles and Autocall access. Autocall only stores the event
+            assignments below.
+          </p>
         </div>
-        {refreshMutation.error ? (
-          <p className="w-full text-right text-sm text-red-700" role="alert">
-            {refreshMutation.error}
+
+        {assignmentsAreAvailable ? (
+          <div className="mt-6 grid gap-5">
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="agent">
+                Agent
+                <select
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900"
+                  id="agent"
+                  onChange={(event) => {
+                    setAgentId(event.currentTarget.value);
+                    setMutation(initialMutationState);
+                  }}
+                  value={agentId}
+                >
+                  <option value="">Select an agent</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.displayName ?? agent.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium text-slate-700" htmlFor="event">
+                Event
+                <select
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900"
+                  id="event"
+                  onChange={(event) => {
+                    setSiteId(event.currentTarget.value);
+                    setMutation(initialMutationState);
+                  }}
+                  value={siteId}
+                >
+                  <option value="">Select an event</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!selectedAgent || !selectedSite || isAssigned || mutation.saving}
+                onClick={() => void saveAssignment(true)}
+                type="button"
+              >
+                {mutation.saving ? 'Saving…' : 'Assign event'}
+              </button>
+              <button
+                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={!selectedAgent || !selectedSite || !isAssigned || mutation.saving}
+                onClick={() => void saveAssignment(false)}
+                type="button"
+              >
+                Remove assignment
+              </button>
+              {selectedAgent && selectedSite ? (
+                <span className="text-sm text-slate-600">
+                  {isAssigned
+                    ? 'This agent is assigned to this event.'
+                    : 'This event is not assigned yet.'}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-6 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-600">
+            {agents.length === 0
+              ? 'No eligible Supernizo agents are available. Grant Autocall access in Supernizo, then refresh.'
+              : 'No events are available yet. Register an event before creating an assignment.'}
+          </p>
+        )}
+
+        {mutation.error ? (
+          <p className="mt-5 text-sm text-red-700" role="alert">
+            {mutation.error}
           </p>
         ) : null}
-        {refreshMutation.success ? (
-          <p aria-live="polite" className="w-full text-right text-sm text-emerald-700">
-            {refreshMutation.success}
+        {mutation.success ? (
+          <p aria-live="polite" className="mt-5 text-sm text-emerald-700">
+            {mutation.success}
           </p>
         ) : null}
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <h2 className="text-xl font-semibold text-slate-950">Add local administrator</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Agents are managed in Supernizo and appear below after Autocall access is granted. Local
-          administrator accounts are managed here.
-        </p>
-        <form className="mt-6 grid gap-5" onSubmit={createUser}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-              Display name
-              <input
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                name="displayName"
-                placeholder="e.g. Event coordinator"
-                required
-              />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-              Email
-              <input
-                autoComplete="off"
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                name="email"
-                required
-                type="email"
-              />
-            </label>
-            <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-              Initial password
-              <input
-                autoComplete="new-password"
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
-                minLength={12}
-                name="password"
-                required
-                type="password"
-              />
-              <span className="text-xs font-normal text-slate-500">At least 12 characters.</span>
-            </label>
-          </div>
-          <p className="rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700">
-            Local administrators can access every site and manage assignments.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={mutation.saving}
-              type="submit"
-            >
-              {mutation.saving ? 'Creating…' : 'Create administrator'}
-            </button>
-            {mutation.error ? <span className="text-sm text-red-700">{mutation.error}</span> : null}
-            {mutation.success ? (
-              <span className="text-sm text-emerald-700">{mutation.success}</span>
-            ) : null}
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">All agents</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Assign sites to agents whose Supernizo access is granted. Revoked and historical users
-              remain visible for reference.
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">
-            {agents.length} {agents.length === 1 ? 'agent' : 'agents'}
-          </span>
-        </div>
-        <div className="mt-6 grid gap-4">
-          {agents.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
-              No agents are available yet. Grant Autocall access in Supernizo, then refresh this
-              list.
-            </p>
-          ) : (
-            agents.map((user) => (
-              <UserAccessCard
-                currentUserId={currentUserId}
-                key={`${refreshVersion}:${user.id}`}
-                onUpdated={updateUser}
-                sites={sites}
-                user={user}
-              />
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-950">Administrators</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Administrators can access every site and manage agent permissions.
-            </p>
-          </div>
-          <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
-            {administrators.length}{' '}
-            {administrators.length === 1 ? 'administrator' : 'administrators'}
-          </span>
-        </div>
-        <div className="mt-6 grid gap-4">
-          {administrators.map((user) => (
-            <UserAccessCard
-              currentUserId={currentUserId}
-              key={`${refreshVersion}:${user.id}`}
-              onUpdated={updateUser}
-              sites={sites}
-              user={user}
-            />
-          ))}
-        </div>
       </section>
     </div>
   );

@@ -8,7 +8,7 @@ Implementation covers both `Supernizo-Autocall` and the sibling `lead-generation
 - Signed delivery provisions agents before their first login. Duplicate, reordered and concurrent events preserve the latest source revision.
 - Supernizo controls identity, role and eligibility; Autocall controls site/event membership. Revocation preserves membership and historical identity.
 - A real Python relay delivered to the built Next.js receiver over HTTP using an isolated PostgreSQL database. The return lookup used the actual signed FastAPI endpoint over test TLS.
-- Playwright verified the management page: source fields read-only, site assignment persisted, a forged role change rejected, and revocation disabled editing while retaining membership. No browser page errors occurred.
+- Playwright verified the earlier management page: source fields were read-only, site assignment persisted, a forged role change was rejected, and revocation disabled editing while retaining membership. The current screen limits the API and UI to event assignments only.
 - The existing-user reconciliation CLI completed successfully through the signed source API.
 
 ## Commands and results
