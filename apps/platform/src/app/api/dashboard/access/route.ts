@@ -1,9 +1,7 @@
-import { NextResponse } from 'next/server';
-
 import { requireRole } from '@/server/auth/access';
+import { ForbiddenError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { listAccessManagement } from '@/server/services/access-management-service';
 
 export const runtime = 'nodejs';
 
@@ -12,8 +10,9 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     await requireRole('ADMIN');
-    const access = await listAccessManagement();
-    return withRequestId(NextResponse.json({ data: access, requestId }), requestId);
+    throw new ForbiddenError(
+      'Event assignments have been removed. Users with Autocall access can access all active events.',
+    );
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);
   }

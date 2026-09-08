@@ -1,38 +1,18 @@
-import { NextResponse } from 'next/server';
-
-import { EventAssignmentUpdateSchema, IdSchema } from '@supernizo/shared';
-
 import { requireRole } from '@/server/auth/access';
-import { ValidationError } from '@/server/errors/app-error';
+import { ForbiddenError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { updateAgentEventAssignments } from '@/server/services/access-management-service';
-
-type ManagedUserRouteContext = Readonly<{
-  params: Promise<{ userId: string }>;
-}>;
 
 export const runtime = 'nodejs';
 
-export async function PATCH(request: Request, context: ManagedUserRouteContext): Promise<Response> {
+export async function PATCH(request: Request): Promise<Response> {
   const requestId = getRequestId(request);
 
   try {
-    const actor = await requireRole('ADMIN');
-    const [body, { userId: rawUserId }] = await Promise.all([
-      request.json().catch(() => {
-        throw new ValidationError('The access request must be valid JSON.');
-      }),
-      context.params,
-    ]);
-    const userId = IdSchema.safeParse(rawUserId);
-    const parsed = EventAssignmentUpdateSchema.safeParse(body);
-    if (!userId.success || !parsed.success) {
-      throw new ValidationError('The user access settings are invalid.');
-    }
-
-    const user = await updateAgentEventAssignments(actor.id, userId.data, parsed.data.siteIds);
-    return withRequestId(NextResponse.json({ data: user, requestId }), requestId);
+    await requireRole('ADMIN');
+    throw new ForbiddenError(
+      'Event assignments have been removed. Users with Autocall access can access all active events.',
+    );
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);
   }

@@ -57,7 +57,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const [user, query] = await Promise.all([requireUser(), searchParams]);
-  const sites = await listSitesForUser(user.id, user.role);
+  const sites = await listSitesForUser(user.role);
   const rawSiteId = scalar(query.siteId);
   const chosenSite = rawSiteId ? sites.find((site) => site.id === rawSiteId) : sites.at(0);
   if (!chosenSite) notFound();

@@ -7,7 +7,7 @@ This runbook deploys the Supernizo system as four coordinated repositories:
 | `lead-generation-tool` | Identity, roles, access eligibility, SSO code exchange, directory outbox, business API and workers | Docker Compose on the backend host  |
 | `lead-gen-dashboard`   | Light portal, including user and role administration                                               | Vercel                              |
 | `supernizo-heavy`      | Heavy portal and Autocall launcher                                                                 | Vercel                              |
-| `Supernizo-Autocall`   | Event assignment, calling, tracking and the directory receiver                                     | Hetzner Docker Compose behind Nginx |
+| `Supernizo-Autocall`   | Shared active events, calling, tracking and the directory receiver                                 | Hetzner Docker Compose behind Nginx |
 
 ## 1. Set the canonical URLs once
 
@@ -155,10 +155,10 @@ Run these checks in staging first, then production with a test employee:
 3. An eligible user completes `/autocall-db/sso/start` → portal →
    `/sso/callback`; a replayed code, wrong state, revoked account and inactive
    user fail closed.
-4. The Supernizo user appears in Autocall's two-selector event assignment page.
-   Assign an event, verify the current-assignment table, revoke eligibility,
-   then verify the user cannot receive a new assignment or use protected
-   Autocall routes.
+4. An eligible Supernizo user sees every active event immediately, without an
+   event assignment or directory-selector step. Verify live visitors, chat,
+   calls and analytics on two active events; inactive events remain unavailable
+   to agents. Revoke eligibility and verify protected routes reject the user.
 5. Verify LiveKit call setup, tracker public-origin checks, Redis-backed
    presence, and directory reconciliation. Monitor failed outbox rows and
    pending age.

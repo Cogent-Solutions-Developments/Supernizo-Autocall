@@ -31,7 +31,7 @@ function duration(value: number | null): string {
 export default async function CallHistoryPage({ searchParams }: CallHistoryPageProps) {
   const [user, query] = await Promise.all([requireUser(), searchParams]);
   await reconcileStaleCallsForAgent(user.id);
-  const sites = await listSitesForUser(user.id, user.role);
+  const sites = await listSitesForUser(user.role);
   const siteId = scalar(query.siteId) ?? sites.at(0)?.id;
   if (!siteId || !IdSchema.safeParse(siteId).success) notFound();
   await requireSiteAccess(siteId);

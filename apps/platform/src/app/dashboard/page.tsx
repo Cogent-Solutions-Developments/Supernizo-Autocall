@@ -8,7 +8,7 @@ export const metadata = {
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const sites = await listSitesForUser(user.id, user.role);
+  const sites = await listSitesForUser(user.role);
 
   return (
     <div className="grid gap-8">

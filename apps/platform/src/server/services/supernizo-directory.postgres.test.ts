@@ -2,16 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@generated/prisma/client';
+import { listAgentsForSite } from './call-history-service';
+import { listSitesForUser } from './site-service';
 import { getDatabaseClient } from '@/server/db/client';
 import { DirectoryEventSchema } from '@/server/integrations/supernizo-contract';
 import { synchronizeDirectoryEvent, applyDirectoryState } from './supernizo-directory-service';
-import { updateAgentEventAssignments } from './access-management-service';
-import { fetchDirectoryUser } from '@/server/integrations/supernizo-directory-client';
 
 vi.mock('@/server/db/client', () => ({ getDatabaseClient: vi.fn() }));
-vi.mock('@/server/integrations/supernizo-directory-client', () => ({
-  fetchDirectoryUser: vi.fn(),
-}));
 
 const url = process.env.BRIDGE_TEST_DATABASE_URL;
 const subjects: string[] = [];
@@ -67,7 +64,11 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
     await synchronizeDirectoryEvent(value);
     const user = await db.user.findUniqueOrThrow({ where: { supernizoId: value.subject } });
     const site = await db.site.create({
-      data: { name: 'Bridge test', publicKey: `site_${randomUUID()}`, allowedOrigins: [] },
+      data: {
+        name: 'Bridge test',
+        publicKey: `site_${randomUUID()}`,
+        allowedOrigins: ['https://event.example'],
+      },
     });
     try {
       await db.siteMember.create({ data: { siteId: site.id, userId: user.id } });
@@ -116,6 +117,78 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
       }),
     ).rejects.toThrow('Conflicting');
   });
+  it('lists all active events without memberships and hides deactivated events from agents', async () => {
+    const value = event();
+    await synchronizeDirectoryEvent(value);
+    const user = await db.user.findUniqueOrThrow({ where: { supernizoId: value.subject } });
+    const sites = await db.site.createManyAndReturn({
+      data: [
+        {
+          name: 'Shared active event',
+          publicKey: 'site_' + randomUUID(),
+          allowedOrigins: ['https://event.example'],
+          status: 'ACTIVE',
+        },
+        {
+          name: 'Inactive event',
+          publicKey: 'site_' + randomUUID(),
+          allowedOrigins: ['https://event.example'],
+          status: 'INACTIVE',
+        },
+      ],
+    });
+    const active = sites.find((site) => site.status === 'ACTIVE')!;
+    const inactive = sites.find((site) => site.status === 'INACTIVE')!;
+    try {
+      expect(await db.siteMember.count({ where: { userId: user.id } })).toBe(0);
+      const visible = await listSitesForUser('AGENT');
+      expect(visible.map((site) => site.id)).toContain(active.id);
+      expect(visible.map((site) => site.id)).not.toContain(inactive.id);
+      // Even a legacy assignment cannot grant access to an inactive event.
+      await db.siteMember.create({ data: { userId: user.id, siteId: inactive.id } });
+      expect((await listSitesForUser('AGENT')).map((site) => site.id)).not.toContain(inactive.id);
+      expect((await listSitesForUser('ADMIN')).map((site) => site.id)).toEqual(
+        expect.arrayContaining(sites.map((site) => site.id)),
+      );
+      await db.site.update({ where: { id: active.id }, data: { status: 'INACTIVE' } });
+      expect((await listSitesForUser('AGENT')).map((site) => site.id)).not.toContain(active.id);
+    } finally {
+      await db.site.deleteMany({ where: { id: { in: sites.map((site) => site.id) } } });
+    }
+  });
+  it('keeps historical call participants filterable without event assignments', async () => {
+    const value = event();
+    await synchronizeDirectoryEvent(value);
+    const user = await db.user.findUniqueOrThrow({ where: { supernizoId: value.subject } });
+    const site = await db.site.create({
+      data: {
+        name: 'History test',
+        publicKey: 'site_' + randomUUID(),
+        allowedOrigins: ['https://event.example'],
+      },
+    });
+    try {
+      expect(await listAgentsForSite(site.id)).toEqual([]);
+      const visitor = await db.visitor.create({
+        data: { siteId: site.id, anonymousId: randomUUID() },
+      });
+      await db.call.create({
+        data: {
+          siteId: site.id,
+          visitorId: visitor.id,
+          agentId: user.id,
+          type: 'AUDIO',
+          status: 'ENDED',
+        },
+      });
+      expect(await listAgentsForSite(site.id)).toEqual([{ id: user.id, name: user.displayName }]);
+      await synchronizeDirectoryEvent(event('2', 'REVOKED', value.subject));
+      expect(await listAgentsForSite(site.id)).toEqual([{ id: user.id, name: user.displayName }]);
+      expect(await db.siteMember.count({ where: { siteId: site.id } })).toBe(0);
+    } finally {
+      await db.site.delete({ where: { id: site.id } });
+    }
+  });
   it('keeps deletion tombstones', async () => {
     const value = event('2', 'DELETED');
     await synchronizeDirectoryEvent(value);
@@ -132,27 +205,6 @@ describe.skipIf(!url)('Supernizo directory PostgreSQL integration', () => {
       expect(await db.integrationInbox.count({ where: { eventId: value.eventId } })).toBe(0);
     } finally {
       await db.user.delete({ where: { id: local.id } });
-    }
-  });
-  it('revalidates assignments and preserves existing membership after revocation', async () => {
-    const value = event();
-    await synchronizeDirectoryEvent(value);
-    const user = await db.user.findUniqueOrThrow({ where: { supernizoId: value.subject } });
-    const actor = await db.user.create({
-      data: { email: `${randomUUID()}@test.invalid`, globalRole: 'ADMIN' },
-    });
-    const site = await db.site.create({
-      data: { name: 'Assignment test', publicKey: `site_${randomUUID()}`, allowedOrigins: [] },
-    });
-    try {
-      vi.mocked(fetchDirectoryUser).mockResolvedValue(value);
-      await updateAgentEventAssignments(actor.id, user.id, [site.id]);
-      vi.mocked(fetchDirectoryUser).mockResolvedValue(event('2', 'REVOKED', value.subject));
-      await expect(updateAgentEventAssignments(actor.id, user.id, [])).rejects.toThrow('no longer');
-      expect(await db.siteMember.count({ where: { userId: user.id, siteId: site.id } })).toBe(1);
-    } finally {
-      await db.site.delete({ where: { id: site.id } });
-      await db.user.delete({ where: { id: actor.id } });
     }
   });
 });

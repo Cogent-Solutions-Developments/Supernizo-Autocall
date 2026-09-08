@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   user: vi.fn(),
-  membership: vi.fn(),
+  site: vi.fn(),
   introspect: vi.fn(),
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`);
@@ -14,7 +14,7 @@ vi.mock('@/server/auth/auth-options', () => ({ getAuthOptions: () => ({}) }));
 vi.mock('@/server/db/client', () => ({
   getDatabaseClient: () => ({
     user: { findUnique: mocks.user },
-    siteMember: { findUnique: mocks.membership },
+    site: { findUnique: mocks.site },
   }),
 }));
 vi.mock('@/server/auth/supernizo-sso', () => ({
@@ -70,10 +70,13 @@ it('uses live upstream permissions even when local role says ADMIN', async () =>
   mocks.user.mockResolvedValue({ id: 'agent', supernizoId: subject, globalRole: 'ADMIN' });
   mocks.introspect.mockResolvedValue({ subject, role: 'AGENT' });
   await expect(requireRole('ADMIN')).rejects.toThrow();
-  mocks.membership.mockResolvedValue(null);
-  await expect(requireSiteAccess('not-assigned')).rejects.toThrow('You do not have access');
-  mocks.membership.mockResolvedValue({ id: 'membership' });
-  await expect(requireSiteAccess('assigned')).resolves.toMatchObject({ siteRole: 'AGENT' });
+  mocks.site.mockResolvedValue({ status: 'ACTIVE' });
+  await expect(requireSiteAccess('unassigned-event')).resolves.toMatchObject({
+    siteId: 'unassigned-event',
+    siteRole: 'AGENT',
+  });
+  mocks.site.mockResolvedValue({ status: 'INACTIVE' });
+  await expect(requireSiteAccess('inactive-event')).rejects.toThrow('not active');
 });
 it('rejects revoked sessions and mismatched identity mappings', async () => {
   mocks.session.mockResolvedValue({
@@ -98,4 +101,40 @@ it('denies access during temporary outages without redirecting the session to lo
   }
   mocks.introspect.mockResolvedValue({ subject, role: 'AGENT' });
   await expect(requireDashboardUser()).resolves.toMatchObject({ id: 'agent', role: 'AGENT' });
+});
+
+it.each([{ status: 'INACTIVE' }, null])('denies unavailable events to agents: %j', async (site) => {
+  mocks.session.mockResolvedValue({
+    user: { id: 'agent', supernizo: { subject, version: 2, expiresAt: 9999999999 } },
+  });
+  mocks.user.mockResolvedValue({ id: 'agent', supernizoId: subject, globalRole: 'AGENT' });
+  mocks.introspect.mockResolvedValue({ subject, role: 'AGENT' });
+  mocks.site.mockResolvedValue(site);
+  await expect(requireSiteAccess('event')).rejects.toThrow('not active');
+});
+
+it('grants access to multiple active events without any membership or directory roster lookup', async () => {
+  mocks.session.mockResolvedValue({
+    user: { id: 'agent', supernizo: { subject, version: 2, expiresAt: 9999999999 } },
+  });
+  mocks.user.mockResolvedValue({ id: 'agent', supernizoId: subject, globalRole: 'AGENT' });
+  mocks.introspect.mockResolvedValue({ subject, role: 'AGENT' });
+  mocks.site.mockResolvedValue({ status: 'ACTIVE' });
+  for (const siteId of ['first-event', 'new-event']) {
+    await expect(requireSiteAccess(siteId)).resolves.toMatchObject({ siteId, siteRole: 'AGENT' });
+  }
+  mocks.introspect.mockRejectedValue(new UnauthorizedError('revoked'));
+  await expect(requireSiteAccess('first-event')).rejects.toThrow('revoked');
+});
+
+it('preserves administrator access to inactive events for management', async () => {
+  mocks.session.mockResolvedValue({ user: { id: 'admin' } });
+  mocks.user.mockResolvedValue({ id: 'admin', globalRole: 'ADMIN' });
+  await expect(requireSiteAccess('inactive-event')).resolves.toMatchObject({ siteRole: 'ADMIN' });
+});
+
+it('rejects unauthenticated event access before reading any event', async () => {
+  mocks.session.mockResolvedValue(null);
+  await expect(requireSiteAccess('active-event')).rejects.toBeInstanceOf(UnauthorizedError);
+  expect(mocks.site).not.toHaveBeenCalled();
 });

@@ -110,18 +110,14 @@ export async function requireSiteAccess(siteId: string): Promise<SiteAccess> {
     return { siteId, siteRole: 'ADMIN', user };
   }
 
-  const membership = await getDatabaseClient().siteMember.findUnique({
-    where: {
-      siteId_userId: {
-        siteId,
-        userId: user.id,
-      },
-    },
-    select: { id: true },
+  // Supernizo eligibility is checked by requireUser; event assignments are retired.
+  const site = await getDatabaseClient().site.findUnique({
+    where: { id: siteId },
+    select: { status: true },
   });
 
-  if (!membership) {
-    throw new ForbiddenError('You do not have access to this site.');
+  if (!site || site.status !== 'ACTIVE') {
+    throw new ForbiddenError('This event is not active or is unavailable.');
   }
 
   return {
