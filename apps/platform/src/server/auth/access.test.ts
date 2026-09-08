@@ -4,8 +4,12 @@ const mocks = vi.hoisted(() => ({
   user: vi.fn(),
   membership: vi.fn(),
   introspect: vi.fn(),
+  redirect: vi.fn((path: string) => {
+    throw new Error(`redirect:${path}`);
+  }),
 }));
 vi.mock('next-auth/next', () => ({ getServerSession: mocks.session }));
+vi.mock('next/navigation', () => ({ redirect: mocks.redirect }));
 vi.mock('@/server/auth/auth-options', () => ({ getAuthOptions: () => ({}) }));
 vi.mock('@/server/db/client', () => ({
   getDatabaseClient: () => ({
@@ -28,6 +32,11 @@ it('rejects existing local agent sessions', async () => {
   mocks.session.mockResolvedValue({ user: { id: 'agent' } });
   mocks.user.mockResolvedValue({ id: 'agent', globalRole: 'AGENT' });
   await expect(requireUser()).rejects.toThrow('Sign in through Supernizo');
+});
+it('uses a route-relative login redirect so App Router applies the base path once', async () => {
+  mocks.session.mockResolvedValue(null);
+  await expect(requireDashboardUser()).rejects.toThrow('redirect:/login');
+  expect(mocks.redirect).toHaveBeenCalledWith('/login');
 });
 it('retains local administrator access without contacting Supernizo', async () => {
   mocks.session.mockResolvedValue({ user: { id: 'admin' } });

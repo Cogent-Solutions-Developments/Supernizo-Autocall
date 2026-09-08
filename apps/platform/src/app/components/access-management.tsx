@@ -12,7 +12,7 @@ import {
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
-import { updateEventAssignment } from './access-management-state';
+import { currentEventAssignments, updateEventAssignment } from './access-management-state';
 
 const AccessManagementResponseSchema = z.object({ data: AccessManagementSchema });
 const AccessUserResponseSchema = z.object({ data: AccessUserSchema });
@@ -51,6 +51,15 @@ function availableAgents(users: readonly AccessUser[]): AccessUser[] {
   );
 }
 
+function formatDirectorySync(value: string | null | undefined): string {
+  if (!value) return 'Not synced';
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
 export function AccessManagement({
   initialAccess,
 }: Readonly<{
@@ -65,6 +74,7 @@ export function AccessManagement({
   const agents = availableAgents(users);
   const selectedAgent = agents.find((agent) => agent.id === agentId) ?? null;
   const selectedSite = sites.find((site) => site.id === siteId) ?? null;
+  const assignmentRecords = currentEventAssignments(users, sites);
   const isAssigned = Boolean(
     selectedAgent && selectedSite && selectedAgent.siteIds.includes(siteId),
   );
@@ -251,6 +261,78 @@ export function AccessManagement({
             {mutation.success}
           </p>
         ) : null}
+      </section>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">Current event assignments</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Every active assignment stored in Autocall for Supernizo agents.
+            </p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+            {assignmentRecords.length} {assignmentRecords.length === 1 ? 'record' : 'records'}
+          </span>
+        </div>
+
+        {assignmentRecords.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-600">
+            No event assignments have been created yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="mt-5 w-full min-w-[46rem] text-left text-sm">
+              <caption className="sr-only">Current Supernizo agent event assignments</caption>
+              <thead className="border-b border-slate-200 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+                <tr>
+                  <th className="px-3 py-3" scope="col">
+                    Agent
+                  </th>
+                  <th className="px-3 py-3" scope="col">
+                    Event
+                  </th>
+                  <th className="px-3 py-3" scope="col">
+                    Access
+                  </th>
+                  <th className="px-3 py-3" scope="col">
+                    Directory synced
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignmentRecords.map(({ agent, event }) => (
+                  <tr
+                    className="border-b border-slate-100 last:border-0"
+                    key={`${agent.id}-${event.id}`}
+                  >
+                    <td className="px-3 py-4">
+                      <p className="font-semibold text-slate-900">
+                        {agent.displayName ?? agent.email}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">{agent.email}</p>
+                    </td>
+                    <td className="px-3 py-4 font-medium text-slate-800">{event.name}</td>
+                    <td className="px-3 py-4">
+                      <span
+                        className={
+                          agent.eligibility === 'ELIGIBLE'
+                            ? 'rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700'
+                            : 'rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700'
+                        }
+                      >
+                        {agent.eligibility ?? 'UNKNOWN'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-4 text-slate-600">
+                      {formatDirectorySync(agent.lastSyncedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
