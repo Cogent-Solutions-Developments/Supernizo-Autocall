@@ -26,22 +26,20 @@ test.describe('agent and visitor website chat', () => {
     await agentPage.goto('/dashboard/live');
     await expect(agentPage.getByRole('heading', { name: 'Live visitors' })).toBeVisible();
 
-    await agentPage.getByRole('button', { name: 'Chat' }).first().click();
-    const agentChat = agentPage.getByRole('dialog', { name: /live chat/i });
-    await expect(agentChat.getByLabel('Message')).toBeVisible({ timeout: 10_000 });
-    await agentChat.getByLabel('Message').fill('Hello from the dashboard');
-    await agentChat.getByRole('button', { name: 'Send' }).click();
-
     const visitorChat = visitorPage.frameLocator('iframe[title="Website chat"]');
     await visitorChat.getByRole('button', { name: 'Open chat' }).click();
-    await expect(visitorChat.getByText('Hello from the dashboard')).toBeVisible({
-      timeout: 10_000,
-    });
-
     await expect(visitorChat.getByLabel('Message')).toBeEnabled({ timeout: 10_000 });
     await visitorChat.getByLabel('Message').fill('Hello from the visitor website');
     await visitorChat.getByRole('button', { name: 'Send' }).click();
+
+    await agentPage.getByRole('button', { name: 'Chat' }).first().click();
+    const agentChat = agentPage.getByRole('dialog', { name: /live chat/i });
     await expect(agentChat.getByText('Hello from the visitor website')).toBeVisible({
+      timeout: 10_000,
+    });
+    await agentChat.getByLabel('Message').fill('Hello from the dashboard');
+    await agentChat.getByRole('button', { name: 'Send' }).click();
+    await expect(visitorChat.getByText('Hello from the dashboard')).toBeVisible({
       timeout: 10_000,
     });
 
