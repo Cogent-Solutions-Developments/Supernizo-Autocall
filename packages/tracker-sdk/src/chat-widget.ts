@@ -73,10 +73,13 @@ function isChatThreadResponse(value: unknown): value is ChatThreadResponse {
 
 function isOutboundMessage(
   value: unknown,
-): value is Readonly<{ content: string; threadId: string }> {
+): value is Readonly<{ content: string; threadId?: string }> {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as { content?: unknown; threadId?: unknown };
-  return typeof candidate.content === 'string' && typeof candidate.threadId === 'string';
+  return (
+    typeof candidate.content === 'string' &&
+    (candidate.threadId === undefined || typeof candidate.threadId === 'string')
+  );
 }
 
 function isMessage(value: unknown): value is ChatMessage {
@@ -738,11 +741,16 @@ export class ChatWidgetController {
   }
 
   private async sendMessage(
-    message: Readonly<{ content: string; threadId: string }>,
+    message: Readonly<{ content: string; threadId?: string }>,
   ): Promise<void> {
-    if (!this.currentConfig || message.threadId !== this.currentConfig.threadId) return;
     const content = message.content.trim().slice(0, 2_000);
     if (!content) return;
+
+    if (!message.threadId) {
+      await this.startVisitorChat(content);
+      return;
+    }
+    if (!this.currentConfig || message.threadId !== this.currentConfig.threadId) return;
 
     const endpoint = new URL(
       resolveApplicationEndpoint(
@@ -766,5 +774,32 @@ export class ChatWidgetController {
       { message: body.data, type: 'supernizo-chat-message' },
       new URL(this.bootstrapEndpoint).origin,
     );
+  }
+
+  private async startVisitorChat(content: string): Promise<void> {
+    const endpoint = new URL(
+      resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/thread'),
+    );
+    const response = await fetch(endpoint, {
+      body: JSON.stringify({ content, context: this.context }),
+      credentials: 'omit',
+      headers: { 'content-type': 'text/plain;charset=UTF-8' },
+      keepalive: true,
+      method: 'POST',
+      mode: 'cors',
+    });
+    if (!response.ok) return;
+
+    const body: unknown = await response.json();
+    if (!body || typeof body !== 'object' || !('data' in body) || !isChatThreadResponse(body.data))
+      return;
+
+    this.hasSyncedThread = true;
+    this.currentConfig = {
+      messages: body.data.history.messages,
+      threadId: body.data.thread.id,
+      token: body.data.realtime.token,
+    };
+    this.postConfig();
   }
 }
