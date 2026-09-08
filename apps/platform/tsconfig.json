@@ -5,6 +5,7 @@
     "incremental": true,
     "jsx": "preserve",
     "plugins": [{ "name": "next" }],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@generated/*": ["../../generated/*"]

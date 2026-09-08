@@ -1,13 +1,7 @@
 import 'server-only';
 
 export type AppErrorCode =
-  | 'validation_error'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'not_found'
-  | 'conflict'
-  | 'rate_limited'
-  | 'service_unavailable';
+  'validation_error' | 'unauthorized' | 'forbidden' | 'not_found' | 'conflict' | 'rate_limited';
 
 type AppErrorOptions = Readonly<{
   cause?: unknown;
@@ -51,9 +45,4 @@ export class ConflictError extends AppError {
 export class RateLimitError extends AppError {
   public readonly code = 'rate_limited';
   public readonly statusCode = 429;
-}
-
-export class ServiceUnavailableError extends AppError {
-  public readonly code = 'service_unavailable';
-  public readonly statusCode = 503;
 }

@@ -8,5 +8,3 @@ pnpm-lock.yaml
 apps/platform/next-env.d.ts
 apps/platform/public/sdk/tracker.js
 generated/
-.agents/
-.claude/

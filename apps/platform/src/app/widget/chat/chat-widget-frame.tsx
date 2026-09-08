@@ -10,7 +10,6 @@ import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
 import { mergeChatMessage } from '@/app/components/chat-state';
 import { FlowingRibbons } from '@/app/components/flowing-ribbons';
-import { withAppBasePath } from '@/lib/app-path';
 
 import { NizoVerifiedIcon } from '../call/call-action-icons';
 
@@ -39,9 +38,9 @@ const messageDayFormatter = new Intl.DateTimeFormat(undefined, {
 function displayAgentName(name: string | null | undefined): string {
   const normalizedName = name?.trim().toLowerCase();
   if (!normalizedName || ['support team', 'local admin', 'nizo'].includes(normalizedName)) {
-    return 'Swetha Sahanya';
+    return 'Soniya Sahanya';
   }
-  return name?.trim() || 'Swetha Sahanya';
+  return name?.trim() || 'Soniya Sahanya';
 }
 
 function messageTime(sentAt: string): string {
@@ -157,9 +156,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
       <RealtimeProvider
         key={config?.token ?? 'unauthenticated'}
         api={{
-          url: config
-            ? withAppBasePath(`/api/realtime/${encodeURIComponent(config.token)}`)
-            : withAppBasePath('/api/realtime'),
+          url: config ? `/api/realtime/${encodeURIComponent(config.token)}` : '/api/realtime',
           withCredentials: false,
         }}
       >
@@ -289,7 +286,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                     How Can We Help?
                   </h1>
                   <p className="m-0 mt-3 max-w-[270px] text-[13px] leading-5 text-[#71717a]">
-                    Send a message. Swetha and the event team are ready to help.
+                    Send a message. Soniya and the event team are ready to help.
                   </p>
                 </div>
               )}
@@ -361,8 +358,8 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           margin: 0;
           overflow: hidden;
           font-family:
-            var(--font-app-sans),
-            Geist,
+            var(--font-google-sans),
+            'Google Sans',
             ui-sans-serif,
             system-ui,
             -apple-system,

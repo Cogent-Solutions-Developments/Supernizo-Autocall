@@ -3,12 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
-  ChatInboxQuerySchema,
-  EventAssignmentUpdateSchema,
   PaginationSchema,
-  RealtimeEventSchema,
   RequestIdSchema,
-  StaffRoleSchema,
   TrackerBootstrapResponseSchema,
   UtcDateTimeSchema,
   createApiSuccessEnvelopeSchema,
@@ -88,47 +84,5 @@ describe('shared API contracts', () => {
     expect(() =>
       CallVisitorMediaFailureRequestSchema.parse({ context, failureCode: 'UNSAFE_FAILURE' }),
     ).toThrow();
-  });
-
-  it('supports only administrator and agent staff roles', () => {
-    expect(StaffRoleSchema.parse('ADMIN')).toBe('ADMIN');
-    expect(StaffRoleSchema.parse('AGENT')).toBe('AGENT');
-    expect(() => StaffRoleSchema.parse('VIEWER')).toThrow();
-  });
-
-  it('accepts only event assignment changes', () => {
-    expect(EventAssignmentUpdateSchema.parse({ siteIds: ['site_1', 'site_1'] }).siteIds).toEqual([
-      'site_1',
-    ]);
-    expect(
-      EventAssignmentUpdateSchema.safeParse({
-        displayName: 'Unmanaged change',
-        siteIds: [],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('validates a visitor message sent to the agent dashboard', () => {
-    expect(
-      RealtimeEventSchema.parse({
-        message: {
-          content: 'Could you help me?',
-          id: 'message_123',
-          senderName: 'Visitor',
-          senderType: 'VISITOR',
-          sentAt: '2026-08-31T08:00:00.000Z',
-          threadId: 'thread_123',
-        },
-        type: 'chat.incoming',
-        visitorId: 'visitor_123',
-      }),
-    ).toMatchObject({ type: 'chat.incoming', visitorId: 'visitor_123' });
-  });
-
-  it('accepts a bounded chat inbox query for an authorized site', () => {
-    expect(ChatInboxQuerySchema.parse({ limit: '20', siteId: 'site_123' })).toEqual({
-      limit: 20,
-      siteId: 'site_123',
-    });
   });
 });

@@ -50,7 +50,7 @@ export const UtcDateTimeSchema = z
   .datetime({ offset: true })
   .refine((value) => value.endsWith('Z'), 'Must be an ISO 8601 timestamp in UTC.');
 
-export const StaffRoleSchema = z.enum(['ADMIN', 'AGENT']);
+export const StaffRoleSchema = z.enum(['ADMIN', 'AGENT', 'VIEWER']);
 export const SiteStatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 export const AgentAvailabilitySchema = z.enum(['AVAILABLE', 'BUSY', 'OFFLINE']);
 export const AgentPresenceHeartbeatSchema = z.object({
@@ -98,42 +98,6 @@ export const SiteSettingsSchema = SiteCreateSchema.extend({
   status: SiteStatusSchema,
   updatedAt: UtcDateTimeSchema,
 });
-
-export const AccessSiteSchema = z.object({
-  id: IdSchema,
-  name: z.string().trim().min(1).max(191),
-});
-
-export const AccessUserSchema = z.object({
-  source: z.enum(['LOCAL', 'SUPERNIZO']).optional(),
-  eligibility: z
-    .enum(['ELIGIBLE', 'REVOKED', 'DISABLED', 'DELETED', 'UNKNOWN', 'LOCAL'])
-    .optional(),
-  lastSyncedAt: UtcDateTimeSchema.nullable().optional(),
-  createdAt: UtcDateTimeSchema,
-  displayName: z.string().trim().min(1).max(191).nullable(),
-  email: z.string().email().max(191),
-  id: IdSchema,
-  role: StaffRoleSchema,
-  siteIds: z.array(IdSchema),
-  updatedAt: UtcDateTimeSchema,
-});
-
-export const AccessManagementSchema = z.object({
-  sites: z.array(AccessSiteSchema),
-  users: z.array(AccessUserSchema),
-});
-
-const AssignedSiteIdsSchema = z
-  .array(IdSchema)
-  .max(1_000)
-  .transform((siteIds) => Array.from(new Set(siteIds)));
-
-export const EventAssignmentUpdateSchema = z
-  .object({
-    siteIds: AssignedSiteIdsSchema,
-  })
-  .strict();
 
 export const SitePublicKeySchema = z
   .string()
@@ -267,12 +231,6 @@ export const ChatThreadSchema = z.object({
   visitorId: IdSchema,
 });
 
-export const ChatInboxThreadSchema = ChatThreadSchema.extend({
-  lastMessageAt: UtcDateTimeSchema.nullable(),
-  lastMessagePreview: z.string().trim().min(1).max(2_000).nullable(),
-  visitorLabel: z.string().trim().min(1).max(191),
-});
-
 export const ChatThreadCreateRequestSchema = z.object({
   siteId: IdSchema,
   visitorId: IdSchema,
@@ -288,7 +246,6 @@ export const ChatVisitorMessageRequestSchema = z.object({
 });
 
 export const ChatHistoryQuerySchema = PaginationSchema;
-export const ChatInboxQuerySchema = PaginationSchema.extend({ siteId: IdSchema });
 
 export const CallTypeSchema = z.enum(['AUDIO', 'VIDEO']);
 export const CallStatusSchema = z.enum([
@@ -379,11 +336,6 @@ export const RealtimeEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('visitor.offline'), visitorId: IdSchema }),
   z.object({ type: z.literal('call.incoming'), call: CallSchema }),
   z.object({ type: z.literal('call.status'), call: CallSchema }),
-  z.object({
-    type: z.literal('chat.incoming'),
-    message: ChatMessageSchema,
-    visitorId: IdSchema,
-  }),
   z.object({ type: z.literal('chat.message'), message: ChatMessageSchema }),
 ]);
 
@@ -407,8 +359,6 @@ export type ApiErrorEnvelope = z.infer<typeof ApiErrorEnvelopeSchema>;
 export type AgentAvailability = z.infer<typeof AgentAvailabilitySchema>;
 export type ChatAgentMessageRequest = z.infer<typeof ChatAgentMessageRequestSchema>;
 export type ChatHistoryQuery = z.infer<typeof ChatHistoryQuerySchema>;
-export type ChatInboxQuery = z.infer<typeof ChatInboxQuerySchema>;
-export type ChatInboxThread = z.infer<typeof ChatInboxThreadSchema>;
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 export type ChatSenderType = z.infer<typeof ChatSenderTypeSchema>;
 export type ChatThread = z.infer<typeof ChatThreadSchema>;
@@ -435,10 +385,6 @@ export type SiteStatus = z.infer<typeof SiteStatusSchema>;
 export type SiteUpdateInput = z.infer<typeof SiteUpdateSchema>;
 export type SiteSettings = z.infer<typeof SiteSettingsSchema>;
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
-export type AccessManagement = z.infer<typeof AccessManagementSchema>;
-export type AccessSite = z.infer<typeof AccessSiteSchema>;
-export type AccessUser = z.infer<typeof AccessUserSchema>;
-export type EventAssignmentUpdateInput = z.infer<typeof EventAssignmentUpdateSchema>;
 export type TrackerBootstrapRequest = z.infer<typeof TrackerBootstrapRequestSchema>;
 export type TrackerBootstrapResponse = z.infer<typeof TrackerBootstrapResponseSchema>;
 export type TrackerEventRequest = z.infer<typeof TrackerEventRequestSchema>;

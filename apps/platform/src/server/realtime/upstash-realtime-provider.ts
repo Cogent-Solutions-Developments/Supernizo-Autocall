@@ -3,12 +3,7 @@ import 'server-only';
 import { Realtime } from '@upstash/realtime';
 import { z } from 'zod';
 
-import {
-  CallSchema,
-  ChatMessageSchema,
-  IdSchema,
-  VisitorPresenceSnapshotSchema,
-} from '@supernizo/shared';
+import { CallSchema, ChatMessageSchema, VisitorPresenceSnapshotSchema } from '@supernizo/shared';
 
 import { getRedisClient } from '@/server/redis/client';
 
@@ -20,7 +15,6 @@ const realtimeSchema = {
     updated: z.object({ visitor: VisitorPresenceSnapshotSchema }),
   },
   chat: {
-    incoming: z.object({ message: ChatMessageSchema, visitorId: IdSchema }),
     message: z.object({ message: ChatMessageSchema }),
   },
   call: {
@@ -77,11 +71,6 @@ export class UpstashRealtimeProvider implements RealtimeProvider {
 
     if (event.type === 'chat.message') {
       await client.emit('chat.message', { message: event.message });
-      return;
-    }
-
-    if (event.type === 'chat.incoming') {
-      await client.emit('chat.incoming', { message: event.message, visitorId: event.visitorId });
       return;
     }
 

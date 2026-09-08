@@ -6,14 +6,10 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { z } from 'zod';
 
 import {
-  ChatThreadSchema,
   VisitorPresenceSnapshotSchema,
-  type ChatInboxThread,
   type SiteSettings,
   type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
-
-import { fetchAppApi } from '@/lib/app-fetch';
 
 import {
   defaultLiveVisitorFilters,
@@ -23,7 +19,7 @@ import {
   stableTimeText,
   type LiveVisitorFilters,
 } from './live-visitor-state';
-import { DashboardChatInbox } from './dashboard-chat-inbox';
+import { LiveVisitorChatModal } from './live-visitor-chat-modal';
 import { LiveVisitorCallModal } from './live-visitor-call-modal';
 
 type ClientRealtimeSchema = {
@@ -36,7 +32,6 @@ type ClientRealtimeSchema = {
 
 const { useRealtime } = createRealtime<ClientRealtimeSchema>();
 const LiveResponseSchema = z.object({ data: z.array(VisitorPresenceSnapshotSchema) });
-const ChatThreadResponseSchema = z.object({ data: ChatThreadSchema });
 
 type LiveVisitorDashboardProps = Readonly<{
   canSendChat: boolean;
@@ -86,9 +81,7 @@ export function LiveVisitorDashboard({
   const [visitors, setVisitors] = useState(initialVisitors);
   const [filters, setFilters] = useState(defaultLiveVisitorFilters);
   const [loadError, setLoadError] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const [inboxInstance, setInboxInstance] = useState(0);
-  const [inboxThread, setInboxThread] = useState<ChatInboxThread | null>(null);
+  const [chatVisitor, setChatVisitor] = useState<VisitorPresenceSnapshot | null>(null);
   const [callRequest, setCallRequest] = useState<Readonly<{
     type: 'AUDIO' | 'VIDEO';
     visitor: VisitorPresenceSnapshot;
@@ -116,9 +109,7 @@ export function LiveVisitorDashboard({
 
     let active = true;
     const refresh = () => {
-      void fetchAppApi(`/api/dashboard/sites/${siteId}/live`, {
-        credentials: 'same-origin',
-      })
+      void fetch(`/api/dashboard/sites/${siteId}/live`, { credentials: 'same-origin' })
         .then(async (response) => {
           if (!response.ok) throw new Error('Live visitors could not be loaded.');
           return LiveResponseSchema.parse(await response.json());
@@ -146,12 +137,6 @@ export function LiveVisitorDashboard({
     () => filterAndSortLiveVisitors(visitors, filters),
     [filters, visitors],
   );
-  const isRealtimeConnected = status === 'connected';
-  const realtimeLabel = isRealtimeConnected
-    ? 'Live'
-    : status === 'connecting'
-      ? 'Connecting'
-      : 'Reconnecting';
   const countries = useMemo(
     () =>
       Array.from(
@@ -159,32 +144,6 @@ export function LiveVisitorDashboard({
       ).sort(),
     [visitors],
   );
-
-  async function openDashboardChat(visitor: VisitorPresenceSnapshot): Promise<void> {
-    setChatError(null);
-    try {
-      const response = await fetchAppApi('/api/chat/threads', {
-        body: JSON.stringify({ siteId, visitorId: visitor.visitorId }),
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error('The chat could not be opened.');
-      const parsed = ChatThreadResponseSchema.parse(await response.json());
-      setInboxThread({
-        ...parsed.data,
-        lastMessageAt: null,
-        lastMessagePreview: null,
-        visitorLabel:
-          [visitor.city, visitor.country]
-            .filter((value): value is string => Boolean(value))
-            .join(', ') || `Visitor #${visitor.visitorId.slice(-6)}`,
-      });
-      setInboxInstance((current) => current + 1);
-    } catch {
-      setChatError('The chat could not be opened.');
-    }
-  }
   const sources = useMemo(
     () =>
       Array.from(
@@ -199,36 +158,16 @@ export function LiveVisitorDashboard({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-slate-950">Live visitors</h2>
-            <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
-              <span>{visibleVisitors.length} online</span>
-              <span aria-hidden="true" className="text-slate-300">
-                ·
-              </span>
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                  isRealtimeConnected ? 'text-emerald-700' : 'text-sky-700'
-                }`}
-                role="status"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    isRealtimeConnected ? 'bg-emerald-500' : 'animate-pulse bg-sky-500'
-                  }`}
-                />
-                {realtimeLabel}
-              </span>
-            </div>
+            <p className="mt-1 text-sm text-slate-600">
+              {visibleVisitors.length} online · realtime {status}
+            </p>
           </div>
           <label className="text-sm font-medium text-slate-700">
             Site
             <select
               aria-label="Site"
               className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2"
-              onChange={(event) => {
-                setInboxThread(null);
-                setSiteId(event.target.value);
-              }}
+              onChange={(event) => setSiteId(event.target.value)}
               value={siteId}
             >
               {sites.map((site) => (
@@ -307,8 +246,10 @@ export function LiveVisitorDashboard({
           Live visitor data could not be refreshed.
         </p>
       ) : null}
-      {chatError ? (
-        <p className="m-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{chatError}</p>
+      {status !== 'connected' ? (
+        <p className="mx-5 mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          Realtime is {status}. The last snapshot remains visible and reconnecting is automatic.
+        </p>
       ) : null}
       <div className="hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[980px] text-left text-sm">
@@ -366,7 +307,7 @@ export function LiveVisitorDashboard({
                     <button
                       className="rounded-md bg-slate-950 px-3 py-1.5 font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                       disabled={!canSendChat}
-                      onClick={() => void openDashboardChat(visitor)}
+                      onClick={() => setChatVisitor(visitor)}
                       title={
                         canSendChat ? 'Start chat' : 'Viewer accounts cannot send chat messages'
                       }
@@ -415,7 +356,7 @@ export function LiveVisitorDashboard({
             <button
               className="mt-3 rounded-md bg-slate-950 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
               disabled={!canSendChat}
-              onClick={() => void openDashboardChat(visitor)}
+              onClick={() => setChatVisitor(visitor)}
               type="button"
             >
               Chat
@@ -428,6 +369,14 @@ export function LiveVisitorDashboard({
           No live visitors match the current filters.
         </p>
       ) : null}
+      {chatVisitor ? (
+        <LiveVisitorChatModal
+          canSend={canSendChat}
+          onClose={() => setChatVisitor(null)}
+          siteId={siteId}
+          visitor={chatVisitor}
+        />
+      ) : null}
       {callRequest ? (
         <LiveVisitorCallModal
           callType={callRequest.type}
@@ -435,14 +384,6 @@ export function LiveVisitorDashboard({
           onClose={() => setCallRequest(null)}
           siteId={siteId}
           visitor={callRequest.visitor}
-        />
-      ) : null}
-      {canSendChat && siteId ? (
-        <DashboardChatInbox
-          canSend={canSendChat}
-          initialThread={inboxThread}
-          key={`${siteId}:${inboxInstance}`}
-          siteId={siteId}
         />
       ) : null}
     </section>
