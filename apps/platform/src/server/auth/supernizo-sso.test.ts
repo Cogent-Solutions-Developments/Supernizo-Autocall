@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 
 const mocks = vi.hoisted(() => ({
@@ -62,6 +62,12 @@ beforeEach(() => {
   vi.stubEnv('SUPERNIZO_HEAVY_URL', 'https://heavy.example');
   vi.stubEnv('SUPERNIZO_BACKEND_URL', 'https://backend.example');
   vi.stubEnv('SUPERNIZO_AUTOCALL_CLIENT_SECRET', 's'.repeat(40));
+  vi.stubEnv('SUPERNIZO_DIRECTORY_SYNC_ENABLED', 'true');
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe('Supernizo browser-bound handoff', () => {
@@ -168,6 +174,7 @@ describe('Supernizo browser-bound handoff', () => {
     expect(user?.supernizo.subject).toBe(subject);
     expect(mocks.fetchDirectoryUser).toHaveBeenCalledWith(subject);
     expect(mocks.applyDirectoryState).toHaveBeenCalledWith(expect.anything(), directoryState);
+    expect(mocks.upsert).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       cache: 'no-store',
       redirect: 'error',
@@ -175,6 +182,45 @@ describe('Supernizo browser-bound handoff', () => {
     });
     expect(mocks.remove).toHaveBeenCalled();
   });
+
+  it.each(['false', undefined])(
+    'provisions by immutable subject when directory sync is %s',
+    async (enabled) => {
+      vi.stubEnv('SUPERNIZO_DIRECTORY_SYNC_ENABLED', enabled);
+      mocks.get.mockReturnValue({
+        value: JSON.stringify({
+          state: 's'.repeat(43),
+          verifier: 'v'.repeat(43),
+          createdAt: Date.now(),
+          portal: 'light',
+        }),
+      });
+      mocks.upsert.mockResolvedValue({
+        id: 'local-id',
+        email: `${subject}@supernizo.invalid`,
+        displayName: 'Agent',
+      });
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(identity)));
+
+      const user = await authorizeSupernizo({ code: 'c'.repeat(43), state: 's'.repeat(43) });
+
+      expect(user).toMatchObject({ id: 'local-id', supernizo: { subject } });
+      expect(mocks.upsert).toHaveBeenCalledWith({
+        where: { supernizoId: subject },
+        create: {
+          supernizoId: subject,
+          email: `${subject}@supernizo.invalid`,
+          displayName: identity.name,
+          globalRole: identity.role,
+        },
+        update: { displayName: identity.name, globalRole: identity.role },
+        select: { id: true, email: true, displayName: true },
+      });
+      expect(mocks.fetchDirectoryUser).not.toHaveBeenCalled();
+      expect(mocks.applyDirectoryState).not.toHaveBeenCalled();
+      expect(mocks.remove).toHaveBeenCalled();
+    },
+  );
 
   it('fails closed on revoked, unavailable and expired identity responses', async () => {
     for (const response of [
