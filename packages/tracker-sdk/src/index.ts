@@ -7,7 +7,6 @@ import type {
 import { EngagementManager } from './engagement';
 import { ChatWidgetController } from './chat-widget';
 import { CallWidgetController } from './call-widget';
-import { resolveBootstrapEndpoint } from './platform-url';
 
 export type TrackerOptions = Readonly<{
   endpoint: string;
@@ -186,7 +185,7 @@ function resolveEndpoint(script: HTMLScriptElement, configuredEndpoint?: string)
   }
 
   try {
-    return resolveBootstrapEndpoint(script.src);
+    return new URL('/api/track/bootstrap', script.src).toString();
   } catch {
     return '/api/track/bootstrap';
   }

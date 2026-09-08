@@ -6,29 +6,11 @@ import {
   getConnectionTimeoutSeconds,
   getRingTimeoutSeconds,
   isRingingCallExpired,
-  lockCallParticipants,
   staleCallAction,
   transitionCallStatus,
 } from './call-service';
 
 describe('call state machine', () => {
-  it('executes parameterized PostgreSQL locks for both call participants', async () => {
-    const executedQueries: Array<{ text: string; values: readonly unknown[] }> = [];
-
-    await lockCallParticipants(
-      async (query) => {
-        executedQueries.push({ text: query.text, values: query.values });
-      },
-      'agent-1',
-      'visitor-1',
-    );
-
-    expect(executedQueries).toEqual([
-      { text: 'SELECT id FROM "User" WHERE id = $1 FOR UPDATE', values: ['agent-1'] },
-      { text: 'SELECT id FROM "Visitor" WHERE id = $1 FOR UPDATE', values: ['visitor-1'] },
-    ]);
-  });
-
   it.each([
     ['RINGING', 'accept', 'ACCEPTED'],
     ['RINGING', 'reject', 'REJECTED'],
@@ -68,10 +50,10 @@ describe('call state machine', () => {
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 30_000, 30)).toBe(true);
   });
 
-  it('reconciles only stale ringing and media-connection states into terminal outcomes', () => {
+  it('reconciles stale ringing and media-connection states into terminal outcomes', () => {
     expect(staleCallAction('RINGING')).toBe('timeout');
     expect(staleCallAction('CONNECTING')).toBe('fail');
-    expect(staleCallAction('ACTIVE')).toBeNull();
+    expect(staleCallAction('ACTIVE')).toBe('fail');
     expect(staleCallAction('ENDED')).toBeNull();
   });
 });

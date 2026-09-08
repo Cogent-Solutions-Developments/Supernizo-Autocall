@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import { Google_Sans } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { RealtimeClientProvider } from '@/app/components/realtime-client-provider';
@@ -7,10 +7,11 @@ import { RealtimeClientProvider } from '@/app/components/realtime-client-provide
 import './globals.css';
 import '@livekit/components-styles';
 
-const appSans = Geist({
+const googleSans = Google_Sans({
   display: 'swap',
   subsets: ['latin'],
-  variable: '--font-app-sans',
+  variable: '--font-google-sans',
+  weight: 'variable',
 });
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body className={appSans.variable}>
+      <body className={googleSans.variable}>
         <RealtimeClientProvider>{children}</RealtimeClientProvider>
       </body>
     </html>

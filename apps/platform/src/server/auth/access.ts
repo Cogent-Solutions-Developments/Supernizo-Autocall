@@ -1,6 +1,5 @@
 import 'server-only';
 
-import { cache } from 'react';
 import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
 
@@ -10,11 +9,8 @@ import { getAuthOptions } from '@/server/auth/auth-options';
 import { assertRole } from '@/server/auth/roles';
 import { getDatabaseClient } from '@/server/db/client';
 import { ForbiddenError, UnauthorizedError } from '@/server/errors/app-error';
-import { portalUrl, requestSupernizoIdentity } from '@/server/auth/supernizo-sso';
 
 export type AuthenticatedUser = Readonly<{
-  signInMethod: 'local' | 'supernizo';
-  returnTo?: string | undefined;
   email: string;
   id: string;
   name: string | null;
@@ -27,7 +23,7 @@ export type SiteAccess = Readonly<{
   user: AuthenticatedUser;
 }>;
 
-export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
+export async function requireUser(): Promise<AuthenticatedUser> {
   const prisma = getDatabaseClient();
   const session = await getServerSession(getAuthOptions());
   const userId = session?.user?.id;
@@ -43,7 +39,6 @@ export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
       email: true,
       globalRole: true,
       id: true,
-      supernizoId: true,
     },
   });
 
@@ -51,41 +46,19 @@ export const requireUser = cache(async (): Promise<AuthenticatedUser> => {
     throw new UnauthorizedError('Authentication is required.');
   }
 
-  let role = user.globalRole;
-  const upstream = session?.user?.supernizo;
-  if (upstream) {
-    if (user.supernizoId !== upstream.subject) throw new UnauthorizedError('Invalid identity.');
-    const identity = await requestSupernizoIdentity('introspect', {
-      subject: upstream.subject,
-      version: upstream.version,
-      expiresAt: upstream.expiresAt,
-    });
-    if (identity.subject !== upstream.subject) throw new UnauthorizedError('Invalid identity.');
-    role = identity.role;
-  } else if (user.globalRole !== 'ADMIN' || user.supernizoId) {
-    // Also reject pre-existing local agent sessions after rollout.
-    throw new UnauthorizedError('Sign in through Supernizo.');
-  }
-
   return {
-    signInMethod: upstream ? 'supernizo' : 'local',
-    returnTo: upstream?.portal
-      ? portalUrl(upstream.portal).href.replace(/\/autocall$/, '')
-      : undefined,
     email: user.email,
     id: user.id,
     name: user.displayName,
-    role,
+    role: user.globalRole,
   };
-});
+}
 
 export async function requireDashboardUser(): Promise<AuthenticatedUser> {
   try {
     return await requireUser();
   } catch (error: unknown) {
     if (error instanceof UnauthorizedError) {
-      // App Router adds `basePath` to redirect targets. Supplying it here would
-      // create `/autocall-db/autocall-db/login`.
       redirect('/login');
     }
 
@@ -117,7 +90,7 @@ export async function requireSiteAccess(siteId: string): Promise<SiteAccess> {
         userId: user.id,
       },
     },
-    select: { id: true },
+    select: { role: true },
   });
 
   if (!membership) {
@@ -126,7 +99,7 @@ export async function requireSiteAccess(siteId: string): Promise<SiteAccess> {
 
   return {
     siteId,
-    siteRole: user.role,
+    siteRole: membership.role,
     user,
   };
 }

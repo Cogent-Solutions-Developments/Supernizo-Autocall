@@ -1,4 +1,4 @@
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { hash } from 'bcryptjs';
 import { config } from 'dotenv';
 
@@ -21,7 +21,7 @@ if (!localAdminPassword || localAdminPassword.length < 12) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: databaseUrl }),
+  adapter: new PrismaMariaDb(databaseUrl),
 });
 
 async function seed(): Promise<void> {
@@ -60,8 +60,9 @@ async function seed(): Promise<void> {
         userId: admin.id,
       },
     },
-    update: {},
+    update: { role: 'ADMIN' },
     create: {
+      role: 'ADMIN',
       siteId: site.id,
       userId: admin.id,
     },
