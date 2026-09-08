@@ -129,7 +129,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   function sendMessage(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     const trimmedContent = content.trim();
-    if (!config || !trimmedContent) return;
+    if (!trimmedContent) return;
 
     window.parent.postMessage(
       {
