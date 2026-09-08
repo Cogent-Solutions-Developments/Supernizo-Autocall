@@ -67,7 +67,7 @@ Install prerequisites from the server console. If current Docker Engine and Comp
 
 ```sh
 sudo apt-get update
-sudo apt-get install --yes ca-certificates curl git openssl util-linux
+sudo apt-get install --yes ca-certificates curl geoipupdate git libnginx-mod-http-geoip2 openssl util-linux
 
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
@@ -199,6 +199,39 @@ Never commit, print, upload, or paste `.env.production` into a GitHub issue or A
 
 ## 7. Configure Nginx without changing leadgen
 
+### Enable trusted approximate geolocation
+
+The tracker stores approximate city, country, and region only when the public
+Nginx edge supplies them. It never sends the visitor IP address to the
+application or stores it. Install the GeoLite2 City database with a MaxMind
+account ID and license key, both kept only in `/etc/GeoIP.conf` (mode `0600`):
+
+```sh
+sudo install -d -o root -g root -m 0755 /var/lib/GeoIP
+sudo install -o root -g root -m 0600 /dev/null /etc/GeoIP.conf
+sudoedit /etc/GeoIP.conf
+sudo geoipupdate
+sudo test -r /var/lib/GeoIP/GeoLite2-City.mmdb
+```
+
+Configure `/etc/GeoIP.conf` with the MaxMind account details and the
+`GeoLite2-City` edition exactly as described by MaxMind. Do not commit the
+license key or database to this repository. Copy the reviewed HTTP-level
+configuration and include it inside the top-level `http { ... }` block in
+`/etc/nginx/nginx.conf`, before the `include /etc/nginx/sites-enabled/*;`
+line:
+
+```sh
+sudo install -o root -g root -m 0644 \
+  /home/deploy/app/autocall/ops/nginx/autocall.geoip2.http.conf \
+  /etc/nginx/conf.d/supernizo-autocall-geoip.conf
+```
+
+If Cloudflare or another proxy is added in front of Nginx later, configure
+Nginx's `real_ip_header` and a restricted `set_real_ip_from` allowlist for
+that provider before loading this file. Do not trust arbitrary forwarded or
+`X-Geo-*` request headers from visitors.
+
 Install the reviewed route as a root-owned Nginx snippet:
 
 ```sh
@@ -219,6 +252,10 @@ Keep the existing leadgen `location /` unchanged. There must be only one exact `
 sudo nginx -t
 sudo systemctl reload nginx
 ```
+
+After reload, start a brand-new visitor session and confirm the Live visitors
+table shows an approximate city and two-letter country. Existing sessions keep
+the location captured at bootstrap and are not rewritten.
 
 Before the first app deployment, `/autocall-db` may return a temporary upstream error; leadgen continues through `location /`.
 
