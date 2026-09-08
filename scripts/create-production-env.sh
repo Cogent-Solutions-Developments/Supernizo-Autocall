@@ -31,13 +31,25 @@ read -r -s -p 'Production LiveKit API key: ' livekit_api_key
 printf '\n'
 read -r -s -p 'Production LiveKit API secret: ' livekit_api_secret
 printf '\n'
+read -r -p 'Production Supernizo backend base URL (https://...): ' supernizo_backend_url
+read -r -p 'Production Supernizo Light base URL (https://...): ' supernizo_light_url
+read -r -p 'Production Supernizo Heavy base URL (https://...): ' supernizo_heavy_url
+read -r -s -p 'Supernizo Autocall SSO client secret (at least 32 characters): ' supernizo_client_secret
+printf '\n'
+read -r -s -p 'Supernizo directory-sync HMAC secret (at least 32 characters): ' directory_sync_secret
+printf '\n'
 
 for value in \
   "$upstash_url" \
   "$upstash_token" \
   "$livekit_url" \
   "$livekit_api_key" \
-  "$livekit_api_secret"; do
+  "$livekit_api_secret" \
+  "$supernizo_backend_url" \
+  "$supernizo_light_url" \
+  "$supernizo_heavy_url" \
+  "$supernizo_client_secret" \
+  "$directory_sync_secret"; do
   [[ -n "$value" && "$value" != *[[:space:]]* ]] || {
     printf 'Provider values must be non-empty and may not contain whitespace.\n' >&2
     exit 1
@@ -71,6 +83,13 @@ umask 077
     printf '\n'
     printf 'CALL_RING_TIMEOUT_SECONDS=30\n'
     printf 'CALL_CONNECTION_TIMEOUT_SECONDS=90\n'
+    printf '\n'
+    printf 'SUPERNIZO_BACKEND_URL=%s\n' "$supernizo_backend_url"
+    printf 'SUPERNIZO_LIGHT_URL=%s\n' "$supernizo_light_url"
+    printf 'SUPERNIZO_HEAVY_URL=%s\n' "$supernizo_heavy_url"
+    printf 'SUPERNIZO_AUTOCALL_CLIENT_SECRET=%s\n' "$supernizo_client_secret"
+    printf 'SUPERNIZO_DIRECTORY_SYNC_ENABLED=false\n'
+    printf 'SUPERNIZO_DIRECTORY_SYNC_SECRET=%s\n' "$directory_sync_secret"
   } >"$output_file"
 )
 chmod 0600 "$output_file"

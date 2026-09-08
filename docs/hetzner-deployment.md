@@ -173,7 +173,7 @@ The first workflow publish creates the packages. In each package's **Package set
 
 ## 6. Create production secrets only on Hetzner
 
-Obtain production Upstash Redis REST and LiveKit credentials from their provider consoles. Then run the protected initializer as `deploy`:
+Obtain production Upstash Redis REST and LiveKit credentials from their provider consoles. Also obtain the canonical HTTPS backend, Light and Heavy URLs, plus the already-shared Supernizo SSO client secret and dedicated directory-sync HMAC secret. Then run the protected initializer as `deploy`:
 
 ```sh
 cd /home/deploy/app/autocall
@@ -187,7 +187,7 @@ It generates three independent random values locally:
 - an Auth.js signing secret;
 - a separate tracking IP hash secret.
 
-It prompts silently for provider tokens, writes `.env.production` with mode `0600`, and runs the allow-list validator. It deliberately does not write `DATABASE_URL`: Compose builds the private URL from the PostgreSQL values.
+It prompts silently for provider tokens and the two Supernizo secrets, writes `.env.production` with mode `0600`, and runs the allow-list validator. It writes `SUPERNIZO_DIRECTORY_SYNC_ENABLED=false` so the receiver remains off during the initial rollout; enable it only after both migrations and the source worker are deployed. It deliberately does not write `DATABASE_URL`: Compose builds the private URL from the PostgreSQL values.
 
 To configure an existing file manually instead, copy `.env.production.example`, replace every placeholder, set mode `0600`, and run:
 

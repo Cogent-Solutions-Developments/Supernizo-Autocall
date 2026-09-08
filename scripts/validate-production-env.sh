@@ -34,6 +34,12 @@ required=(
   LIVEKIT_API_SECRET
   LIVEKIT_URL
   POSTGRES_PASSWORD
+  SUPERNIZO_AUTOCALL_CLIENT_SECRET
+  SUPERNIZO_BACKEND_URL
+  SUPERNIZO_DIRECTORY_SYNC_ENABLED
+  SUPERNIZO_DIRECTORY_SYNC_SECRET
+  SUPERNIZO_HEAVY_URL
+  SUPERNIZO_LIGHT_URL
   TRACKING_IP_HASH_SECRET
   UPSTASH_REDIS_REST_TOKEN
   UPSTASH_REDIS_REST_URL
@@ -77,6 +83,24 @@ done
 }
 [[ "$UPSTASH_REDIS_REST_URL" == https://* ]] || {
   printf 'UPSTASH_REDIS_REST_URL must use https:// in production.\n' >&2
+  exit 1
+}
+for variable in SUPERNIZO_BACKEND_URL SUPERNIZO_LIGHT_URL SUPERNIZO_HEAVY_URL; do
+  [[ "${!variable}" == https://* ]] || {
+    printf '%s must use https:// in production.\n' "$variable" >&2
+    exit 1
+  }
+done
+(( ${#SUPERNIZO_AUTOCALL_CLIENT_SECRET} >= 32 )) || {
+  printf 'SUPERNIZO_AUTOCALL_CLIENT_SECRET must contain at least 32 characters.\n' >&2
+  exit 1
+}
+(( ${#SUPERNIZO_DIRECTORY_SYNC_SECRET} >= 32 )) || {
+  printf 'SUPERNIZO_DIRECTORY_SYNC_SECRET must contain at least 32 characters.\n' >&2
+  exit 1
+}
+[[ "$SUPERNIZO_DIRECTORY_SYNC_ENABLED" == true || "$SUPERNIZO_DIRECTORY_SYNC_ENABLED" == false ]] || {
+  printf 'SUPERNIZO_DIRECTORY_SYNC_ENABLED must be true or false.\n' >&2
   exit 1
 }
 [[ "${APP_HOST_PORT:-3200}" == 3200 ]] || {
