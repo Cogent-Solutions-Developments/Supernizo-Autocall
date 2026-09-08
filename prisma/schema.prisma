@@ -42,18 +42,41 @@ enum SiteStatus {
 }
 
 model User {
-  id              String        @id @default(cuid()) @db.VarChar(30)
-  email           String        @unique @db.VarChar(191)
-  displayName     String?       @db.VarChar(191)
-  passwordHash    String?       @db.VarChar(255)
-  globalRole      UserRole      @default(AGENT)
-  createdAt       DateTime      @default(now()) @db.Timestamp(3)
-  updatedAt       DateTime      @updatedAt @db.Timestamp(3)
+  id              String              @id @default(cuid()) @db.VarChar(30)
+  supernizoId     String?             @unique @db.Uuid
+  email           String              @unique @db.VarChar(191)
+  displayName     String?             @db.VarChar(191)
+  passwordHash    String?             @db.VarChar(255)
+  globalRole      UserRole            @default(AGENT)
+  createdAt       DateTime            @default(now()) @db.Timestamp(3)
+  updatedAt       DateTime            @updatedAt @db.Timestamp(3)
   siteMemberships SiteMember[]
-  assignedThreads ChatThread[]  @relation("ChatThreadAssignedAgent")
-  chatMessages    ChatMessage[] @relation("ChatMessageAgent")
-  requestedCalls  Call[]        @relation("CallAgent")
-  auditLogs       AuditLog[]    @relation("AuditActor")
+  assignedThreads ChatThread[]        @relation("ChatThreadAssignedAgent")
+  chatMessages    ChatMessage[]       @relation("ChatMessageAgent")
+  requestedCalls  Call[]              @relation("CallAgent")
+  auditLogs       AuditLog[]          @relation("AuditActor")
+  supernizoState  SupernizoUserState?
+}
+
+model SupernizoUserState {
+  userId            String   @id @db.VarChar(30)
+  eligibility       String   @db.VarChar(16)
+  directoryRevision BigInt
+  sourceChangedAt   DateTime @db.Timestamp(3)
+  lastSyncedAt      DateTime @db.Timestamp(3)
+  stateHash         String   @db.VarChar(64)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([eligibility])
+}
+
+model IntegrationInbox {
+  eventId     String   @id @db.Uuid
+  subject     String   @db.Uuid
+  payloadHash String   @db.VarChar(64)
+  processedAt DateTime @default(now()) @db.Timestamp(3)
+
+  @@index([processedAt])
 }
 
 model Site {

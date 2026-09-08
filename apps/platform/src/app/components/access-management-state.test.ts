@@ -1,39 +1,43 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AccessUser } from '@supernizo/shared';
+import { currentEventAssignments, updateEventAssignment } from './access-management-state';
 
-import { partitionAccessUsers, toggleSiteId } from './access-management-state';
-
-function accessUser(
-  id: string,
-  role: AccessUser['role'],
-  siteIds: readonly string[] = [],
-): AccessUser {
-  return {
-    createdAt: '2026-09-04T00:00:00.000Z',
-    displayName: id,
-    email: `${id}@example.com`,
-    id,
-    role,
-    siteIds: [...siteIds],
-    updatedAt: '2026-09-04T00:00:00.000Z',
-  };
-}
-
-describe('access management state', () => {
-  it('includes every agent, including agents without site access', () => {
-    const unassignedAgent = accessUser('agent-unassigned', 'AGENT');
-    const assignedAgent = accessUser('agent-assigned', 'AGENT', ['site-1']);
-    const administrator = accessUser('administrator', 'ADMIN');
-
-    expect(partitionAccessUsers([unassignedAgent, administrator, assignedAgent])).toEqual({
-      administrators: [administrator],
-      agents: [unassignedAgent, assignedAgent],
-    });
+describe('event assignment state', () => {
+  it('adds and removes an event without duplicating assignments', () => {
+    expect(updateEventAssignment(['event-2'], 'event-1', true)).toEqual(['event-1', 'event-2']);
+    expect(updateEventAssignment(['event-1', 'event-2'], 'event-1', false)).toEqual(['event-2']);
   });
 
-  it('adds and removes site access without duplicating assignments', () => {
-    expect(toggleSiteId(['site-2'], 'site-1', true)).toEqual(['site-1', 'site-2']);
-    expect(toggleSiteId(['site-1', 'site-2'], 'site-1', false)).toEqual(['site-2']);
+  it('lists each current Supernizo agent and event assignment', () => {
+    const agent = {
+      createdAt: '2026-09-08T00:00:00.000Z',
+      displayName: 'Priya',
+      email: 'priya@example.com',
+      eligibility: 'ELIGIBLE' as const,
+      id: 'agent-1',
+      lastSyncedAt: '2026-09-08T00:00:00.000Z',
+      role: 'AGENT' as const,
+      siteIds: ['event-2', 'event-1'],
+      source: 'SUPERNIZO' as const,
+      updatedAt: '2026-09-08T00:00:00.000Z',
+    };
+    const localAgent = {
+      ...agent,
+      id: 'local-agent',
+      source: 'LOCAL' as const,
+    };
+
+    expect(
+      currentEventAssignments(
+        [agent, localAgent],
+        [
+          { id: 'event-1', name: 'Annual conference' },
+          { id: 'event-2', name: 'Product launch' },
+        ],
+      ),
+    ).toEqual([
+      { agent, event: { id: 'event-1', name: 'Annual conference' } },
+      { agent, event: { id: 'event-2', name: 'Product launch' } },
+    ]);
   });
 });

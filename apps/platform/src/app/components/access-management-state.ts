@@ -1,31 +1,39 @@
-import type { AccessUser } from '@supernizo/shared';
+import type { AccessSite, AccessUser } from '@supernizo/shared';
 
-export type AccessUserGroups = Readonly<{
-  administrators: AccessUser[];
-  agents: AccessUser[];
+export type EventAssignmentRecord = Readonly<{
+  agent: AccessUser;
+  event: AccessSite;
 }>;
 
-export function partitionAccessUsers(users: readonly AccessUser[]): AccessUserGroups {
-  return users.reduce<AccessUserGroups>(
-    (groups, user) => {
-      if (user.role === 'AGENT') {
-        groups.agents.push(user);
-      } else {
-        groups.administrators.push(user);
-      }
-
-      return groups;
-    },
-    { administrators: [], agents: [] },
-  );
-}
-
-export function toggleSiteId(
+export function updateEventAssignment(
   siteIds: readonly string[],
   siteId: string,
-  checked: boolean,
+  assigned: boolean,
 ): string[] {
-  return checked
+  return assigned
     ? Array.from(new Set([...siteIds, siteId])).sort()
     : siteIds.filter((candidate) => candidate !== siteId);
+}
+
+export function currentEventAssignments(
+  users: readonly AccessUser[],
+  sites: readonly AccessSite[],
+): EventAssignmentRecord[] {
+  const eventsById = new Map(sites.map((event) => [event.id, event]));
+
+  return users
+    .filter((user) => user.source === 'SUPERNIZO' && user.role === 'AGENT')
+    .flatMap((agent) =>
+      agent.siteIds.flatMap((siteId) => {
+        const event = eventsById.get(siteId);
+        return event ? [{ agent, event }] : [];
+      }),
+    )
+    .sort(
+      (left, right) =>
+        left.event.name.localeCompare(right.event.name) ||
+        (left.agent.displayName ?? left.agent.email).localeCompare(
+          right.agent.displayName ?? right.agent.email,
+        ),
+    );
 }

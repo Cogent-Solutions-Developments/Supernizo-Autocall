@@ -4,7 +4,7 @@ import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
   ChatInboxQuerySchema,
-  ManagedUserCreateSchema,
+  EventAssignmentUpdateSchema,
   PaginationSchema,
   RealtimeEventSchema,
   RequestIdSchema,
@@ -96,17 +96,16 @@ describe('shared API contracts', () => {
     expect(() => StaffRoleSchema.parse('VIEWER')).toThrow();
   });
 
-  it('normalizes managed users and deduplicates their site assignments', () => {
-    const result = ManagedUserCreateSchema.parse({
-      displayName: 'Agent One',
-      email: ' AGENT@EXAMPLE.COM ',
-      password: 'a-secure-password',
-      role: 'AGENT',
-      siteIds: ['site_2', 'site_1', 'site_2'],
-    });
-
-    expect(result.email).toBe('agent@example.com');
-    expect(result.siteIds).toEqual(['site_2', 'site_1']);
+  it('accepts only event assignment changes', () => {
+    expect(EventAssignmentUpdateSchema.parse({ siteIds: ['site_1', 'site_1'] }).siteIds).toEqual([
+      'site_1',
+    ]);
+    expect(
+      EventAssignmentUpdateSchema.safeParse({
+        displayName: 'Unmanaged change',
+        siteIds: [],
+      }).success,
+    ).toBe(false);
   });
 
   it('validates a visitor message sent to the agent dashboard', () => {

@@ -23,6 +23,7 @@ describe('GET /api/dashboard/access', () => {
 
   it('returns access data to administrators without password fields', async () => {
     vi.mocked(requireRole).mockResolvedValue({
+      signInMethod: 'local',
       email: 'admin@example.com',
       id: 'admin_1',
       name: 'Admin',

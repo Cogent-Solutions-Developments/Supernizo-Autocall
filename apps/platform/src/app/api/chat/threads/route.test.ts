@@ -21,6 +21,7 @@ describe('GET /api/chat/threads', () => {
 
   it('returns the authorized site inbox with a bounded default page size', async () => {
     vi.mocked(requireRole).mockResolvedValue({
+      signInMethod: 'supernizo',
       email: 'agent@example.com',
       id: 'agent_1',
       name: 'Agent',
@@ -30,6 +31,7 @@ describe('GET /api/chat/threads', () => {
       siteId: 'site_123',
       siteRole: 'AGENT',
       user: {
+        signInMethod: 'supernizo',
         email: 'agent@example.com',
         id: 'agent_1',
         name: 'Agent',
