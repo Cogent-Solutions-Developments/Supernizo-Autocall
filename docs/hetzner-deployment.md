@@ -377,7 +377,8 @@ If any credential was ever committed, deleting the working-tree file is not suff
 ## 14. Acceptance checklist
 
 - Leadgen still works through the existing `/` route.
-- `/autocall-db` redirects to `/autocall-db/` and loads over HTTPS.
+- `/autocall-db` loads over HTTPS; `/autocall-db/` redirects once to `/autocall-db`. Nginx must proxy the exact root rather than adding a slash that Next.js removes.
+- `bash scripts/check-public-routing.sh` passes through the public Nginx endpoint after deployment.
 - Loopback and public readiness endpoints return HTTP 200.
 - `docker compose ps` shows app only on `127.0.0.1:3200` and no PostgreSQL host port.
 - Both deployed image values use the approved GHCR repositories with `@sha256:` digests.
