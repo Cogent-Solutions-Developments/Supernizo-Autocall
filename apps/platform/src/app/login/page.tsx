@@ -1,5 +1,6 @@
 import Image from 'next/image';
 
+import { AuthClientProvider } from '@/app/components/auth-client-provider';
 import { LoginForm } from '@/app/components/login-form';
 import loginBackground from '@/assets/loging  background.webp';
 import supernizoLogo from '@/assets/logo-transparent.png';
@@ -31,7 +32,9 @@ export default function LoginPage() {
           <p className="mt-5 text-center text-base font-medium text-slate-300">
             Sign in for Visitor engagement
           </p>
-          <LoginForm />
+          <AuthClientProvider>
+            <LoginForm />
+          </AuthClientProvider>
         </div>
       </section>
     </main>

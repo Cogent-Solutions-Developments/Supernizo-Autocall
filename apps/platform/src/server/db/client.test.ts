@@ -1,19 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { configureDatabaseUrlForServerless, getDatabaseClient } from './client';
+import { configurePostgresPool, getDatabaseClient } from './client';
 
 describe('database client', () => {
+  beforeAll(() => {
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:password@localhost:5432/app');
+  });
+
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('reuses one Prisma client within the current runtime', () => {
     expect(getDatabaseClient()).toBe(getDatabaseClient());
   });
 
-  it('limits each serverless runtime to a small MariaDB connection pool', () => {
-    const configured = new URL(
-      configureDatabaseUrlForServerless('mysql://user:password@db.example.com:3306/app?ssl=true'),
-    );
+  it('configures a bounded pool for the self-hosted application process', () => {
+    const configured = configurePostgresPool({
+      DATABASE_URL: 'postgresql://user:password@postgres:5432/app',
+    });
 
-    expect(configured.searchParams.get('connectionLimit')).toBe('4');
-    expect(configured.searchParams.get('idleTimeout')).toBe('60');
-    expect(configured.searchParams.get('ssl')).toBe('true');
+    expect(configured.max).toBe(10);
+    expect(configured.idleTimeoutMillis).toBe(30_000);
+    expect(configured.connectionTimeoutMillis).toBe(5_000);
+    expect(configured.ssl).toBe(false);
   });
 });

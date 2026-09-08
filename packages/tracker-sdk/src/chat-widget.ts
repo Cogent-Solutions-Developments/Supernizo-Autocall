@@ -1,5 +1,7 @@
 import type { ChatMessage, TrackingContext } from '@supernizo/shared';
 
+import { resolveApplicationEndpoint } from './platform-url';
+
 type ChatThreadResponse = Readonly<{
   history: Readonly<{ messages: ChatMessage[] }>;
   realtime: Readonly<{ channel: string; token: string }>;
@@ -151,7 +153,7 @@ export class ChatWidgetController {
 
   private mount(): void {
     if (this.frame) return;
-    const widgetUrl = new URL('/widget/chat', this.bootstrapEndpoint);
+    const widgetUrl = new URL(resolveApplicationEndpoint(this.bootstrapEndpoint, '/widget/chat'));
     widgetUrl.searchParams.set('host_origin', window.location.origin);
 
     const frame = document.createElement('iframe');
@@ -357,15 +359,15 @@ export class ChatWidgetController {
     identityVideo.loop = true;
     identityVideo.muted = true;
     identityVideo.playsInline = true;
-    identityVideo.poster = new URL(
+    identityVideo.poster = resolveApplicationEndpoint(
+      this.bootstrapEndpoint,
       '/sdk/assets/cta-hover-loop1-poster.jpg',
-      this.bootstrapEndpoint,
-    ).toString();
+    );
     identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
-    identityVideo.src = new URL(
-      '/sdk/assets/cta-hover-loop1.mp4',
+    identityVideo.src = resolveApplicationEndpoint(
       this.bootstrapEndpoint,
-    ).toString();
+      '/sdk/assets/cta-hover-loop1.mp4',
+    );
 
     media.append(identityVideo);
 
@@ -386,7 +388,7 @@ export class ChatWidgetController {
     const profileCopy = document.createElement('span');
     profileCopy.className = 'supernizo-chat-launcher__profile-copy';
     const profileName = document.createElement('strong');
-    profileName.textContent = 'Soniya Sahanya';
+    profileName.textContent = 'Swetha Sahanya';
     const profileStatus = document.createElement('span');
     profileStatus.textContent = 'Ready to help';
     profileCopy.append(profileName, profileStatus);
@@ -674,7 +676,9 @@ export class ChatWidgetController {
 
   private async syncThread(): Promise<void> {
     try {
-      const endpoint = new URL('/api/chat/visitor/thread', this.bootstrapEndpoint);
+      const endpoint = new URL(
+        resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/thread'),
+      );
       endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
       endpoint.searchParams.set('visitorId', this.context.visitorId);
       endpoint.searchParams.set('sessionId', this.context.sessionId);
@@ -741,8 +745,10 @@ export class ChatWidgetController {
     if (!content) return;
 
     const endpoint = new URL(
-      `/api/chat/threads/${message.threadId}/messages`,
-      this.bootstrapEndpoint,
+      resolveApplicationEndpoint(
+        this.bootstrapEndpoint,
+        `/api/chat/threads/${message.threadId}/messages`,
+      ),
     );
     const response = await fetch(endpoint, {
       body: JSON.stringify({ content, context: this.context }),

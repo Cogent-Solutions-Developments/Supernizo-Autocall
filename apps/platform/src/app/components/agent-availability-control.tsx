@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { fetchAppApi } from '@/lib/app-fetch';
+
 type Availability = 'AVAILABLE' | 'BUSY' | 'OFFLINE';
 
 const labels: Record<Availability, string> = {
@@ -17,7 +19,7 @@ export function AgentAvailabilityControl() {
   useEffect(() => {
     let active = true;
     const heartbeat = () => {
-      void fetch('/api/dashboard/agent-presence', {
+      void fetchAppApi('/api/dashboard/agent-presence', {
         body: JSON.stringify({ availability: requestedAvailability }),
         credentials: 'same-origin',
         headers: { 'content-type': 'application/json' },

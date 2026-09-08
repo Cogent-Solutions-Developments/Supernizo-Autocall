@@ -21,7 +21,7 @@ V1 will not enable recordings, transcription, or media storage.
 
 ### Positive
 
-- LiveKit provides a purpose-built WebRTC path and avoids media-plane load on Vercel/Next.js.
+- LiveKit provides a purpose-built WebRTC path and avoids media-plane load on Next.js and the Hetzner application host.
 - The application keeps product-level call state and audit history separate from media infrastructure.
 - Browser permissions and visitor acceptance remain explicit, enforceable checkpoints.
 
@@ -29,10 +29,10 @@ V1 will not enable recordings, transcription, or media storage.
 
 - LiveKit credentials and room/token lifecycle must be managed server-side with strict scopes and expiry.
 - Call UI must handle browser permissions, device failures, network failures, reconnection, and room lifecycle events.
-- The deployment requires a LiveKit provider account and operational monitoring in addition to Vercel and Upstash.
+- The deployment requires a LiveKit provider account and operational monitoring in addition to Hetzner and Upstash.
 
 ## Alternatives considered
 
-- Proxying WebRTC or media through Next.js: rejected because it violates the architecture, adds cost/latency, and is unsuitable for Vercel application routes.
+- Proxying WebRTC or media through Next.js: rejected because it violates the architecture and adds avoidable load, cost, and latency to application routes.
 - Building a custom signalling/SFU stack: rejected for V1 due to complexity and operational burden.
 - PSTN/SIP calling: explicitly outside V1 scope.

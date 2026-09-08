@@ -30,11 +30,22 @@ const liveKitUrl = z.url().refine(
   },
   { message: 'Must use a ws or wss URL.' },
 );
+const postgresqlUrl = nonEmptyString.url().refine(
+  (value) => {
+    const protocol = new URL(value).protocol;
 
-const ServerEnvironmentSchema = z.object({
+    return protocol === 'postgres:' || protocol === 'postgresql:';
+  },
+  { message: 'Must use a postgres or postgresql URL.' },
+);
+const databaseEnvironmentShape = {
+  DATABASE_URL: postgresqlUrl,
+} as const;
+
+const ServerEnvironmentBaseSchema = z.object({
+  ...databaseEnvironmentShape,
   APP_URL: httpUrl,
   AUTH_SECRET: nonEmptyString.min(32),
-  DATABASE_URL: nonEmptyString.url(),
   LIVEKIT_API_KEY: nonEmptyString,
   LIVEKIT_API_SECRET: nonEmptyString,
   LIVEKIT_URL: liveKitUrl,
@@ -42,6 +53,8 @@ const ServerEnvironmentSchema = z.object({
   UPSTASH_REDIS_REST_TOKEN: nonEmptyString,
   UPSTASH_REDIS_REST_URL: httpUrl,
 });
+
+const ServerEnvironmentSchema = ServerEnvironmentBaseSchema;
 
 const environmentKeys = [
   'APP_URL',
@@ -60,15 +73,13 @@ type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
 export type ServerEnvironment = z.infer<typeof ServerEnvironmentSchema>;
 
-const DatabaseEnvironmentSchema = ServerEnvironmentSchema.pick({
-  DATABASE_URL: true,
-});
+const DatabaseEnvironmentSchema = z.object(databaseEnvironmentShape);
 
-const AuthenticationEnvironmentSchema = ServerEnvironmentSchema.pick({
+const AuthenticationEnvironmentSchema = ServerEnvironmentBaseSchema.pick({
   AUTH_SECRET: true,
 });
 
-const RedisEnvironmentSchema = ServerEnvironmentSchema.pick({
+const RedisEnvironmentSchema = ServerEnvironmentBaseSchema.pick({
   UPSTASH_REDIS_REST_TOKEN: true,
   UPSTASH_REDIS_REST_URL: true,
 });
@@ -96,12 +107,10 @@ export type EnvironmentReadiness = Readonly<{
   trackingIpHash: boolean;
 }>;
 
-function invalidEnvironmentVariables(
-  result: z.ZodSafeParseError<ServerEnvironment>,
-): readonly string[] {
+function invalidEnvironmentVariables(error: z.ZodError): readonly string[] {
   return Array.from(
     new Set(
-      result.error.issues
+      error.issues
         .map((issue) => String(issue.path[0] ?? 'unknown'))
         .filter((variable): variable is EnvironmentKey =>
           environmentKeys.includes(variable as EnvironmentKey),
@@ -114,7 +123,7 @@ export function getServerEnvironment(source: EnvironmentSource = process.env): S
   const result = ServerEnvironmentSchema.safeParse(source);
 
   if (!result.success) {
-    throw new EnvironmentConfigurationError(invalidEnvironmentVariables(result));
+    throw new EnvironmentConfigurationError(invalidEnvironmentVariables(result.error));
   }
 
   return result.data;
@@ -126,7 +135,7 @@ export function getDatabaseEnvironment(
   const result = DatabaseEnvironmentSchema.safeParse(source);
 
   if (!result.success) {
-    throw new EnvironmentConfigurationError(['DATABASE_URL']);
+    throw new EnvironmentConfigurationError(invalidEnvironmentVariables(result.error));
   }
 
   return result.data;
@@ -160,9 +169,8 @@ export function getEnvironmentReadiness(
   const result = ServerEnvironmentSchema.safeParse(source);
   const invalidVariables = result.success
     ? new Set<string>()
-    : new Set(invalidEnvironmentVariables(result));
+    : new Set(invalidEnvironmentVariables(result.error));
   const isValid = (key: EnvironmentKey): boolean => !invalidVariables.has(key);
-
   return {
     appUrl: isValid('APP_URL'),
     auth: isValid('AUTH_SECRET'),

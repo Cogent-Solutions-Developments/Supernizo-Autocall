@@ -9,7 +9,7 @@ import {
 const completeEnvironment = {
   APP_URL: 'http://localhost:3000',
   AUTH_SECRET: 'a'.repeat(32),
-  DATABASE_URL: 'mysql://user:password@localhost:3306/supernizo',
+  DATABASE_URL: 'postgresql://user:password@localhost:5432/supernizo',
   LIVEKIT_API_KEY: 'api-key',
   LIVEKIT_API_SECRET: 'api-secret',
   LIVEKIT_URL: 'wss://supernizo.livekit.cloud',
@@ -20,7 +20,7 @@ const completeEnvironment = {
 
 describe('server environment', () => {
   it('returns parsed server configuration when all variables are valid', () => {
-    expect(getServerEnvironment(completeEnvironment).DATABASE_URL).toContain('mysql://');
+    expect(getServerEnvironment(completeEnvironment).DATABASE_URL).toContain('postgresql://');
   });
 
   it('fails fast with readable variable names but no values', () => {
@@ -48,5 +48,18 @@ describe('server environment', () => {
       realtime: false,
       trackingIpHash: false,
     });
+  });
+
+  it('rejects non-PostgreSQL database URLs', () => {
+    expect(() =>
+      getServerEnvironment({
+        ...completeEnvironment,
+        DATABASE_URL: 'mysql://user:password@localhost:3306/supernizo',
+      }),
+    ).toThrowError(
+      expect.objectContaining({
+        invalidVariables: ['DATABASE_URL'],
+      }),
+    );
   });
 });

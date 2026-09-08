@@ -17,6 +17,7 @@ import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
 import { FlowingRibbons } from '@/app/components/flowing-ribbons';
 import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
+import { withAppBasePath } from '@/lib/app-path';
 
 import {
   AnswerCallIcon,
@@ -145,7 +146,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const normalizedAgentName = agentName.trim().toLowerCase();
   const callerName =
     normalizedAgentName === 'local admin' || normalizedAgentName === 'nizo'
-      ? 'Soniya Sahanya'
+      ? 'Swetha Sahanya'
       : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
   const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
@@ -229,7 +230,9 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     <RealtimeProvider
       key={config?.token ?? 'unauthenticated'}
       api={{
-        url: config ? `/api/realtime/${encodeURIComponent(config.token)}` : '/api/realtime',
+        url: config
+          ? withAppBasePath(`/api/realtime/${encodeURIComponent(config.token)}`)
+          : withAppBasePath('/api/realtime'),
         withCredentials: false,
       }}
     >
@@ -441,8 +444,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         :global(body) {
           color-scheme: light;
           font-family:
-            var(--font-google-sans),
-            'Google Sans',
+            var(--font-app-sans),
+            Geist,
             ui-sans-serif,
             system-ui,
             -apple-system,

@@ -16,7 +16,7 @@ describe('handleTrackingRequest', () => {
   it('includes the requesting origin on error responses', async () => {
     const origin = 'https://example.com';
     const response = await handleTrackingRequest(
-      new Request('https://autocallplatform.vercel.app/api/track/heartbeat', {
+      new Request('https://api.infrastructuresg.com/autocall-db/api/track/heartbeat', {
         body: '{}',
         headers: {
           'content-type': 'application/json',

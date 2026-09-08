@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 
+import { withAppBasePath } from '@/lib/app-path';
+
 type CallerIdentityVideoProps = Readonly<{
   className?: string;
   variant?: 'avatar' | 'cover';
@@ -46,10 +48,10 @@ export function CallerIdentityVideo({
         loop
         muted
         playsInline
-        poster="/sdk/assets/cta-hover-loop1-poster.jpg"
+        poster={withAppBasePath('/sdk/assets/cta-hover-loop1-poster.jpg')}
         preload="auto"
       >
-        <source src="/sdk/assets/cta-hover-loop1.mp4" type="video/mp4" />
+        <source src={withAppBasePath('/sdk/assets/cta-hover-loop1.mp4')} type="video/mp4" />
       </video>
     </div>
   );

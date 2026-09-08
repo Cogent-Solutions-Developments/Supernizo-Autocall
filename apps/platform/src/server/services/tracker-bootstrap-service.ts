@@ -1,6 +1,5 @@
 import 'server-only';
 
-import { geolocation } from '@vercel/functions';
 import { z } from 'zod';
 
 import type { TrackerBootstrapRequest, TrackerBootstrapResponse } from '@supernizo/shared';
@@ -99,17 +98,15 @@ function classifyDevice(userAgent: string, mobileHint?: boolean): string {
   return mobileHint || /mobile|android|iphone|ipad/i.test(userAgent) ? 'MOBILE' : 'DESKTOP';
 }
 
-function readApproximateGeo(request: Request): Readonly<{
+export function readApproximateGeo(request: Request): Readonly<{
   geoCity: string | null;
   geoCountry: string | null;
   geoRegion: string | null;
 }> {
-  const location = geolocation(request);
-
   return {
-    geoCity: location.city?.slice(0, 191) ?? null,
-    geoCountry: location.country?.slice(0, 2).toUpperCase() ?? null,
-    geoRegion: location.countryRegion?.slice(0, 191) ?? null,
+    geoCity: request.headers.get('x-geo-city')?.slice(0, 191) ?? null,
+    geoCountry: request.headers.get('x-geo-country')?.slice(0, 2).toUpperCase() ?? null,
+    geoRegion: request.headers.get('x-geo-region')?.slice(0, 191) ?? null,
   };
 }
 

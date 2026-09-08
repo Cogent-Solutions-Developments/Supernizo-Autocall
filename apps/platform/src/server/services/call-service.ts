@@ -11,7 +11,7 @@ import {
   type CallType,
   type TrackingContext,
 } from '@supernizo/shared';
-import type { CallStatus as PrismaCallStatus, Prisma } from '@generated/prisma/client';
+import { Prisma, type CallStatus as PrismaCallStatus } from '@generated/prisma/client';
 
 import { getDatabaseClient } from '@/server/db/client';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
@@ -125,11 +125,31 @@ export function transitionCallStatus(current: CallStatus, action: CallAction): C
 
 export function staleCallAction(status: CallStatus): CallAction | null {
   if (status === 'RINGING') return 'timeout';
-  return status === 'ACCEPTED' || status === 'CONNECTING' || status === 'ACTIVE' ? 'fail' : null;
+  return status === 'ACCEPTED' || status === 'CONNECTING' ? 'fail' : null;
 }
 
 function roomName(): string {
   return `call_${randomUUID().replaceAll('-', '')}`;
+}
+
+function buildCallParticipantLockQueries(
+  agentId: string,
+  visitorId: string,
+): readonly [Prisma.Sql, Prisma.Sql] {
+  return [
+    Prisma.sql`SELECT id FROM "User" WHERE id = ${agentId} FOR UPDATE`,
+    Prisma.sql`SELECT id FROM "Visitor" WHERE id = ${visitorId} FOR UPDATE`,
+  ];
+}
+
+export async function lockCallParticipants(
+  executeQuery: (query: Prisma.Sql) => Promise<unknown>,
+  agentId: string,
+  visitorId: string,
+): Promise<void> {
+  for (const query of buildCallParticipantLockQueries(agentId, visitorId)) {
+    await executeQuery(query);
+  }
 }
 
 async function assertCallEnabled(siteId: string, type: CallType): Promise<void> {
@@ -368,8 +388,11 @@ export async function createCall(
   const database = getDatabaseClient();
   const { call, expiredCalls, visitorAnonymousId } = await database.$transaction(
     async (transaction) => {
-      await transaction.$queryRaw`SELECT id FROM \`User\` WHERE id = ${input.agentId} FOR UPDATE`;
-      await transaction.$queryRaw`SELECT id FROM \`Visitor\` WHERE id = ${input.visitorId} FOR UPDATE`;
+      await lockCallParticipants(
+        (query) => transaction.$queryRaw(query),
+        input.agentId,
+        input.visitorId,
+      );
       const expiredCalls = await expireStalePendingCalls(
         transaction,
         input.visitorId,
@@ -534,7 +557,6 @@ export async function reconcileStaleCallsForAgent(agentId: string): Promise<numb
       OR: [
         { requestedAt: { lte: ringingCutoff }, status: 'RINGING' },
         { requestedAt: { lte: connectionCutoff }, status: { in: ['ACCEPTED', 'CONNECTING'] } },
-        { startedAt: { lte: connectionCutoff }, status: 'ACTIVE' },
       ],
     },
     select: { id: true, status: true },
