@@ -89,6 +89,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Test Nginx routing
+        run: node --test scripts/nginx-routing.test.mjs
+
       - name: Test PostgreSQL repositories
         run: pnpm test:db
 
@@ -176,6 +179,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
       - name: Configure pinned SSH access
         env:
           SSH_HOST_KEY: ${{ secrets.HETZNER_SSH_HOST_KEY }}
@@ -205,6 +211,9 @@ jobs:
             -o StrictHostKeyChecking=yes \
             "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "deploy ${GITHUB_SHA} ${APP_IMAGE_REF} ${MIGRATOR_IMAGE_REF}"
+
+      - name: Verify public Autocall routing
+        run: bash scripts/check-public-routing.sh
 
       - name: Remove SSH credentials
         if: always()
