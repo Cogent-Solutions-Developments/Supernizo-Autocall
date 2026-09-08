@@ -23,6 +23,12 @@ http {
   }
   server {
     listen 8080;
+    # The production HTTP-level GeoIP include defines these values. Stub them
+    # here so this stock Nginx image can validate the route snippet without
+    # requiring the optional GeoIP2 module or database.
+    set $autocall_geo_city "";
+    set $autocall_geo_country "";
+    set $autocall_geo_region "";
     include /etc/nginx/autocall.conf;
     location / { return 200 'leadgen'; }
   }
