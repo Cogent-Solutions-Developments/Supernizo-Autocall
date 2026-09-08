@@ -14,7 +14,7 @@ export async function lockDirectoryUser(
   transaction: Prisma.TransactionClient,
   subject: string,
 ): Promise<void> {
-  // Shared by SSO, event delivery and site-assignment writes. Works across replicas.
+  // Shared by SSO and directory event delivery. Works across replicas.
   await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`supernizo:${subject}`}, 0))::text`;
 }
 

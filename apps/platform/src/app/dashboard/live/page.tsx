@@ -18,7 +18,7 @@ function scalar(value: string | string[] | undefined): string | undefined {
 
 export default async function LivePresencePage({ searchParams }: LivePresencePageProps) {
   const [user, query] = await Promise.all([requireUser(), searchParams]);
-  const sites = await listSitesForUser(user.id, user.role);
+  const sites = await listSitesForUser(user.role);
   const requestedSiteId = scalar(query.siteId);
   const selectedSite = requestedSiteId
     ? sites.find((site) => site.id === requestedSiteId)

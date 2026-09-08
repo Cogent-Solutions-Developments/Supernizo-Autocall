@@ -152,7 +152,8 @@ export async function listAgentsForSite(
 ): Promise<ReadonlyArray<Readonly<{ id: string; name: string }>>> {
   const users = await getDatabaseClient().user.findMany({
     where: {
-      OR: [{ globalRole: 'ADMIN' }, { globalRole: 'AGENT', siteMemberships: { some: { siteId } } }],
+      // Historical participants remain filterable even after their access is revoked.
+      requestedCalls: { some: { siteId } },
     },
     select: { displayName: true, email: true, id: true },
     orderBy: { email: 'asc' },

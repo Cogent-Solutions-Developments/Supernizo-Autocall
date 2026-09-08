@@ -4,7 +4,6 @@ import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
   ChatInboxQuerySchema,
-  EventAssignmentUpdateSchema,
   PaginationSchema,
   RealtimeEventSchema,
   RequestIdSchema,
@@ -94,18 +93,6 @@ describe('shared API contracts', () => {
     expect(StaffRoleSchema.parse('ADMIN')).toBe('ADMIN');
     expect(StaffRoleSchema.parse('AGENT')).toBe('AGENT');
     expect(() => StaffRoleSchema.parse('VIEWER')).toThrow();
-  });
-
-  it('accepts only event assignment changes', () => {
-    expect(EventAssignmentUpdateSchema.parse({ siteIds: ['site_1', 'site_1'] }).siteIds).toEqual([
-      'site_1',
-    ]);
-    expect(
-      EventAssignmentUpdateSchema.safeParse({
-        displayName: 'Unmanaged change',
-        siteIds: [],
-      }).success,
-    ).toBe(false);
   });
 
   it('validates a visitor message sent to the agent dashboard', () => {

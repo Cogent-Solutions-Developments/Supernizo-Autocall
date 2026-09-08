@@ -15,7 +15,7 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const user = await requireUser();
-    const sites = await listSitesForUser(user.id, user.role);
+    const sites = await listSitesForUser(user.role);
 
     return withRequestId(NextResponse.json({ data: sites, requestId }), requestId);
   } catch (error: unknown) {

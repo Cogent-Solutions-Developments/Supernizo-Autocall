@@ -42,10 +42,10 @@ function createPublicKey(): string {
   return `site_${randomBytes(32).toString('base64url')}`;
 }
 
-export async function listSitesForUser(userId: string, role: StaffRole): Promise<SiteSettings[]> {
+export async function listSitesForUser(role: StaffRole): Promise<SiteSettings[]> {
   const prisma = getDatabaseClient();
   const sites = await prisma.site.findMany({
-    where: role === 'ADMIN' ? {} : { members: { some: { userId } } },
+    where: role === 'ADMIN' ? {} : { status: 'ACTIVE' },
     orderBy: { name: 'asc' },
   });
 

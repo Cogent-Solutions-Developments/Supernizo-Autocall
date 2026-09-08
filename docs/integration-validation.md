@@ -61,7 +61,7 @@ node node_modules/vitest/vitest.mjs run lib/autocall-access.test.ts lib/authenti
 
 - Supply the canonical URLs and dedicated shared secret listed in the integration guide; apply both migrations and deploy in the documented order.
 - Run the hosted, cross-application browser checks with real test accounts. Unit/service tests use controlled dependencies and do not prove the live proxy, TLS, Redis failover, or production database configuration.
-- Assign agent site memberships after first SSO provisioning. Existing local users are not linked by email.
+- After first SSO provisioning, every eligible user can access all active events without assignment. Existing local users are not linked by email.
 - Confirm existing SSE and LiveKit session lifetimes: this access-only change rejects new unauthorized requests but does not terminate active media or rewrite realtime delivery.
 - Reconcile the shared assignment helper when merging `feat/imp/dep-delegate-sales`, preserving both feature assignments as documented.
 
