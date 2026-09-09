@@ -6,6 +6,7 @@ type ParsedRealtimeChannel =
   | Readonly<{ callId: string; type: 'call' }>
   | Readonly<{ threadId: string; type: 'chat' }>
   | Readonly<{ siteId: string; type: 'site' }>
+  | Readonly<{ type: 'user'; userId: string }>
   | Readonly<{ anonymousVisitorId: string; siteId: string; type: 'visitor' }>;
 
 export function parseRealtimeChannel(channel: string): ParsedRealtimeChannel | undefined {
@@ -27,6 +28,12 @@ export function parseRealtimeChannel(channel: string): ParsedRealtimeChannel | u
     return siteId.success ? { siteId: siteId.data, type: 'site' } : undefined;
   }
 
+  const userMatch = /^user:([^:]+)$/.exec(channel);
+  if (userMatch?.[1]) {
+    const userId = IdSchema.safeParse(userMatch[1]);
+    return userId.success ? { type: 'user', userId: userId.data } : undefined;
+  }
+
   const visitorMatch = /^visitor:([^:]+):([^:]+)$/.exec(channel);
   if (visitorMatch?.[1] && visitorMatch[2]) {
     const siteId = IdSchema.safeParse(visitorMatch[1]);
@@ -45,6 +52,7 @@ export async function authorizeRealtimeChannels(
     authorizeDashboardCall: (callId: string) => Promise<boolean>;
     authorizeDashboardChat: (threadId: string) => Promise<boolean>;
     authorizeDashboardSite: (siteId: string) => Promise<boolean>;
+    authorizeDashboardUser: (userId: string) => Promise<boolean>;
     visitorChannel: string | undefined;
   }>,
 ): Promise<boolean> {
@@ -71,6 +79,10 @@ export async function authorizeRealtimeChannels(
       }
     } else if (parsedChannel.type === 'site') {
       if (!(await dependencies.authorizeDashboardSite(parsedChannel.siteId))) {
+        return false;
+      }
+    } else if (parsedChannel.type === 'user') {
+      if (!(await dependencies.authorizeDashboardUser(parsedChannel.userId))) {
         return false;
       }
     } else if (dependencies.visitorChannel !== channel) {

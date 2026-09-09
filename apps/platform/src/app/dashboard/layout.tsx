@@ -3,14 +3,20 @@ import { Suspense, type ReactNode } from 'react';
 import { AgentAvailabilityControl } from '@/app/components/agent-availability-control';
 import { DashboardDock } from '@/app/components/dashboard-dock';
 import { DashboardSessionGuard } from '@/app/components/dashboard-session-guard';
+import { DashboardNotificationCenter } from '@/app/components/dashboard-notification-center';
 import { requireDashboardUser } from '@/server/auth/access';
 import { AutocallWordmark } from '@/app/components/autocall-wordmark';
 import { HeavyWorkspaceBackground } from '@/app/components/heavy-workspace-background';
+import { listNotificationsForUser } from '@/server/services/notification-service';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
   const user = await requireDashboardUser();
+  const initialNotifications = await listNotificationsForUser(user.id, {
+    limit: 50,
+    unreadOnly: false,
+  });
   return (
     <DashboardSessionGuard returnTo={user.returnTo}>
       <div className="workspace-theme workspace-canvas">
@@ -23,6 +29,11 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
             <AutocallWordmark />
           </Link>
           <div className="workspace-account">
+            <DashboardNotificationCenter
+              canSend={user.role === 'ADMIN' || user.role === 'AGENT'}
+              initialNotifications={initialNotifications}
+              userId={user.id}
+            />
             <AgentAvailabilityControl />
           </div>
         </header>
