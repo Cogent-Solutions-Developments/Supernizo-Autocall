@@ -128,6 +128,19 @@ describe('Supernizo browser-bound handoff', () => {
     expect(() => startSupernizoSignIn('https://evil.example')).toThrow();
   });
 
+  it('preserves a validated notification destination on the Supernizo handoff', () => {
+    const response = startSupernizoSignIn('light', {
+      siteId: 'site_123',
+      threadId: 'thread_123',
+      visitorId: 'visitor_123',
+    });
+    const target = new URL(response.headers.get('location')!);
+
+    expect(target.searchParams.get('siteId')).toBe('site_123');
+    expect(target.searchParams.get('visitorId')).toBe('visitor_123');
+    expect(target.searchParams.get('threadId')).toBe('thread_123');
+  });
+
   it('rejects absent, mismatched and expired browser state before any exchange', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

@@ -38,6 +38,8 @@ read -r -s -p 'Supernizo Autocall SSO client secret (at least 32 characters): ' 
 printf '\n'
 read -r -s -p 'Supernizo directory-sync HMAC secret (at least 32 characters): ' directory_sync_secret
 printf '\n'
+read -r -s -p 'Supernizo notification-sync HMAC secret (at least 32 characters): ' notification_sync_secret
+printf '\n'
 
 for value in \
   "$upstash_url" \
@@ -49,7 +51,8 @@ for value in \
   "$supernizo_light_url" \
   "$supernizo_heavy_url" \
   "$supernizo_client_secret" \
-  "$directory_sync_secret"; do
+  "$directory_sync_secret" \
+  "$notification_sync_secret"; do
   [[ -n "$value" && "$value" != *[[:space:]]* ]] || {
     printf 'Provider values must be non-empty and may not contain whitespace.\n' >&2
     exit 1
@@ -90,6 +93,8 @@ umask 077
     printf 'SUPERNIZO_AUTOCALL_CLIENT_SECRET=%s\n' "$supernizo_client_secret"
     printf 'SUPERNIZO_DIRECTORY_SYNC_ENABLED=false\n'
     printf 'SUPERNIZO_DIRECTORY_SYNC_SECRET=%s\n' "$directory_sync_secret"
+    printf 'SUPERNIZO_NOTIFICATION_SYNC_ENABLED=false\n'
+    printf 'SUPERNIZO_NOTIFICATION_SYNC_SECRET=%s\n' "$notification_sync_secret"
   } >"$output_file"
 )
 chmod 0600 "$output_file"

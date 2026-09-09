@@ -127,22 +127,20 @@ describe('shared API contracts', () => {
 
     const response = {
       nextCursor: {
+        createdAt: '2026-09-09T08:00:00.000Z',
         id: 'notification_123',
-        updatedAt: '2026-09-09T08:00:01.000Z',
       },
       notifications: [
         {
           createdAt: '2026-09-09T08:00:00.000Z',
           messageId: 'message_123',
           preview: 'Could you help me?',
-          readAt: null,
           recipientSubject: 'ea83fe17-031e-4e03-902c-65ad60df783d',
           siteId: 'site_123',
           siteName: 'Example site',
           sourceNotificationId: 'notification_123',
           threadId: 'thread_123',
           type: 'CHAT_MESSAGE',
-          updatedAt: '2026-09-09T08:00:01.000Z',
           visitorId: 'visitor_123',
           visitorLabel: 'Visitor 123',
         },
@@ -168,14 +166,12 @@ describe('shared API contracts', () => {
             createdAt: '2026-09-09T08:00:01.000Z',
             messageId: 'message_123',
             preview: 'Could you help me?',
-            readAt: null,
             recipientSubject: 'not-a-user-uuid',
             siteId: 'site_123',
             siteName: 'Example site',
             sourceNotificationId: 'notification_123',
             threadId: 'thread_123',
             type: 'CHAT_MESSAGE',
-            updatedAt: '2026-09-09T08:00:00.000Z',
             visitorId: 'visitor_123',
             visitorLabel: 'Visitor 123',
           },

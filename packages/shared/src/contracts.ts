@@ -280,8 +280,8 @@ export const NotificationReadRequestSchema = z.object({ read: z.literal(true) })
 
 export const NotificationSyncCursorSchema = z
   .object({
+    createdAt: UtcDateTimeSchema,
     id: IdSchema,
-    updatedAt: UtcDateTimeSchema,
   })
   .strict();
 
@@ -298,22 +298,16 @@ export const NotificationSyncItemSchema = z
     createdAt: UtcDateTimeSchema,
     messageId: IdSchema,
     preview: z.string().trim().min(1).max(500),
-    readAt: UtcDateTimeSchema.nullable(),
     recipientSubject: RequestIdSchema,
     siteId: IdSchema,
     siteName: z.string().trim().min(1).max(191),
     sourceNotificationId: IdSchema,
     threadId: IdSchema,
     type: NotificationTypeSchema,
-    updatedAt: UtcDateTimeSchema,
     visitorId: IdSchema,
     visitorLabel: z.string().trim().min(1).max(191),
   })
-  .strict()
-  .refine(({ createdAt, updatedAt }) => Date.parse(updatedAt) >= Date.parse(createdAt), {
-    message: 'The update timestamp must be on or after the creation timestamp.',
-    path: ['updatedAt'],
-  });
+  .strict();
 
 export const NotificationSyncPageResponseSchema = z
   .object({

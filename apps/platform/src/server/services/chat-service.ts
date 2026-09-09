@@ -157,6 +157,15 @@ export async function getChatThreadScope(
   });
 }
 
+export async function chatThreadBelongsToVisitor(
+  threadId: string,
+  siteId: string,
+  visitorId: string,
+): Promise<boolean> {
+  const scope = await getChatThreadScope(threadId);
+  return scope?.siteId === siteId && scope?.visitorId === visitorId;
+}
+
 export async function listChatInboxThreads(
   siteId: string,
   limit: number,

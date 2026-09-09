@@ -8,10 +8,15 @@ import { requireSiteAccess } from '@/server/auth/access';
 import { getLiveVisitor } from '@/server/services/live-presence-service';
 import { getVisitorProfile } from '@/server/services/visitor-insights-service';
 import { listVisitorCallHistory } from '@/server/services/call-history-service';
+import { chatThreadBelongsToVisitor } from '@/server/services/chat-service';
 
 type VisitorPageProps = Readonly<{
   params: Promise<{ visitorId: string }>;
-  searchParams: Promise<{ cursor?: string | string[]; siteId?: string | string[] }>;
+  searchParams: Promise<{
+    cursor?: string | string[];
+    siteId?: string | string[];
+    threadId?: string | string[];
+  }>;
 }>;
 
 function scalar(value: string | string[] | undefined): string | undefined {
@@ -36,7 +41,9 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
   const [{ visitorId: rawVisitorId }, query] = await Promise.all([params, searchParams]);
   const visitorId = IdSchema.safeParse(rawVisitorId);
   const siteId = IdSchema.safeParse(scalar(query.siteId));
-  if (!visitorId.success || !siteId.success) notFound();
+  const requestedThreadId = scalar(query.threadId);
+  const threadId = requestedThreadId ? IdSchema.safeParse(requestedThreadId) : null;
+  if (!visitorId.success || !siteId.success || (threadId && !threadId.success)) notFound();
 
   const siteAccess = await requireSiteAccess(siteId.data);
   const profile = await getVisitorProfile(siteId.data, visitorId.data, {
@@ -44,6 +51,12 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
     limit: 25,
   });
   if (!profile) notFound();
+  if (
+    threadId?.success &&
+    !(await chatThreadBelongsToVisitor(threadId.data, siteId.data, visitorId.data))
+  ) {
+    notFound();
+  }
 
   const [onlineSnapshot, callHistory] = await Promise.all([
     getLiveVisitor(siteId.data, visitorId.data),
@@ -197,7 +210,7 @@ export default async function VisitorProfilePage({ params, searchParams }: Visit
           </article>
           <DashboardChatPane
             canSend={siteAccess.siteRole === 'ADMIN' || siteAccess.siteRole === 'AGENT'}
-            initialThreadId={profile.latestChatThreadId}
+            initialThreadId={threadId?.success ? threadId.data : profile.latestChatThreadId}
             siteId={siteId.data}
             visitorId={visitorId.data}
           />
