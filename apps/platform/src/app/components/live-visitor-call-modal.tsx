@@ -141,35 +141,35 @@ export function LiveVisitorCallModal({
     <div
       aria-labelledby="live-call-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4"
       role="dialog"
     >
-      <section className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+      <section className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">Call</p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950" id="live-call-title">
+            <p className="text-sm font-semibold tracking-[0.14em] text-accent uppercase">Call</p>
+            <h2 className="mt-1 text-xl font-semibold text-strong" id="live-call-title">
               {callType === 'VIDEO' ? 'Video' : 'Audio'} call to {visitor.city ?? 'visitor'}
             </h2>
           </div>
           <button
             aria-label="Close call"
-            className="rounded-lg p-2 hover:bg-slate-100"
+            className="rounded-lg p-2 hover:bg-surface-hover"
             onClick={onClose}
             type="button"
           >
             ×
           </button>
         </div>
-        <div className="mt-6 rounded-xl bg-slate-50 p-4">
-          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
-          {!call && !error ? <p className="text-sm text-slate-600">Starting secure ring…</p> : null}
+        <div className="mt-6 rounded-xl bg-surface-muted p-4">
+          {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+          {!call && !error ? <p className="text-sm text-muted">Starting secure ring…</p> : null}
           {call ? (
             <>
-              <p className="font-semibold text-slate-950">
+              <p className="font-semibold text-strong">
                 {connectedMediaCallId === call.id ? 'CONNECTED' : call.status}
               </p>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-muted">
                 The visitor must accept before any media permission is requested.
               </p>
             </>

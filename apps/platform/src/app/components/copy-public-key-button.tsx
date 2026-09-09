@@ -16,7 +16,7 @@ export function CopyPublicKeyButton({ publicKey }: CopyPublicKeyButtonProps) {
 
   return (
     <button
-      className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700"
+      className="rounded-md border border-line px-2 py-1 text-xs font-medium text-body"
       onClick={() => void copyPublicKey()}
       type="button"
     >

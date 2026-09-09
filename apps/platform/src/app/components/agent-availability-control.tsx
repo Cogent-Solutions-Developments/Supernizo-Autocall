@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { WorkspaceSelect } from './workspace-select';
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
@@ -41,28 +42,30 @@ export function AgentAvailabilityControl() {
   }, [requestedAvailability]);
 
   return (
-    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+    <label className="workspace-availability text-sm font-medium text-body">
       <span
+        aria-label={`Current status: ${labels[availability]}`}
+        title={`Current status: ${labels[availability]}`}
         className={
           availability === 'AVAILABLE'
-            ? 'text-emerald-700'
+            ? 'workspace-availability-dot bg-emerald-400'
             : availability === 'BUSY'
-              ? 'text-amber-700'
-              : 'text-slate-500'
+              ? 'workspace-availability-dot bg-amber-400'
+              : 'workspace-availability-dot bg-slate-400'
         }
-      >
-        {labels[availability]}
-      </span>
-      <select
+      />
+      <WorkspaceSelect
         aria-label="Your availability"
-        className="rounded-lg border border-slate-300 bg-white px-2 py-1.5"
         disabled={availability === 'BUSY'}
-        onChange={(event) => setRequestedAvailability(event.target.value as Availability)}
+        onValueChange={(next) => {
+          if (next === 'AVAILABLE' || next === 'OFFLINE') setRequestedAvailability(next);
+        }}
         value={requestedAvailability}
-      >
-        <option value="AVAILABLE">Available</option>
-        <option value="OFFLINE">Offline</option>
-      </select>
+        options={[
+          { value: 'AVAILABLE', label: 'Available' },
+          { value: 'OFFLINE', label: 'Offline' },
+        ]}
+      />
     </label>
   );
 }

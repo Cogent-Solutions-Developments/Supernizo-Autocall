@@ -1,7 +1,11 @@
 'use client';
 
 import { createRealtime } from '@upstash/realtime/client';
-import { ChatCircleDotsIcon, MinusIcon, UserCircleIcon } from '@phosphor-icons/react';
+import {
+  MessageCircle as ChatCircleDotsIcon,
+  Minus as MinusIcon,
+  CircleUserRound as UserCircleIcon,
+} from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { z } from 'zod';
@@ -10,6 +14,7 @@ import { ChatInboxThreadSchema, ChatMessageSchema, type ChatInboxThread } from '
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
+import { WorkspaceSelect } from './workspace-select';
 import { DashboardChatPane } from './dashboard-chat-pane';
 
 const { useRealtime } = createRealtime<{
@@ -116,11 +121,11 @@ export function DashboardChatInbox({
     return createPortal(
       <button
         aria-label="Open visitor chat inbox"
-        className="fixed right-4 bottom-4 z-40 flex h-14 items-center gap-2 rounded-full bg-[#18181b] px-4 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(24,24,27,0.25)] transition hover:bg-[#27272a] sm:right-6 sm:bottom-6"
+        className="workspace-theme staff-chat fixed right-4 bottom-24 z-40 flex h-14 items-center gap-2 rounded-full bg-action px-4 text-sm font-semibold text-white shadow-[0_16px_36px_rgba(24,24,27,0.25)] transition hover:bg-action-hover sm:right-6 sm:bottom-6"
         onClick={() => setIsOpen(true)}
         type="button"
       >
-        <ChatCircleDotsIcon aria-hidden="true" size={20} weight="fill" />
+        <ChatCircleDotsIcon aria-hidden="true" size={20} />
         Chats{threads.length ? ` (${threads.length})` : ''}
       </button>,
       document.body,
@@ -130,47 +135,32 @@ export function DashboardChatInbox({
   return createPortal(
     <section
       aria-label="Visitor chat inbox"
-      className="fixed right-4 bottom-4 z-40 flex h-[min(32rem,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[22px] border border-black/10 bg-[#fbfbfa] shadow-[0_24px_68px_rgba(24,24,27,0.24),0_3px_12px_rgba(24,24,27,0.12)] sm:right-6 sm:bottom-6"
+      className="workspace-theme staff-chat fixed right-4 bottom-24 z-40 flex h-[min(32rem,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-[390px] flex-col overflow-hidden rounded-[22px] border border-line bg-surface shadow-[0_24px_68px_rgba(24,24,27,0.24),0_3px_12px_rgba(24,24,27,0.12)] sm:right-6 sm:bottom-6"
     >
-      <header className="flex items-center justify-between gap-3 px-4 pt-4 pb-2.5 text-[#18181b]">
+      <header className="flex items-center justify-between gap-3 px-4 pt-4 pb-2.5 text-strong">
         <div className="flex min-w-0 items-center gap-3">
-          <UserCircleIcon
-            aria-hidden="true"
-            className="shrink-0 text-[#18181b]"
-            size={40}
-            weight="fill"
-          />
+          <UserCircleIcon aria-hidden="true" className="shrink-0 text-strong" size={40} />
           <div className="min-w-0">
-            <label className="sr-only" htmlFor="dashboard-chat-thread">
-              Select a recent visitor chat
-            </label>
-            <select
-              className="w-full max-w-[220px] truncate border-0 bg-transparent p-0 text-[15px] font-semibold tracking-[-0.025em] text-[#18181b] outline-none"
-              id="dashboard-chat-thread"
-              onChange={(event) => setSelectedThreadId(event.target.value || null)}
+            <WorkspaceSelect
+              aria-label="Select a recent visitor chat"
+              className="max-w-[220px]"
+              onValueChange={(next) => setSelectedThreadId(next || null)}
               value={selectedThread?.id ?? ''}
-            >
-              <option disabled value="">
-                Select a chat
-              </option>
-              {threads.map((thread) => (
-                <option key={thread.id} value={thread.id}>
-                  {thread.visitorLabel}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-[10px] font-medium text-[#85858d]">
-              Recent visitor conversations
-            </p>
+              options={[
+                { value: '', label: 'Select a chat', disabled: true },
+                ...threads.map((thread) => ({ value: thread.id, label: thread.visitorLabel })),
+              ]}
+            />
+            <p className="mt-1 text-[10px] font-medium text-muted">Recent visitor conversations</p>
           </div>
         </div>
         <button
           aria-label="Minimize visitor chat inbox"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-[0] text-[#71717a] shadow-[0_1px_2px_rgba(24,24,27,0.04)] transition hover:bg-white hover:text-[#18181b]"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface-hover/70 text-[0] text-muted shadow-[0_1px_2px_rgba(24,24,27,0.04)] transition hover:bg-surface-hover hover:text-strong"
           onClick={() => setIsOpen(false)}
           type="button"
         >
-          <MinusIcon aria-hidden="true" className="text-[#71717a]" size={16} weight="bold" />−
+          <MinusIcon aria-hidden="true" className="text-muted" size={16} />−
         </button>
       </header>
       {selectedThread ? (
@@ -183,7 +173,7 @@ export function DashboardChatInbox({
           visitorId={selectedThread.visitorId}
         />
       ) : (
-        <div className="grid flex-1 place-items-center p-6 text-center text-sm text-[#71717a]">
+        <div className="grid flex-1 place-items-center p-6 text-center text-sm text-muted">
           {loadError ?? 'Select a recent chat to reply.'}
         </div>
       )}

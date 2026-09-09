@@ -1,3 +1,4 @@
+import { WorkspaceSelect } from '@/app/components/workspace-select';
 import { notFound } from 'next/navigation';
 
 import { IdSchema } from '@supernizo/shared';
@@ -42,99 +43,88 @@ export default async function CallHistoryPage({ searchParams }: CallHistoryPageP
 
   return (
     <div className="grid gap-8">
-      <section>
-        <p className="text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">
-          Operations
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Call history</h1>
-        <p className="mt-2 text-slate-600">Durable call outcomes across your approved sites.</p>
+      <section className="workspace-page-heading">
+        <h1 className="mt-2 text-3xl font-light tracking-tight text-strong">Call history</h1>
+        <p className="mt-2 text-muted">Durable call outcomes across your approved sites.</p>
       </section>
-      <form className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3 xl:grid-cols-6">
-        <select
-          aria-label="Site"
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          defaultValue={siteId}
-          name="siteId"
-        >
-          {sites.map((site) => (
-            <option key={site.id} value={site.id}>
-              {site.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Agent"
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          defaultValue={scalar(query.agentId) ?? ''}
-          name="agentId"
-        >
-          <option value="">All agents</option>
-          {agents.map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Status"
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          defaultValue={scalar(query.status) ?? ''}
-          name="status"
-        >
-          <option value="">All statuses</option>
-          {[
-            'RINGING',
-            'ACCEPTED',
-            'CONNECTING',
-            'ACTIVE',
-            'ENDED',
-            'REJECTED',
-            'MISSED',
-            'FAILED',
-            'CANCELLED',
-          ].map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Call type"
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          defaultValue={scalar(query.type) ?? ''}
-          name="type"
-        >
-          <option value="">Audio & video</option>
-          <option value="AUDIO">Audio</option>
-          <option value="VIDEO">Video</option>
-        </select>
-        <input
-          aria-label="From date"
-          className="rounded-lg border border-slate-300 px-3 py-2"
-          defaultValue={scalar(query.from)}
-          name="from"
-          type="date"
-        />
-        <div className="flex gap-2">
-          <input
-            aria-label="To date"
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
-            defaultValue={scalar(query.to)}
-            name="to"
-            type="date"
+      <form className="workspace-panel grid gap-4 p-4 sm:p-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <WorkspaceSelect
+            aria-label="Site"
+            name="siteId"
+            defaultValue={siteId}
+            options={sites.map((site) => ({ value: site.id, label: site.name }))}
           />
-          <button
-            className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
-            type="submit"
-          >
+          <WorkspaceSelect
+            aria-label="Agent"
+            name="agentId"
+            defaultValue={scalar(query.agentId) ?? ''}
+            options={[
+              { value: '', label: 'All agents' },
+              ...agents.map((agent) => ({ value: agent.id, label: agent.name })),
+            ]}
+          />
+          <WorkspaceSelect
+            aria-label="Status"
+            name="status"
+            defaultValue={scalar(query.status) ?? ''}
+            options={[
+              { value: '', label: 'All statuses' },
+              ...[
+                'RINGING',
+                'ACCEPTED',
+                'CONNECTING',
+                'ACTIVE',
+                'ENDED',
+                'REJECTED',
+                'MISSED',
+                'FAILED',
+                'CANCELLED',
+              ].map((status) => ({
+                value: status,
+                label: status.charAt(0) + status.slice(1).toLowerCase(),
+              })),
+            ]}
+          />
+          <WorkspaceSelect
+            aria-label="Call type"
+            name="type"
+            defaultValue={scalar(query.type) ?? ''}
+            options={[
+              { value: '', label: 'Audio & video' },
+              { value: 'AUDIO', label: 'Audio' },
+              { value: 'VIDEO', label: 'Video' },
+            ]}
+          />
+        </div>
+        <div className="grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end lg:ml-auto lg:w-[40rem]">
+          <label className="grid min-w-0 gap-2 text-xs text-muted">
+            From date
+            <input
+              className="workspace-filter h-11 w-full text-sm text-body"
+              defaultValue={scalar(query.from)}
+              name="from"
+              type="date"
+            />
+          </label>
+          <label className="grid min-w-0 gap-2 text-xs text-muted">
+            To date
+            <input
+              className="workspace-filter h-11 w-full text-sm text-body"
+              defaultValue={scalar(query.to)}
+              name="to"
+              type="date"
+            />
+          </label>
+          <button className="workspace-button workspace-button-primary h-11 px-6" type="submit">
             Filter
           </button>
         </div>
       </form>
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
+      <section className="overflow-hidden workspace-panel">
+        <div className="workspace-table-scroll">
+          <table className="workspace-table min-w-[850px]">
+            <thead>
               <tr>
                 <th className="px-5 py-4">When</th>
                 <th className="px-4 py-4">Site</th>
@@ -147,14 +137,18 @@ export default async function CallHistoryPage({ searchParams }: CallHistoryPageP
             </thead>
             <tbody>
               {calls.map((call) => (
-                <tr className="border-t border-slate-100" key={call.callId}>
+                <tr className="group" key={call.callId}>
                   <td className="px-5 py-4">{formatDate(call.requestedAt)}</td>
                   <td className="px-4 py-4">{call.siteName}</td>
                   <td className="px-4 py-4">{call.agentName ?? 'Unassigned'}</td>
                   <td className="px-4 py-4">{call.type}</td>
-                  <td className="px-4 py-4 font-medium">{call.status}</td>
+                  <td className="px-4 py-4 font-medium">
+                    <span className="workspace-status">
+                      {call.status.toLowerCase().replaceAll('_', ' ')}
+                    </span>
+                  </td>
                   <td className="px-4 py-4">{duration(call.durationSeconds)}</td>
-                  <td className="px-5 py-4 text-slate-600">
+                  <td className="px-5 py-4 text-muted">
                     {call.failureReason ?? 'Completed or still in progress'}
                   </td>
                 </tr>
@@ -163,7 +157,7 @@ export default async function CallHistoryPage({ searchParams }: CallHistoryPageP
           </table>
         </div>
         {calls.length === 0 ? (
-          <p className="p-8 text-center text-sm text-slate-600">No calls match these filters.</p>
+          <p className="workspace-table-empty">No calls match these filters.</p>
         ) : null}
       </section>
     </div>

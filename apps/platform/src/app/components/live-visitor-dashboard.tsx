@@ -2,6 +2,9 @@
 
 import { createRealtime } from '@upstash/realtime/client';
 import Link from 'next/link';
+import { WorkspaceSelect } from './workspace-select';
+import { useRouter } from 'next/navigation';
+import { dashboardHref } from '@/lib/dashboard-navigation';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { z } from 'zod';
 
@@ -82,7 +85,8 @@ export function LiveVisitorDashboard({
   initialVisitors,
   sites,
 }: LiveVisitorDashboardProps) {
-  const [siteId, setSiteId] = useState(initialSiteId ?? '');
+  const router = useRouter();
+  const siteId = initialSiteId ?? '';
   const [visitors, setVisitors] = useState(initialVisitors);
   const [filters, setFilters] = useState(defaultLiveVisitorFilters);
   const [loadError, setLoadError] = useState(false);
@@ -194,106 +198,91 @@ export function LiveVisitorDashboard({
   );
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-5 sm:p-6">
+    <section className="workspace-panel">
+      <div className="workspace-data-toolbar">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-950">Live visitors</h2>
-            <div className="mt-1 flex items-center gap-2 text-sm text-slate-600">
+            <h2 className="text-xl font-light text-strong">Visitor activity</h2>
+            <div className="mt-1 flex items-center gap-2 text-sm text-muted">
               <span>{visibleVisitors.length} online</span>
               <span aria-hidden="true" className="text-slate-300">
                 ·
               </span>
               <span
                 className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-                  isRealtimeConnected ? 'text-emerald-700' : 'text-sky-700'
+                  isRealtimeConnected ? 'text-emerald-300' : 'text-sky-300'
                 }`}
                 role="status"
               >
                 <span
                   aria-hidden="true"
                   className={`h-1.5 w-1.5 rounded-full ${
-                    isRealtimeConnected ? 'bg-emerald-500' : 'animate-pulse bg-sky-500'
+                    isRealtimeConnected ? 'bg-emerald-400' : 'animate-pulse bg-sky-500'
                   }`}
                 />
                 {realtimeLabel}
               </span>
             </div>
           </div>
-          <label className="text-sm font-medium text-slate-700">
+          <label className="flex min-w-0 items-center gap-2 text-sm font-medium text-body">
             Site
-            <select
+            <WorkspaceSelect
               aria-label="Site"
-              className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2"
-              onChange={(event) => {
-                setInboxThread(null);
-                setSiteId(event.target.value);
-              }}
+              className="ml-2"
               value={siteId}
-            >
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.name}
-                </option>
-              ))}
-            </select>
+              onValueChange={(next) => {
+                setInboxThread(null);
+                router.replace(dashboardHref('/dashboard/live', next), { scroll: false });
+              }}
+              options={sites.map((site) => ({ value: site.id, label: site.name }))}
+            />
           </label>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <select
+          <WorkspaceSelect
             aria-label="Country"
-            className="rounded-lg border border-slate-300 px-3 py-2"
-            onChange={(event) =>
-              setFilters((current) => updateFilter(current, 'country', event.target.value))
-            }
             value={filters.country}
-          >
-            <option value="all">All countries</option>
-            {countries.map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </select>
+            onValueChange={(next) =>
+              setFilters((current) => updateFilter(current, 'country', next))
+            }
+            options={[
+              { value: 'all', label: 'All countries' },
+              ...countries.map((country) => ({ value: country, label: country })),
+            ]}
+          />
           <input
             aria-label="Current page"
-            className="rounded-lg border border-slate-300 px-3 py-2"
+            className="workspace-filter"
             onChange={(event) =>
               setFilters((current) => updateFilter(current, 'page', event.target.value))
             }
             placeholder="Current page"
             value={filters.page}
           />
-          <select
+          <WorkspaceSelect
             aria-label="Visitor type"
-            className="rounded-lg border border-slate-300 px-3 py-2"
-            onChange={(event) =>
-              setFilters((current) => updateFilter(current, 'returning', event.target.value))
-            }
             value={filters.returning}
-          >
-            <option value="all">New & returning</option>
-            <option value="new">New visitors</option>
-            <option value="returning">Returning visitors</option>
-          </select>
-          <select
-            aria-label="Source"
-            className="rounded-lg border border-slate-300 px-3 py-2"
-            onChange={(event) =>
-              setFilters((current) => updateFilter(current, 'source', event.target.value))
+            onValueChange={(next) =>
+              setFilters((current) => updateFilter(current, 'returning', next))
             }
+            options={[
+              { value: 'all', label: 'New & Returning' },
+              { value: 'new', label: 'New visitors' },
+              { value: 'returning', label: 'Returning visitors' },
+            ]}
+          />
+          <WorkspaceSelect
+            aria-label="Source"
             value={filters.source}
-          >
-            <option value="all">All sources</option>
-            {sources.map((source) => (
-              <option key={source} value={source}>
-                {source}
-              </option>
-            ))}
-          </select>
+            onValueChange={(next) => setFilters((current) => updateFilter(current, 'source', next))}
+            options={[
+              { value: 'all', label: 'All sources' },
+              ...sources.map((source) => ({ value: source, label: source })),
+            ]}
+          />
           <input
             aria-label="Search visitors"
-            className="rounded-lg border border-slate-300 px-3 py-2"
+            className="workspace-filter"
             onChange={(event) =>
               setFilters((current) => updateFilter(current, 'search', event.target.value))
             }
@@ -303,16 +292,16 @@ export function LiveVisitorDashboard({
         </div>
       </div>
       {loadError ? (
-        <p className="m-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+        <p className="m-5 rounded-lg bg-rose-400/10 p-3 text-sm text-rose-300">
           Live visitor data could not be refreshed.
         </p>
       ) : null}
       {chatError ? (
-        <p className="m-5 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{chatError}</p>
+        <p className="m-5 rounded-lg bg-rose-400/10 p-3 text-sm text-rose-300">{chatError}</p>
       ) : null}
-      <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full min-w-[980px] text-left text-sm">
-          <thead className="bg-slate-50 text-xs tracking-wide text-slate-500 uppercase">
+      <div className="workspace-table-scroll hidden lg:block">
+        <table className="workspace-table min-w-[980px]">
+          <thead>
             <tr>
               <th className="px-6 py-4">Score</th>
               <th className="px-4 py-4">Visitor / location</th>
@@ -326,23 +315,23 @@ export function LiveVisitorDashboard({
           </thead>
           <tbody>
             {visibleVisitors.map((visitor) => (
-              <tr className="border-t border-slate-100" key={visitor.visitorId}>
-                <td className="px-6 py-4 font-semibold text-slate-950">
+              <tr className="group" key={visitor.visitorId}>
+                <td className="px-6 py-4 font-semibold text-strong">
                   {visitor.intentScore ?? '—'}
                 </td>
                 <td className="px-4 py-4">
                   <span
-                    className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-500"
+                    className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400"
                     aria-label="Online"
                   />
                   {visitor.city ?? 'Unknown city'}, {visitor.country ?? '—'}
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-muted">
                     {visitor.returningVisitCount > 1
                       ? `Returning · ${visitor.returningVisitCount} visits`
                       : 'New visitor'}
                   </p>
                 </td>
-                <td className="px-4 py-4 font-medium text-slate-800">
+                <td className="px-4 py-4 font-medium text-strong">
                   {displayPath(visitor.currentUrl)}
                 </td>
                 <td className="px-4 py-4 tabular-nums">
@@ -352,19 +341,19 @@ export function LiveVisitorDashboard({
                 <td className="px-4 py-4">
                   {visitor.deviceType ?? visitor.browserName ?? 'Unknown'}
                 </td>
-                <td className="px-4 py-4 text-slate-500">
+                <td className="px-4 py-4 text-muted">
                   <LocalTime value={visitor.lastSeenAt} />
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <Link
-                      className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+                      className="workspace-row-action"
                       href={`/dashboard/visitors/${visitor.visitorId}?siteId=${siteId}`}
                     >
                       Open
                     </Link>
                     <button
-                      className="rounded-md bg-slate-950 px-3 py-1.5 font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                      className="workspace-row-action workspace-row-action-primary"
                       disabled={!canSendChat}
                       onClick={() => void openDashboardChat(visitor)}
                       title={
@@ -375,7 +364,7 @@ export function LiveVisitorDashboard({
                       Chat
                     </button>
                     <button
-                      className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="workspace-row-action"
                       disabled={!canSendChat}
                       onClick={() => setCallRequest({ type: 'AUDIO', visitor })}
                       type="button"
@@ -383,7 +372,7 @@ export function LiveVisitorDashboard({
                       Audio Call
                     </button>
                     <button
-                      className="rounded-md border border-slate-300 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="workspace-row-action"
                       disabled={!canSendChat}
                       onClick={() => setCallRequest({ type: 'VIDEO', visitor })}
                       type="button"
@@ -399,34 +388,57 @@ export function LiveVisitorDashboard({
       </div>
       <div className="grid gap-3 p-5 lg:hidden">
         {visibleVisitors.map((visitor) => (
-          <article className="rounded-xl border border-slate-200 p-4" key={visitor.visitorId}>
+          <article className="workspace-record p-4" key={visitor.visitorId}>
             <div className="flex justify-between gap-3">
               <p className="font-semibold">{displayPath(visitor.currentUrl)}</p>
               <span>{visitor.intentScore ?? '—'}</span>
             </div>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted">
               {visitor.city ?? 'Unknown city'}, {visitor.country ?? '—'} ·{' '}
               {visitor.source ?? 'Direct'}
             </p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-muted">
               Active {formatSeconds(visitor.activeDurationSeconds)} ·{' '}
               {visitor.deviceType ?? 'Unknown device'}
             </p>
-            <button
-              className="mt-3 rounded-md bg-slate-950 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-              disabled={!canSendChat}
-              onClick={() => void openDashboardChat(visitor)}
-              type="button"
-            >
-              Chat
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link
+                className="workspace-row-action"
+                href={`/dashboard/visitors/${visitor.visitorId}?siteId=${siteId}`}
+              >
+                Open
+              </Link>
+              <button
+                className="workspace-row-action workspace-row-action-primary"
+                disabled={!canSendChat}
+                onClick={() => void openDashboardChat(visitor)}
+                title={canSendChat ? 'Start chat' : 'Viewer accounts cannot send chat messages'}
+                type="button"
+              >
+                Chat
+              </button>
+              <button
+                className="workspace-row-action"
+                disabled={!canSendChat}
+                onClick={() => setCallRequest({ type: 'AUDIO', visitor })}
+                type="button"
+              >
+                Audio Call
+              </button>
+              <button
+                className="workspace-row-action"
+                disabled={!canSendChat}
+                onClick={() => setCallRequest({ type: 'VIDEO', visitor })}
+                type="button"
+              >
+                Video Call
+              </button>
+            </div>
           </article>
         ))}
       </div>
       {visibleVisitors.length === 0 ? (
-        <p className="p-8 text-center text-sm text-slate-600">
-          No live visitors match the current filters.
-        </p>
+        <p className="workspace-table-empty">No live visitors match the current filters.</p>
       ) : null}
       {callRequest ? (
         <LiveVisitorCallModal

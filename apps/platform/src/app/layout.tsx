@@ -1,17 +1,10 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { RealtimeClientProvider } from '@/app/components/realtime-client-provider';
 
 import './globals.css';
 import '@livekit/components-styles';
-
-const appSans = Geist({
-  display: 'swap',
-  subsets: ['latin'],
-  variable: '--font-app-sans',
-});
 
 export const metadata: Metadata = {
   title: 'Supernizo Autocall | Your visitor coworker',
@@ -26,7 +19,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body className={appSans.variable}>
+      <body className="font-sans">
         <RealtimeClientProvider>{children}</RealtimeClientProvider>
       </body>
     </html>

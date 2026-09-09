@@ -63,25 +63,25 @@ export function LiveVisitorChatModal({
     <div
       aria-labelledby="live-chat-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4"
+      className="fixed inset-0 z-50 grid place-items-center bg-black/65 p-4"
       role="dialog"
     >
-      <section className="w-full max-w-xl rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+      <section className="w-full max-w-xl rounded-2xl bg-surface shadow-2xl">
+        <header className="flex items-start justify-between gap-4 border-b border-line p-5">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">
+            <p className="text-sm font-semibold tracking-[0.14em] text-accent uppercase">
               Live chat
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-950" id="live-chat-title">
+            <h2 className="mt-1 text-xl font-semibold text-strong" id="live-chat-title">
               {visitor.city ?? 'Anonymous visitor'} · {visitor.country ?? 'Unknown location'}
             </h2>
-            <p className="mt-1 truncate text-sm text-slate-600">
+            <p className="mt-1 truncate text-sm text-muted">
               {visitor.currentUrl ?? 'Current page unknown'}
             </p>
           </div>
           <button
             aria-label="Close chat"
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-950"
+            className="rounded-lg p-2 text-muted hover:bg-surface-hover hover:text-strong"
             onClick={onClose}
             type="button"
           >
@@ -90,7 +90,7 @@ export function LiveVisitorChatModal({
         </header>
         <div className="p-5">
           {!canSend ? (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted">
               Viewer accounts cannot start or send chat messages.
             </p>
           ) : threadId ? (
@@ -101,9 +101,9 @@ export function LiveVisitorChatModal({
               visitorId={visitor.visitorId}
             />
           ) : error ? (
-            <p className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>
+            <p className="rounded-lg bg-rose-400/10 p-3 text-sm text-rose-300">{error}</p>
           ) : (
-            <p className="py-8 text-center text-sm text-slate-600">Opening secure chat…</p>
+            <p className="py-8 text-center text-sm text-muted">Opening secure chat…</p>
           )}
         </div>
       </section>
