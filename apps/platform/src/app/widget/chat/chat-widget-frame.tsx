@@ -305,7 +305,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
               </label>
               <div className="composer-field flex items-end gap-2 rounded-[15px] border border-black/10 bg-white/90 py-2 pr-2 pl-3.5 shadow-[0_8px_28px_rgba(24,24,27,0.08),0_1px_3px_rgba(24,24,27,0.06)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 ease-out focus-within:border-black/25 focus-within:shadow-[0_10px_32px_rgba(24,24,27,0.11),0_0_0_3px_rgba(24,24,27,0.04)]">
                 <textarea
-                  className="max-h-[88px] min-h-10 flex-1 resize-none border-0 bg-transparent py-2 text-[13px] leading-5 text-[#18181b] outline-none placeholder:text-[#a1a1aa] disabled:cursor-wait"
+                  className="max-h-[88px] min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent py-2 text-[13px] leading-5 text-[#18181b] outline-none placeholder:text-[#a1a1aa] disabled:cursor-wait"
                   id="supernizo-chat-input"
                   maxLength={2000}
                   onChange={(event) => {
@@ -359,6 +359,8 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           height: 100%;
           margin: 0;
           overflow: hidden;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
           font-family:
             var(--font-app-sans),
             Geist,
@@ -373,6 +375,25 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
         .message-scroll {
           scrollbar-color: #d4d4d8 transparent;
           scrollbar-width: thin;
+        }
+        @media (max-width: 320px) {
+          .composer-field textarea {
+            font-size: 16px;
+          }
+          .chat-header {
+            gap: 8px;
+            padding: 12px 12px 8px;
+          }
+          .chat-empty {
+            min-height: 120px;
+          }
+          .chat-empty h1 {
+            font-size: 24px;
+          }
+          .chat-close {
+            width: 44px;
+            height: 44px;
+          }
         }
         .message-scroll::-webkit-scrollbar {
           width: 5px;
