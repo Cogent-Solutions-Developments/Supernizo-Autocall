@@ -145,16 +145,15 @@ export async function markNotificationRead(
   notificationId: string,
 ): Promise<DashboardNotification> {
   const database = getDatabaseClient();
-  await database.notification.updateMany({
-    where: { id: notificationId, readAt: null, recipientUserId },
+  const result = await database.notification.updateMany({
+    where: { id: notificationId, recipientUserId },
     data: { readAt: new Date() },
   });
+  if (result.count === 0) throw new NotFoundError('The notification does not exist.');
 
-  const notification = await database.notification.findFirst({
-    where: { id: notificationId, recipientUserId },
+  const notification = await database.notification.findUniqueOrThrow({
+    where: { id: notificationId },
     select: notificationSelect,
   });
-  if (!notification) throw new NotFoundError('The notification does not exist.');
-
   return mapNotification(notification);
 }

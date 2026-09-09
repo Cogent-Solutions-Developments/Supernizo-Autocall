@@ -279,7 +279,6 @@ model Notification {
   visitorLabel    String           @db.VarChar(191)
   preview         String           @db.VarChar(500)
   createdAt       DateTime         @default(now()) @db.Timestamp(3)
-  updatedAt       DateTime         @default(now()) @updatedAt @db.Timestamp(3)
   readAt          DateTime?        @db.Timestamp(3)
   recipient       User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
   site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -289,7 +288,6 @@ model Notification {
   @@unique([recipientUserId, type, messageId])
   @@index([recipientUserId, readAt, createdAt])
   @@index([siteId, createdAt])
-  @@index([updatedAt, id])
 }
 
 model Call {

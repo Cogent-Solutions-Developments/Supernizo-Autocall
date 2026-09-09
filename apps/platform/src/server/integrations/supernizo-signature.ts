@@ -9,9 +9,6 @@ import {
 
 export const DIRECTORY_SYNC_PATH = '/autocall-db/api/internal/integrations/supernizo/users/sync';
 export const DIRECTORY_MAX_BYTES = 16_384;
-export const NOTIFICATION_SYNC_PATH =
-  '/autocall-db/api/internal/integrations/supernizo/notifications/page';
-export const NOTIFICATION_SYNC_MAX_BYTES = 16_384;
 
 export function directorySyncEnabled(): boolean {
   return process.env.SUPERNIZO_DIRECTORY_SYNC_ENABLED === 'true';
@@ -24,18 +21,7 @@ export function directorySecret(): string {
   return secret;
 }
 
-export function notificationSyncEnabled(): boolean {
-  return process.env.SUPERNIZO_NOTIFICATION_SYNC_ENABLED === 'true';
-}
-
-export function notificationSyncSecret(): string {
-  const secret = process.env.SUPERNIZO_NOTIFICATION_SYNC_SECRET ?? '';
-  if (secret.length < 32)
-    throw new ServiceUnavailableError('Notification synchronization is not configured.');
-  return secret;
-}
-
-export function signIntegrationRequest(
+export function signDirectoryRequest(
   secret: string,
   timestamp: string,
   method: string,
@@ -47,35 +33,7 @@ export function signIntegrationRequest(
     .digest('hex');
 }
 
-export const signDirectoryRequest = signIntegrationRequest;
-
 export function verifyDirectorySignature(headers: Headers, body: string, now = Date.now()): void {
-  verifyIntegrationSignature(headers, body, 'POST', DIRECTORY_SYNC_PATH, directorySecret(), now);
-}
-
-export function verifyNotificationSyncSignature(
-  headers: Headers,
-  body: string,
-  now = Date.now(),
-): void {
-  verifyIntegrationSignature(
-    headers,
-    body,
-    'POST',
-    NOTIFICATION_SYNC_PATH,
-    notificationSyncSecret(),
-    now,
-  );
-}
-
-function verifyIntegrationSignature(
-  headers: Headers,
-  body: string,
-  method: string,
-  path: string,
-  secret: string,
-  now: number,
-): void {
   const timestamp = headers.get('x-supernizo-timestamp') ?? '';
   const signature = headers.get('x-supernizo-signature') ?? '';
   if (
@@ -85,21 +43,19 @@ function verifyIntegrationSignature(
   ) {
     throw new UnauthorizedError('Invalid integration signature.');
   }
-  const expected = signIntegrationRequest(secret, timestamp, method, path, body);
+  const expected = signDirectoryRequest(
+    directorySecret(),
+    timestamp,
+    'POST',
+    DIRECTORY_SYNC_PATH,
+    body,
+  );
   if (!timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(signature, 'hex'))) {
     throw new UnauthorizedError('Invalid integration signature.');
   }
 }
 
 export async function readDirectoryBody(request: Request): Promise<string> {
-  return readIntegrationBody(request, DIRECTORY_MAX_BYTES);
-}
-
-export async function readNotificationSyncBody(request: Request): Promise<string> {
-  return readIntegrationBody(request, NOTIFICATION_SYNC_MAX_BYTES);
-}
-
-async function readIntegrationBody(request: Request, maxBytes: number): Promise<string> {
   if (request.headers.get('content-type')?.split(';')[0]?.trim() !== 'application/json')
     throw new ValidationError('JSON is required.');
   const reader = request.body?.getReader();
@@ -111,7 +67,7 @@ async function readIntegrationBody(request: Request, maxBytes: number): Promise<
       const chunk = await reader.read();
       if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > maxBytes) {
+      if (size > DIRECTORY_MAX_BYTES) {
         await reader.cancel();
         throw new ValidationError('The integration payload is too large.');
       }

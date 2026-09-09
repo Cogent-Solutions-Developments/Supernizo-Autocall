@@ -30,12 +30,11 @@ HTTPS; local loopback exceptions are only for `next dev`.
 Generate each secret separately with a cryptographically secure generator. Do
 not reuse tokens across rows.
 
-| Shared value             | Backend variable                    | Autocall variable                    | Rule                                                                                                                  |
-| ------------------------ | ----------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| SSO client secret        | `AUTOCALL_CLIENT_SECRET`            | `SUPERNIZO_AUTOCALL_CLIENT_SECRET`   | Same 32+-character value on both sides.                                                                               |
-| Directory HMAC secret    | `AUTOCALL_DIRECTORY_SYNC_SECRET`    | `SUPERNIZO_DIRECTORY_SYNC_SECRET`    | Same 32+-character value on both sides; distinct from the SSO secret.                                                 |
-| Notification HMAC secret | `AUTOCALL_NOTIFICATION_SYNC_SECRET` | `SUPERNIZO_NOTIFICATION_SYNC_SECRET` | Same 32+-character value on both sides; distinct from the SSO and directory secrets.                                  |
-| Backend service token    | `RUN_TOKEN`                         | —                                    | Server-only. Use it as `BACKEND_SERVICE_API_KEY` only in Vercel server runtime. Never place it in a browser variable. |
+| Shared value          | Backend variable                 | Autocall variable                  | Rule                                                                                                                  |
+| --------------------- | -------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| SSO client secret     | `AUTOCALL_CLIENT_SECRET`         | `SUPERNIZO_AUTOCALL_CLIENT_SECRET` | Same 32+-character value on both sides.                                                                               |
+| Directory HMAC secret | `AUTOCALL_DIRECTORY_SYNC_SECRET` | `SUPERNIZO_DIRECTORY_SYNC_SECRET`  | Same 32+-character value on both sides; distinct from the SSO secret.                                                 |
+| Backend service token | `RUN_TOKEN`                      | —                                  | Server-only. Use it as `BACKEND_SERVICE_API_KEY` only in Vercel server runtime. Never place it in a browser variable. |
 
 Rotate `RUN_TOKEN` before this release if it has ever been used as
 `NEXT_PUBLIC_API_KEY`. The Heavy frontend no longer sends browser API keys;
