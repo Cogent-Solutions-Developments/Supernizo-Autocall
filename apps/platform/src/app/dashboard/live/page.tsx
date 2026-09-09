@@ -31,16 +31,14 @@ export default async function LivePresencePage({ searchParams }: LivePresencePag
 
   return (
     <div className="grid gap-8">
-      <section>
-        <p className="text-sm font-semibold tracking-[0.16em] text-blue-600 uppercase">
-          Operations
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Live visitors</h1>
-        <p className="mt-2 max-w-2xl text-slate-600">
+      <section className="workspace-page-heading">
+        <h1 className="mt-2 text-3xl font-light tracking-tight text-strong">Live visitors</h1>
+        <p className="mt-2 max-w-2xl text-muted">
           Monitor live engagement signals across your approved sites.
         </p>
       </section>
       <LiveVisitorDashboard
+        key={selectedSite?.id ?? 'no-site'}
         canSendChat={user.role === 'ADMIN' || user.role === 'AGENT'}
         initialSiteId={selectedSite?.id}
         initialVisitors={initialVisitors}

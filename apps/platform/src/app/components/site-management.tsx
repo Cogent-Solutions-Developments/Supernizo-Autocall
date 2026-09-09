@@ -1,15 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
+import { ArrowUpRight, LayoutGrid, List, Search, Plus, Globe } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
 
 import { SiteSettingsSchema, type SiteSettings } from '@supernizo/shared';
 
 import { CopyPublicKeyButton } from '@/app/components/copy-public-key-button';
-import supernizoLogo from '@/assets/logo-transparent.png';
+import { dashboardHref } from '@/lib/dashboard-navigation';
 import { fetchAppApi } from '@/lib/app-fetch';
 
 const SiteResponseSchema = z.object({ data: SiteSettingsSchema });
@@ -20,6 +20,7 @@ const ErrorResponseSchema = z.object({
 type SiteManagementProps = Readonly<{
   canManage: boolean;
   initialSites: SiteSettings[];
+  initialSiteId: string | undefined;
 }>;
 
 type SitePayload = Readonly<{
@@ -90,7 +91,7 @@ function FeatureCheckbox({
   >;
 }>) {
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-blue-300">
+    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-3 transition hover:border-accent/40">
       <input
         className="mt-1 size-4 accent-blue-600"
         defaultChecked={defaultChecked}
@@ -98,8 +99,8 @@ function FeatureCheckbox({
         type="checkbox"
       />
       <span>
-        <span className="block text-sm font-semibold text-slate-800">{label}</span>
-        <span className="mt-0.5 block text-xs leading-5 text-slate-500">{description}</span>
+        <span className="block text-sm font-semibold text-strong">{label}</span>
+        <span className="mt-0.5 block text-xs leading-5 text-muted">{description}</span>
       </span>
     </label>
   );
@@ -136,20 +137,20 @@ function SiteForm({
   return (
     <form className="grid gap-6" onSubmit={handleSubmit}>
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+        <label className="grid gap-1.5 text-sm font-medium text-body">
           Event name
           <input
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="workspace-input"
             defaultValue={defaultSite?.name}
             name="name"
             placeholder="e.g. Upstream Angola 2027"
             required
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-medium text-slate-700">
-          Data retention days <span className="font-normal text-slate-400">(optional)</span>
+        <label className="grid gap-1.5 text-sm font-medium text-body">
+          Data retention days <span className="font-normal text-muted">(optional)</span>
           <input
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="workspace-input"
             defaultValue={defaultSite?.eventRetentionDays ?? ''}
             min="1"
             name="eventRetentionDays"
@@ -158,22 +159,22 @@ function SiteForm({
         </label>
       </div>
 
-      <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+      <label className="grid gap-1.5 text-sm font-medium text-body">
         Approved website origin
         <textarea
-          className="min-h-24 rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-mono text-sm text-slate-950 outline-none transition placeholder:font-sans placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+          className="workspace-input min-h-24"
           defaultValue={defaultSite?.allowedOrigins.join('\n')}
           name="allowedOrigins"
           placeholder={'https://www.example.com\nhttps://tickets.example.com'}
           required
         />
-        <span className="text-xs font-normal leading-5 text-slate-500">
+        <span className="text-xs font-normal leading-5 text-muted">
           One full http or https origin per line. Only these websites can send tracking data.
         </span>
       </label>
 
       <fieldset className="grid gap-3">
-        <legend className="text-sm font-semibold text-slate-800">Enable visitor engagement</legend>
+        <legend className="text-sm font-semibold text-strong">Enable visitor engagement</legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <FeatureCheckbox
             defaultChecked={defaultSite?.trackingEnabled ?? true}
@@ -203,44 +204,44 @@ function SiteForm({
       </fieldset>
 
       <details
-        className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+        className="rounded-xl border border-line bg-surface-muted p-4"
         open={Boolean(defaultSite)}
       >
-        <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+        <summary className="cursor-pointer text-sm font-semibold text-strong">
           Widget appearance and consent settings
         </summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          <label className="grid gap-1.5 text-sm font-medium text-body">
             Widget display name
             <input
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+              className="workspace-input"
               defaultValue={defaultSite?.widgetDisplayName ?? ''}
               name="widgetDisplayName"
               placeholder="Event concierge"
             />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          <label className="grid gap-1.5 text-sm font-medium text-body">
             Consent mode
             <input
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+              className="workspace-input"
               defaultValue={defaultSite?.consentMode ?? ''}
               name="consentMode"
               placeholder="optional"
             />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          <label className="grid gap-1.5 text-sm font-medium text-body">
             Avatar URL
             <input
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+              className="workspace-input"
               defaultValue={defaultSite?.widgetAvatarUrl ?? ''}
               name="widgetAvatarUrl"
               type="url"
             />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-slate-700">
+          <label className="grid gap-1.5 text-sm font-medium text-body">
             Logo URL
             <input
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5"
+              className="workspace-input"
               defaultValue={defaultSite?.widgetLogoUrl ?? ''}
               name="widgetLogoUrl"
               type="url"
@@ -250,11 +251,11 @@ function SiteForm({
       </details>
 
       {errorMessage ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
+        <p className="rounded-lg bg-red-400/10 px-3 py-2 text-sm text-red-300">{errorMessage}</p>
       ) : null}
       <div className="flex flex-wrap gap-3">
         <button
-          className="rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="workspace-button workspace-button-primary"
           disabled={isSubmitting}
           type="submit"
         >
@@ -262,7 +263,7 @@ function SiteForm({
         </button>
         {onCancel ? (
           <button
-            className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted hover:bg-surface-hover"
             onClick={onCancel}
             type="button"
           >
@@ -279,22 +280,23 @@ function EventStatus({ status }: Readonly<{ status: SiteSettings['status'] }>) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-        active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+        active ? 'bg-emerald-400/10 text-emerald-300' : 'bg-surface-hover text-muted'
       }`}
     >
-      <span className={`size-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+      <span className={`size-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-400'}`} />
       {active ? 'Live' : 'Inactive'}
     </span>
   );
 }
 
-export function SiteManagement({ canManage, initialSites }: SiteManagementProps) {
+export function SiteManagement({ canManage, initialSites, initialSiteId }: SiteManagementProps) {
   const router = useRouter();
   const [sites, setSites] = useState(initialSites);
-  const [selectedSiteId, setSelectedSiteId] = useState(initialSites[0]?.id ?? null);
+  const querySiteId = useSearchParams().get('siteId');
+  const selectedSiteId = querySiteId ?? initialSiteId ?? sites[0]?.id ?? null;
   const [isRegistering, setIsRegistering] = useState(initialSites.length === 0);
   const [isEditing, setIsEditing] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [view, setView] = useState<'grid' | 'list'>('grid');
   const [eventSearch, setEventSearch] = useState('');
   const selectedSite = useMemo(
     () => sites.find((site) => site.id === selectedSiteId) ?? null,
@@ -306,7 +308,6 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
       ? sites.filter((site) => site.name.toLocaleLowerCase().includes(search))
       : sites;
   }, [eventSearch, sites]);
-  const displayedSites = isSidebarCollapsed ? sites : visibleSites;
 
   async function createSite(payload: SitePayload): Promise<void> {
     const response = await fetchAppApi('/api/dashboard/sites', {
@@ -319,9 +320,8 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
     setSites((currentSites) =>
       [...currentSites, site].sort((left, right) => left.name.localeCompare(right.name)),
     );
-    setSelectedSiteId(site.id);
     setIsRegistering(false);
-    router.refresh();
+    router.replace(dashboardHref('/dashboard', site.id), { scroll: false });
   }
 
   async function updateSelectedSite(payload: SitePayload): Promise<void> {
@@ -357,145 +357,106 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
 
   return (
     <section className="grid gap-7">
-      <section className="grid gap-6 lg:block">
-        <aside
-          className={`event-sidebar flex flex-col rounded-[1.5rem] border border-sky-100/15 bg-[#0b1a24]/90 shadow-xl shadow-black/25 backdrop-blur-xl lg:fixed lg:inset-y-4 lg:left-4 lg:z-20 lg:transition-[width] lg:duration-300 ${
-            isSidebarCollapsed ? '' : 'event-sidebar-expanded'
-          } ${isSidebarCollapsed ? 'p-2 lg:w-[4.75rem]' : 'p-3 lg:w-64'}`}
-          onMouseEnter={() => setIsSidebarCollapsed(false)}
-          onMouseLeave={() => setIsSidebarCollapsed(true)}
-        >
-          <div
-            className={`flex items-center py-2 ${isSidebarCollapsed ? 'justify-center' : 'justify-between px-3'}`}
-          >
-            {isSidebarCollapsed ? (
-              <span className="grid size-9 place-items-center rounded-full bg-sky-300/15 text-xs font-bold text-sky-100">
-                S
-              </span>
-            ) : (
-              <div>
-                <Image
-                  alt="Supernizo Autocall"
-                  className="h-auto w-44"
-                  priority
-                  src={supernizoLogo}
-                />
-                <div>
-                  <p className="mt-4 text-xs font-bold tracking-[0.18em] text-sky-200 uppercase">
-                    Events
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-          {!isSidebarCollapsed ? (
-            <label className="mt-4 block px-1">
-              <span className="sr-only">Search events</span>
-              <input
-                className="h-10 w-full rounded-xl border border-sky-100/15 bg-black/15 px-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-sky-200/45 focus:ring-2 focus:ring-sky-300/10"
-                onChange={(event) => setEventSearch(event.target.value)}
-                placeholder="Search events"
-                type="search"
-                value={eventSearch}
-              />
-            </label>
-          ) : null}
-          {sites.length > 0 ? (
-            <div
-              className={`mt-5 grid min-h-0 flex-1 content-start gap-2 overflow-y-auto ${isSidebarCollapsed ? 'justify-items-center' : ''}`}
-            >
-              {displayedSites.map((site) => {
-                const selected = selectedSiteId === site.id;
-                return (
-                  <button
-                    aria-pressed={selected}
-                    aria-label={`Select ${site.name}`}
-                    className={`transition ${
-                      isSidebarCollapsed
-                        ? 'relative grid size-10 place-items-center rounded-full p-0'
-                        : 'rounded-xl border px-3 py-3 text-left'
-                    } ${
-                      selected
-                        ? 'border-white !bg-white !text-[#0b3345] shadow-lg shadow-black/15'
-                        : isSidebarCollapsed
-                          ? 'border-transparent bg-white/[0.08] text-white/80 hover:bg-white/[0.14] hover:text-white'
-                          : 'border-transparent bg-white/[0.06] text-white/80 hover:border-sky-100/10 hover:bg-white/[0.12] hover:text-white'
-                    }`}
-                    key={site.id}
-                    onClick={() => {
-                      setSelectedSiteId(site.id);
-                      setIsEditing(false);
-                      setIsRegistering(false);
-                    }}
-                    title={site.name}
-                    type="button"
-                  >
-                    {isSidebarCollapsed ? (
-                      <>
-                        <span className="text-xs font-bold uppercase">{site.name.slice(0, 1)}</span>
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 size-2 rounded-full ring-2 ring-[#0b1a24] ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-300'}`}
-                        />
-                      </>
-                    ) : (
-                      <span className="flex items-center gap-3">
-                        <span
-                          className={`size-2 shrink-0 rounded-full ${site.status === 'ACTIVE' ? 'bg-emerald-400' : 'bg-slate-400'}`}
-                        />
-                        <span className="min-w-0 truncate text-sm font-semibold">{site.name}</span>
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              {!isSidebarCollapsed && visibleSites.length === 0 ? (
-                <p className="px-3 py-5 text-sm text-white/55">No matching events.</p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="min-h-0 flex-1 px-3 pt-7 text-sm leading-6 text-white/75">
-              No events have been registered yet.
-            </p>
-          )}
-          {canManage ? (
-            <div
-              className={`mt-4 grid gap-2 border-t border-white/15 pt-4 ${isSidebarCollapsed ? 'justify-center' : 'px-1'}`}
-            >
+      <section className="grid gap-6">
+        <div className="event-toolbar">
+          <label className="event-search">
+            <Search aria-hidden="true" size={18} />
+            <span className="sr-only">Search events</span>
+            <input
+              onChange={(event) => setEventSearch(event.target.value)}
+              placeholder="Find an event…"
+              type="search"
+              value={eventSearch}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs text-muted">
+              {sites.length} {sites.length === 1 ? 'event' : 'events'}
+            </span>
+            <div className="event-view-switch" role="group" aria-label="Event view">
               <button
-                aria-label="Register event"
-                className={`text-sm font-semibold transition ${
-                  isSidebarCollapsed
-                    ? 'grid size-14 place-items-center rounded-full bg-sky-100/20 p-0 text-2xl'
-                    : 'w-full rounded-xl border border-sky-100/15 bg-white/10 px-3 py-2.5 text-left hover:bg-white/15'
-                } ${isRegistering ? 'bg-white text-[#0b3345]' : 'text-white'}`}
+                aria-label="Grid view"
+                aria-pressed={view === 'grid'}
+                onClick={() => setView('grid')}
+                type="button"
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button
+                aria-label="List view"
+                aria-pressed={view === 'list'}
+                onClick={() => setView('list')}
+                type="button"
+              >
+                <List size={18} />
+              </button>
+            </div>
+            {canManage ? (
+              <button
+                className="workspace-button workspace-button-blue"
                 onClick={() => {
                   setIsRegistering(true);
                   setIsEditing(false);
                 }}
                 type="button"
               >
-                {isSidebarCollapsed ? '+' : '+ Register event'}
+                <Plus aria-hidden="true" size={16} />
+                Register event
               </button>
-            </div>
-          ) : null}
-        </aside>
-
+            ) : null}
+          </div>
+        </div>
+        <div className={`event-collection event-collection-${view}`}>
+          {visibleSites.map((site) => (
+            <button
+              aria-label={`Select ${site.name}`}
+              aria-pressed={site.id === selectedSiteId && !isRegistering}
+              className="event-card"
+              key={site.id}
+              type="button"
+              onClick={() => {
+                setIsRegistering(false);
+                setIsEditing(false);
+                router.replace(dashboardHref('/dashboard', site.id), { scroll: false });
+              }}
+            >
+              <span className="event-card-mark">
+                <Globe aria-hidden="true" size={25} />
+              </span>
+              <span className="event-card-copy">
+                <span className="event-card-name">{site.name}</span>
+                <span className="event-card-origin">
+                  {site.allowedOrigins[0] ?? 'No origins configured'}
+                </span>
+              </span>
+              <span className="event-card-footer">
+                <EventStatus status={site.status} />
+                <ArrowUpRight aria-hidden="true" size={20} />
+              </span>
+            </button>
+          ))}
+        </div>
+        {!visibleSites.length ? (
+          <p className="workspace-empty" role="status">
+            {eventSearch
+              ? 'No events match your search. Try another name.'
+              : 'No events yet. Register your first event to start receiving visitors.'}
+          </p>
+        ) : null}
         <div className="min-w-0">
           {isRegistering && canManage ? (
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-              <div className="border-b border-slate-100 pb-6">
-                <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">
-                  New event
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+            <section className="workspace-panel p-5 sm:p-6">
+              <div className="border-b border-line pb-6">
+                <p className="text-xs font-medium text-cyan-100/56">New event</p>
+                <h2 className="mt-2 text-2xl font-light tracking-tight text-strong">
                   Register an event
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
                   Connect the event website and choose which visitor-engagement tools are available.
                 </p>
               </div>
               <div className="mt-6">
-                <p className="mb-5 text-sm text-slate-600">
+                <p className="mb-5 text-sm text-muted">
                   The generated public key identifies tracker requests. It is not a dashboard
                   secret.
                 </p>
@@ -507,25 +468,23 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
               </div>
             </section>
           ) : selectedSite ? (
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-6">
+            <section className="workspace-panel p-5 sm:p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <p className="text-sm font-semibold tracking-[0.14em] text-blue-600 uppercase">
-                      Selected event
-                    </p>
+                    <p className="text-xs font-medium text-cyan-100/56">Selected event</p>
                     <EventStatus status={selectedSite.status} />
                   </div>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                  <h2 className="mt-2 text-2xl font-light tracking-tight text-strong">
                     {selectedSite.name}
                   </h2>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-muted">
                     Open the tools below or update this event’s website connection.
                   </p>
                 </div>
                 {canManage ? (
                   <button
-                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                    className="rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-body transition hover:bg-surface-muted"
                     onClick={() => setIsEditing((current) => !current)}
                     type="button"
                   >
@@ -536,42 +495,42 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
 
               <div className="mt-6 grid gap-3 md:grid-cols-3">
                 <Link
-                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  className="workspace-record p-4"
                   href={`/dashboard/live?siteId=${selectedSite.id}`}
                 >
-                  <p className="text-sm font-semibold text-slate-950">Live visitors</p>
-                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                  <p className="text-sm font-semibold text-strong">Live visitors</p>
+                  <p className="mt-1 text-sm leading-5 text-muted">
                     See who is active and respond in real time.
                   </p>
                 </Link>
                 <Link
-                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  className="workspace-record p-4"
                   href={`/dashboard/calls?siteId=${selectedSite.id}`}
                 >
-                  <p className="text-sm font-semibold text-slate-950">Call history</p>
-                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                  <p className="text-sm font-semibold text-strong">Call history</p>
+                  <p className="mt-1 text-sm leading-5 text-muted">
                     Review call outcomes and missed-call reasons.
                   </p>
                 </Link>
                 <Link
-                  className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
+                  className="workspace-record p-4"
                   href={`/dashboard/analytics?siteId=${selectedSite.id}`}
                 >
-                  <p className="text-sm font-semibold text-slate-950">Analytics</p>
-                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                  <p className="text-sm font-semibold text-strong">Analytics</p>
+                  <p className="mt-1 text-sm leading-5 text-muted">
                     Understand visitors, activity and campaigns.
                   </p>
                 </Link>
               </div>
 
-              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-800">Tracker public key</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
+              <div className="mt-6 workspace-record p-4">
+                <p className="text-sm font-semibold text-strong">Tracker public key</p>
+                <p className="mt-1 text-xs leading-5 text-muted">
                   Use this key in the event website’s tracker snippet. It is safe to expose
                   publicly.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <code className="max-w-full overflow-x-auto rounded-lg bg-white px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200">
+                  <code className="max-w-full overflow-x-auto rounded-lg bg-surface px-3 py-2 text-xs text-body ring-1 ring-line">
                     {selectedSite.publicKey}
                   </code>
                   <CopyPublicKeyButton publicKey={selectedSite.publicKey} />
@@ -579,10 +538,10 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
               </div>
 
               {isEditing && canManage ? (
-                <div className="mt-7 border-t border-slate-100 pt-7">
+                <div className="mt-7 border-t border-line pt-7">
                   <div className="mb-5">
-                    <h3 className="text-lg font-semibold text-slate-950">Event settings</h3>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <h3 className="text-lg font-light text-strong">Event settings</h3>
+                    <p className="mt-1 text-sm text-muted">
                       Changes apply only to {selectedSite.name}.
                     </p>
                   </div>
@@ -595,7 +554,7 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
                   />
                   {selectedSite.status === 'ACTIVE' ? (
                     <button
-                      className="mt-6 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                      className="mt-6 rounded-xl border border-red-400/30 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-400/10"
                       onClick={() => void deactivateSelectedSite()}
                       type="button"
                     >
@@ -606,10 +565,10 @@ export function SiteManagement({ canManage, initialSites }: SiteManagementProps)
               ) : null}
             </section>
           ) : (
-            <section className="grid min-h-80 place-items-center rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <section className="grid min-h-80 place-items-center rounded-lg border border-dashed border-line bg-surface px-6 py-12 text-center">
               <div>
-                <h2 className="text-lg font-semibold text-slate-950">No event selected</h2>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                <h2 className="text-lg font-light text-strong">No event selected</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
                   {canManage
                     ? 'Register the first event above to connect its website and begin receiving visitor activity.'
                     : 'Ask an administrator to add you to an event workspace.'}

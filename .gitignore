@@ -12,6 +12,7 @@ test-results/
 generated/
 .windsurf/
 # Local environment files
+.envv
 .env
 .env.local
 .env.production
@@ -31,3 +32,5 @@ Thumbs.db
 .vercel
 .deployment/
 backups/
+
+docker-compose.local.yml

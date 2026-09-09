@@ -18,6 +18,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter platform dev",
+    "db:up": "docker compose -f docker-compose.local.yml up -d --wait postgres",
+    "db:stop": "docker compose -f docker-compose.local.yml stop postgres",
     "build": "pnpm prisma:generate && pnpm --filter @supernizo/shared build && pnpm --filter @supernizo/tracker-sdk build && pnpm --filter platform build",
     "lint": "pnpm --filter platform lint && pnpm --filter @supernizo/shared lint && pnpm --filter @supernizo/tracker-sdk lint && prettier --check .",
     "typecheck": "pnpm --filter @supernizo/shared build && pnpm --filter @supernizo/shared typecheck && pnpm --filter @supernizo/tracker-sdk typecheck && pnpm --filter platform typecheck",
