@@ -14,9 +14,8 @@ const icons = { events: CalendarDays, live: Radar, calls: Headset, analytics: Ch
 export function DashboardDock({ returnTo }: Readonly<{ returnTo: string | undefined }>) {
   const pathname = usePathname();
   const siteId = useSearchParams().get('siteId');
-  if (pathname === '/dashboard') return null;
-
-  const items: FloatingDockItem[] = dashboardSections.map(({ href, label, icon }) => {
+  const sections = pathname === '/dashboard' ? [] : dashboardSections;
+  const items: FloatingDockItem[] = sections.map(({ href, label, icon }) => {
     const Icon = icons[icon];
     return {
       title: label,
@@ -31,6 +30,8 @@ export function DashboardDock({ returnTo }: Readonly<{ returnTo: string | undefi
       href: returnTo,
       icon: <ArrowUpRight className="h-full w-full" />,
     });
+  if (items.length === 0) return null;
+
   return (
     <div className="heavy-dock-frame">
       <div className="heavy-dock-position">
