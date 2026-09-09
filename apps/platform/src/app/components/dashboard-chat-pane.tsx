@@ -1,6 +1,7 @@
 'use client';
 
 import { createRealtime } from '@upstash/realtime/client';
+import { Send } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
@@ -103,7 +104,7 @@ export function DashboardChatPane({
 
   async function sendMessage(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!threadId || !content.trim()) return;
+    if (!threadId || !content.trim() || isSending) return;
 
     setError(null);
     setIsSending(true);
@@ -129,7 +130,7 @@ export function DashboardChatPane({
     <article
       className={
         embedded
-          ? 'flex min-h-0 flex-1 flex-col bg-surface text-strong'
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-surface-muted/35 text-strong'
           : 'rounded-xl border border-line bg-surface-hover p-5 shadow-sm'
       }
     >
@@ -201,7 +202,7 @@ export function DashboardChatPane({
                         </span>
                       ) : null}
                       <article
-                        className={`flex max-w-[82%] flex-col ${
+                        className={`flex min-w-0 max-w-[82%] flex-col ${
                           isVisitor ? 'items-start' : 'items-end'
                         }`}
                       >
@@ -226,7 +227,9 @@ export function DashboardChatPane({
                                 : 'rounded-2xl rounded-tr-sm bg-action text-white'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {message.content}
+                          </p>
                         </div>
                       </article>
                       {!isVisitor ? (
@@ -250,7 +253,7 @@ export function DashboardChatPane({
             <form
               className={
                 embedded
-                  ? 'grid gap-2 border-t border-line bg-gradient-to-t from-surface via-surface to-transparent px-3.5 pt-3 pb-3'
+                  ? 'flex items-end gap-2 border-t border-line bg-surface px-3 py-3'
                   : 'mt-3 grid gap-2'
               }
               onSubmit={(event) => void sendMessage(event)}
@@ -261,23 +264,38 @@ export function DashboardChatPane({
               <textarea
                 className={`rounded-lg border p-2 text-sm ${
                   embedded
-                    ? 'min-h-16 border-line bg-surface-hover/90 text-strong shadow-[0_8px_28px_rgba(24,24,27,0.08)] placeholder:text-muted'
+                    ? 'min-h-11 min-w-0 max-h-32 flex-1 resize-none rounded-2xl border-line bg-surface-hover text-strong placeholder:text-muted'
                     : 'min-h-20 border-slate-300'
                 }`}
                 id={`chat-${threadId}`}
                 maxLength={2000}
+                rows={embedded ? 1 : 2}
+                onKeyDown={(event) => {
+                  if (
+                    embedded &&
+                    event.key === 'Enter' &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    if (!isSending && content.trim()) event.currentTarget.form?.requestSubmit();
+                  }
+                }}
                 onChange={(event) => setContent(event.target.value)}
                 placeholder="Write a message"
                 value={content}
               />
               <button
-                className={`w-fit rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${
-                  embedded ? 'bg-action hover:bg-action-hover' : 'bg-action'
+                aria-label="Send message"
+                className={`shrink-0 bg-action text-sm font-medium text-white hover:bg-action-hover disabled:opacity-60 ${
+                  embedded
+                    ? 'grid size-11 place-items-center rounded-full'
+                    : 'w-fit rounded-lg px-4 py-2'
                 }`}
                 disabled={isSending || !content.trim()}
                 type="submit"
               >
-                Send
+                {embedded ? <Send aria-hidden="true" size={19} /> : 'Send'}
               </button>
             </form>
           ) : (

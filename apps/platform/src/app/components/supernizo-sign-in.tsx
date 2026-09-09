@@ -26,22 +26,24 @@ export function SupernizoSignIn() {
       })
       .catch(() => setFailed(true));
   }, []);
+  if (!failed) {
+    return (
+      <p className="sr-only" role="status">
+        Opening Autocall…
+      </p>
+    );
+  }
+
   return (
     <main className="grid min-h-screen place-content-center gap-4 bg-[#071019] p-8 text-center text-white">
-      <h1 className="text-xl font-semibold">
-        {failed ? 'Unable to open Autocall' : 'Opening Autocall…'}
-      </h1>
-      {failed ? (
-        <p>
-          Return to Supernizo and select Autocall to try again. Your administrator can check your
-          access.
-        </p>
-      ) : null}
-      {failed ? (
-        <a className="text-sky-300 underline" href={withAppBasePath('/sso/start')}>
-          Return to Supernizo
-        </a>
-      ) : null}
+      <h1 className="text-xl font-semibold">Unable to open Autocall</h1>
+      <p>
+        Return to Supernizo and select Autocall to try again. Your administrator can check your
+        access.
+      </p>
+      <a className="text-sky-300 underline" href={withAppBasePath('/sso/start')}>
+        Return to Supernizo
+      </a>
     </main>
   );
 }
