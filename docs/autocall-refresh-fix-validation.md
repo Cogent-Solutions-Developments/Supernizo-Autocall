@@ -60,3 +60,4 @@ The local browser scripts are in ignored `.deployment/verify-refresh.mjs` and `.
 ## Migrations and deployment
 
 No new migrations were created or applied for this fix. The existing local Autocall migration was verified as present. The local API was restarted; no production server was changed. Production rollout still requires the previously documented HTTPS settings and integration deployment procedure. The heavy frontend's changes passed unit tests, lint, type checking and build; its live user handoff was not exercised in this run.
+.
