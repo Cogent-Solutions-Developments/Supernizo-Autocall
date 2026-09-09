@@ -47,4 +47,6 @@ types, non-UUID recipient subjects, and unsupported schema versions are rejected
 authenticated deep link from Supernizo to the matching Autocall conversation.
 
 No notification database migration is required. Deploy both sides disabled, configure the same
-dedicated secret, enable this producer first, and then enable the Supernizo polling worker.
+dedicated secret, enable this producer first, and then enable the Supernizo polling worker. The
+worker and dashboard each poll every five seconds, so a healthy deployment normally presents a
+notification within a few seconds and has a worst-case polling delay of about ten seconds.
