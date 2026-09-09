@@ -2,7 +2,7 @@ import 'server-only';
 
 import { handle } from '@upstash/realtime';
 
-import { requireSiteAccess } from '@/server/auth/access';
+import { requireSiteAccess, requireUser } from '@/server/auth/access';
 
 import { authorizeRealtimeChannels } from './channel-authorization';
 import { createUpstashRealtimeClient } from './upstash-realtime-provider';
@@ -49,6 +49,13 @@ export async function handleRealtimeRequest(
           try {
             await requireSiteAccess(siteId);
             return true;
+          } catch {
+            return false;
+          }
+        },
+        authorizeDashboardUser: async (userId) => {
+          try {
+            return (await requireUser()).id === userId;
           } catch {
             return false;
           }

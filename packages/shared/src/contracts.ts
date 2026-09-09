@@ -254,6 +254,30 @@ export const ChatVisitorMessageRequestSchema = z.object({
 export const ChatHistoryQuerySchema = PaginationSchema;
 export const ChatInboxQuerySchema = PaginationSchema.extend({ siteId: IdSchema });
 
+export const NotificationTypeSchema = z.enum(['CHAT_MESSAGE']);
+export const DashboardNotificationSchema = z.object({
+  createdAt: UtcDateTimeSchema,
+  id: IdSchema,
+  messageId: IdSchema,
+  preview: z.string().trim().min(1).max(500),
+  readAt: UtcDateTimeSchema.nullable(),
+  recipientUserId: IdSchema,
+  siteId: IdSchema,
+  siteName: z.string().trim().min(1).max(191),
+  threadId: IdSchema,
+  type: NotificationTypeSchema,
+  visitorId: IdSchema,
+  visitorLabel: z.string().trim().min(1).max(191),
+});
+export const NotificationListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  unreadOnly: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .default(false),
+});
+export const NotificationReadRequestSchema = z.object({ read: z.literal(true) });
+
 export const CallTypeSchema = z.enum(['AUDIO', 'VIDEO']);
 export const CallStatusSchema = z.enum([
   'RINGING',
@@ -349,6 +373,7 @@ export const RealtimeEventSchema = z.discriminatedUnion('type', [
     visitorId: IdSchema,
   }),
   z.object({ type: z.literal('chat.message'), message: ChatMessageSchema }),
+  z.object({ type: z.literal('notification.created'), notification: DashboardNotificationSchema }),
 ]);
 
 export function createApiSuccessEnvelopeSchema<TSchema extends z.ZodType>(dataSchema: TSchema) {
@@ -378,6 +403,9 @@ export type ChatSenderType = z.infer<typeof ChatSenderTypeSchema>;
 export type ChatThread = z.infer<typeof ChatThreadSchema>;
 export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSchema>;
 export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
+export type DashboardNotification = z.infer<typeof DashboardNotificationSchema>;
+export type NotificationListQuery = z.infer<typeof NotificationListQuerySchema>;
+export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 export type Call = z.infer<typeof CallSchema>;
 export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
 export type CallMediaFailureCode = z.infer<typeof CallMediaFailureCodeSchema>;

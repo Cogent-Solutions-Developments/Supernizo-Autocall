@@ -21,6 +21,7 @@ import { getEnvironmentReadiness } from '@/server/env';
 import { UpstashRealtimeProvider } from '@/server/realtime';
 import { createVisitorRealtimeToken } from '@/server/realtime/visitor-token';
 
+import { createChatMessageNotifications } from './notification-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 type ChatHistoryCursor = Readonly<{ id: string; sentAt: string }>;
@@ -121,6 +122,16 @@ async function emitPersistedMessage(
   message: ChatMessage,
   scope: Readonly<{ siteId: string; visitorId: string }>,
 ): Promise<void> {
+  if (message.senderType === 'VISITOR') {
+    try {
+      await createChatMessageNotifications(message, scope);
+    } catch (error: unknown) {
+      console.error('Chat notification persistence failed.', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+  }
+
   if (!getEnvironmentReadiness().realtime) return;
   const realtime = new UpstashRealtimeProvider();
   await realtime.emitToChannel(chatChannel(message.threadId), {

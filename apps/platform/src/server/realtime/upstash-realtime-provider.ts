@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   CallSchema,
   ChatMessageSchema,
+  DashboardNotificationSchema,
   IdSchema,
   VisitorPresenceSnapshotSchema,
 } from '@supernizo/shared';
@@ -26,6 +27,9 @@ const realtimeSchema = {
   call: {
     incoming: z.object({ call: CallSchema }),
     status: z.object({ call: CallSchema }),
+  },
+  notification: {
+    created: z.object({ notification: DashboardNotificationSchema }),
   },
 } as const;
 
@@ -82,6 +86,11 @@ export class UpstashRealtimeProvider implements RealtimeProvider {
 
     if (event.type === 'chat.incoming') {
       await client.emit('chat.incoming', { message: event.message, visitorId: event.visitorId });
+      return;
+    }
+
+    if (event.type === 'notification.created') {
+      await client.emit('notification.created', { notification: event.notification });
       return;
     }
 

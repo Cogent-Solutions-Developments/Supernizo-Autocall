@@ -9,6 +9,7 @@ describe('realtime channel authorization', () => {
     expect(parseRealtimeChannel('call:call-a')).toEqual({ callId: 'call-a', type: 'call' });
     expect(parseRealtimeChannel('chat:thread-a')).toEqual({ threadId: 'thread-a', type: 'chat' });
     expect(parseRealtimeChannel('site:site-a')).toEqual({ siteId: 'site-a', type: 'site' });
+    expect(parseRealtimeChannel('user:agent-a')).toEqual({ type: 'user', userId: 'agent-a' });
     expect(parseRealtimeChannel(visitorChannel)).toEqual({
       anonymousVisitorId: '11111111-1111-4111-8111-111111111111',
       siteId: 'site-a',
@@ -23,6 +24,7 @@ describe('realtime channel authorization', () => {
         authorizeDashboardSite: async () => false,
         authorizeDashboardCall: async () => false,
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         visitorChannel,
       }),
     ).resolves.toBe(false);
@@ -34,6 +36,7 @@ describe('realtime channel authorization', () => {
         authorizeDashboardSite: async () => false,
         authorizeDashboardCall: async () => false,
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         visitorChannel: undefined,
       }),
     ).resolves.toBe(false);
@@ -44,6 +47,7 @@ describe('realtime channel authorization', () => {
       authorizeRealtimeChannels(['call:call-a'], {
         authorizeDashboardCall: async () => false,
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         authorizeDashboardSite: async () => false,
         visitorChannel: undefined,
       }),
@@ -56,6 +60,7 @@ describe('realtime channel authorization', () => {
         authorizeDashboardSite: async (siteId) => siteId === 'site-a',
         authorizeDashboardCall: async () => false,
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         visitorChannel: undefined,
       }),
     ).resolves.toBe(true);
@@ -65,6 +70,7 @@ describe('realtime channel authorization', () => {
     await expect(
       authorizeRealtimeChannels(['chat:thread-b'], {
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         authorizeDashboardSite: async () => false,
         authorizeDashboardCall: async () => false,
         visitorChannel: 'chat:thread-a',
@@ -73,10 +79,32 @@ describe('realtime channel authorization', () => {
     await expect(
       authorizeRealtimeChannels(['chat:thread-a'], {
         authorizeDashboardChat: async () => false,
+        authorizeDashboardUser: async () => false,
         authorizeDashboardSite: async () => false,
         authorizeDashboardCall: async () => false,
         visitorChannel: 'chat:thread-a',
       }),
     ).resolves.toBe(true);
+  });
+
+  it('allows only the authenticated user notification channel', async () => {
+    await expect(
+      authorizeRealtimeChannels(['user:agent-a'], {
+        authorizeDashboardCall: async () => false,
+        authorizeDashboardChat: async () => false,
+        authorizeDashboardSite: async () => false,
+        authorizeDashboardUser: async (userId) => userId === 'agent-a',
+        visitorChannel: undefined,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      authorizeRealtimeChannels(['user:agent-b'], {
+        authorizeDashboardCall: async () => false,
+        authorizeDashboardChat: async () => false,
+        authorizeDashboardSite: async () => false,
+        authorizeDashboardUser: async (userId) => userId === 'agent-a',
+        visitorChannel: undefined,
+      }),
+    ).resolves.toBe(false);
   });
 });

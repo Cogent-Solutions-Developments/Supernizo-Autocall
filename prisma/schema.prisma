@@ -41,6 +41,10 @@ enum SiteStatus {
   INACTIVE
 }
 
+enum NotificationType {
+  CHAT_MESSAGE
+}
+
 model User {
   id              String              @id @default(cuid()) @db.VarChar(30)
   supernizoId     String?             @unique @db.Uuid
@@ -53,6 +57,7 @@ model User {
   siteMemberships SiteMember[]
   assignedThreads ChatThread[]        @relation("ChatThreadAssignedAgent")
   chatMessages    ChatMessage[]       @relation("ChatMessageAgent")
+  notifications   Notification[]
   requestedCalls  Call[]              @relation("CallAgent")
   auditLogs       AuditLog[]          @relation("AuditActor")
   supernizoState  SupernizoUserState?
@@ -104,6 +109,7 @@ model Site {
   calls                Call[]
   intentScoreSnapshots IntentScoreSnapshot[]
   auditLogs            AuditLog[]
+  notifications        Notification[]
 }
 
 model SiteMember {
@@ -225,20 +231,21 @@ model VisitorEvent {
 }
 
 model ChatThread {
-  id              String        @id @default(cuid()) @db.VarChar(30)
-  siteId          String        @db.VarChar(30)
-  visitorId       String        @db.VarChar(30)
-  sessionId       String?       @db.VarChar(30)
-  assignedAgentId String?       @db.VarChar(30)
-  status          String        @default("OPEN") @db.VarChar(32)
-  createdAt       DateTime      @default(now()) @db.Timestamp(3)
-  updatedAt       DateTime      @updatedAt @db.Timestamp(3)
-  lastMessageAt   DateTime?     @db.Timestamp(3)
-  site            Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  visitor         Visitor       @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  session         Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  assignedAgent   User?         @relation("ChatThreadAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  id              String         @id @default(cuid()) @db.VarChar(30)
+  siteId          String         @db.VarChar(30)
+  visitorId       String         @db.VarChar(30)
+  sessionId       String?        @db.VarChar(30)
+  assignedAgentId String?        @db.VarChar(30)
+  status          String         @default("OPEN") @db.VarChar(32)
+  createdAt       DateTime       @default(now()) @db.Timestamp(3)
+  updatedAt       DateTime       @updatedAt @db.Timestamp(3)
+  lastMessageAt   DateTime?      @db.Timestamp(3)
+  site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor         Visitor        @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session         Session?       @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  assignedAgent   User?          @relation("ChatThreadAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
   messages        ChatMessage[]
+  notifications   Notification[]
 
   @@index([siteId, updatedAt])
   @@index([visitorId, updatedAt])
@@ -246,17 +253,41 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id         String         @id @default(cuid()) @db.VarChar(30)
-  threadId   String         @db.VarChar(30)
-  senderType ChatSenderType
-  agentId    String?        @db.VarChar(30)
-  content    String         @db.Text
-  metadata   Json?
-  sentAt     DateTime       @default(now()) @db.Timestamp(3)
-  thread     ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  agent      User?          @relation("ChatMessageAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  id            String         @id @default(cuid()) @db.VarChar(30)
+  threadId      String         @db.VarChar(30)
+  senderType    ChatSenderType
+  agentId       String?        @db.VarChar(30)
+  content       String         @db.Text
+  metadata      Json?
+  sentAt        DateTime       @default(now()) @db.Timestamp(3)
+  thread        ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  agent         User?          @relation("ChatMessageAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  notifications Notification[]
 
   @@index([threadId, sentAt])
+}
+
+model Notification {
+  id              String           @id @default(cuid()) @db.VarChar(30)
+  type            NotificationType
+  recipientUserId String           @db.VarChar(30)
+  siteId          String           @db.VarChar(30)
+  siteName        String           @db.VarChar(191)
+  threadId        String           @db.VarChar(30)
+  messageId       String           @db.VarChar(30)
+  visitorId       String           @db.VarChar(30)
+  visitorLabel    String           @db.VarChar(191)
+  preview         String           @db.VarChar(500)
+  createdAt       DateTime         @default(now()) @db.Timestamp(3)
+  readAt          DateTime?        @db.Timestamp(3)
+  recipient       User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+  site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  thread          ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message         ChatMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([recipientUserId, type, messageId])
+  @@index([recipientUserId, readAt, createdAt])
+  @@index([siteId, createdAt])
 }
 
 model Call {
