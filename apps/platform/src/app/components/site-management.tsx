@@ -523,19 +523,21 @@ export function SiteManagement({ canManage, initialSites, initialSiteId }: SiteM
                 </Link>
               </div>
 
-              <div className="mt-6 workspace-record p-4">
-                <p className="text-sm font-semibold text-strong">Tracker public key</p>
-                <p className="mt-1 text-xs leading-5 text-muted">
-                  Use this key in the event website’s tracker snippet. It is safe to expose
-                  publicly.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <code className="max-w-full overflow-x-auto rounded-lg bg-surface px-3 py-2 text-xs text-body ring-1 ring-line">
-                    {selectedSite.publicKey}
-                  </code>
-                  <CopyPublicKeyButton publicKey={selectedSite.publicKey} />
+              {canManage ? (
+                <div className="mt-6 workspace-record p-4">
+                  <p className="text-sm font-semibold text-strong">Tracker public key</p>
+                  <p className="mt-1 text-xs leading-5 text-muted">
+                    Use this key in the event website’s tracker snippet. It is safe to expose
+                    publicly.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <code className="max-w-full overflow-x-auto rounded-lg bg-surface px-3 py-2 text-xs text-body ring-1 ring-line">
+                      {selectedSite.publicKey}
+                    </code>
+                    <CopyPublicKeyButton publicKey={selectedSite.publicKey} />
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {isEditing && canManage ? (
                 <div className="mt-7 border-t border-line pt-7">

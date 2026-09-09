@@ -147,8 +147,7 @@ export function LiveVisitorCallModal({
       <section className="w-full max-w-md rounded-2xl bg-surface p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] text-accent uppercase">Call</p>
-            <h2 className="mt-1 text-xl font-semibold text-strong" id="live-call-title">
+            <h2 className="text-xl font-semibold text-strong" id="live-call-title">
               {callType === 'VIDEO' ? 'Video' : 'Audio'} call to {visitor.city ?? 'visitor'}
             </h2>
           </div>
@@ -166,10 +165,10 @@ export function LiveVisitorCallModal({
           {!call && !error ? <p className="text-sm text-muted">Starting secure ring…</p> : null}
           {call ? (
             <>
-              <p className="font-semibold text-strong">
-                {connectedMediaCallId === call.id ? 'CONNECTED' : call.status}
-              </p>
-              <p className="mt-1 text-sm text-muted">
+              {connectedMediaCallId !== call.id ? (
+                <p className="font-semibold text-strong">{call.status}</p>
+              ) : null}
+              <p className="mt-1 mb-3 text-sm text-muted">
                 The visitor must accept before any media permission is requested.
               </p>
             </>
