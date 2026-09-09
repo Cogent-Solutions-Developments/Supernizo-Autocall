@@ -14,6 +14,8 @@ const icons = { events: CalendarDays, live: Radar, calls: Headset, analytics: Ch
 export function DashboardDock({ returnTo }: Readonly<{ returnTo: string | undefined }>) {
   const pathname = usePathname();
   const siteId = useSearchParams().get('siteId');
+  if (pathname === '/dashboard') return null;
+
   const items: FloatingDockItem[] = dashboardSections.map(({ href, label, icon }) => {
     const Icon = icons[icon];
     return {

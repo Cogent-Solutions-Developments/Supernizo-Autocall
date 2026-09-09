@@ -1,7 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight, LayoutGrid, List, Search, Plus, Globe } from 'lucide-react';
+import {
+  ArrowUpRight,
+  LayoutGrid,
+  List,
+  Search,
+  Plus,
+  Globe,
+  Radar,
+  Headset,
+  ChartSpline,
+} from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { z } from 'zod';
@@ -469,7 +479,7 @@ export function SiteManagement({ canManage, initialSites, initialSiteId }: SiteM
             </section>
           ) : selectedSite ? (
             <section className="workspace-panel p-5 sm:p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <p className="text-xs font-medium text-cyan-100/56">Selected event</p>
@@ -478,9 +488,6 @@ export function SiteManagement({ canManage, initialSites, initialSiteId }: SiteM
                   <h2 className="mt-2 text-2xl font-light tracking-tight text-strong">
                     {selectedSite.name}
                   </h2>
-                  <p className="mt-2 text-sm text-muted">
-                    Open the tools below or update this event’s website connection.
-                  </p>
                 </div>
                 {canManage ? (
                   <button
@@ -493,34 +500,33 @@ export function SiteManagement({ canManage, initialSites, initialSiteId }: SiteM
                 ) : null}
               </div>
 
-              <div className="mt-6 grid gap-3 md:grid-cols-3">
-                <Link
-                  className="workspace-record p-4"
-                  href={`/dashboard/live?siteId=${selectedSite.id}`}
-                >
-                  <p className="text-sm font-semibold text-strong">Live visitors</p>
-                  <p className="mt-1 text-sm leading-5 text-muted">
-                    See who is active and respond in real time.
-                  </p>
-                </Link>
-                <Link
-                  className="workspace-record p-4"
-                  href={`/dashboard/calls?siteId=${selectedSite.id}`}
-                >
-                  <p className="text-sm font-semibold text-strong">Call history</p>
-                  <p className="mt-1 text-sm leading-5 text-muted">
-                    Review call outcomes and missed-call reasons.
-                  </p>
-                </Link>
-                <Link
-                  className="workspace-record p-4"
-                  href={`/dashboard/analytics?siteId=${selectedSite.id}`}
-                >
-                  <p className="text-sm font-semibold text-strong">Analytics</p>
-                  <p className="mt-1 text-sm leading-5 text-muted">
-                    Understand visitors, activity and campaigns.
-                  </p>
-                </Link>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-6">
+                <p className="text-sm text-muted">
+                  Open the tools below or update this event’s website connection.
+                </p>
+                <nav aria-label="Event tools" className="flex flex-wrap gap-3">
+                  <Link
+                    className="workspace-button workspace-button-primary"
+                    href={`/dashboard/live?siteId=${selectedSite.id}`}
+                  >
+                    <Radar aria-hidden="true" size={17} />
+                    Live visitors
+                  </Link>
+                  <Link
+                    className="workspace-button workspace-button-primary"
+                    href={`/dashboard/calls?siteId=${selectedSite.id}`}
+                  >
+                    <Headset aria-hidden="true" size={17} />
+                    Call history
+                  </Link>
+                  <Link
+                    className="workspace-button workspace-button-primary"
+                    href={`/dashboard/analytics?siteId=${selectedSite.id}`}
+                  >
+                    <ChartSpline aria-hidden="true" size={17} />
+                    Analytics
+                  </Link>
+                </nav>
               </div>
 
               {canManage ? (
