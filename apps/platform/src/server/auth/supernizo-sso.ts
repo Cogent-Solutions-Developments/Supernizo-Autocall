@@ -11,6 +11,10 @@ import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-
 import { directorySyncEnabled } from '@/server/integrations/supernizo-signature';
 import { fetchDirectoryUser } from '@/server/integrations/supernizo-directory-client';
 import { applyDirectoryState } from '@/server/services/supernizo-directory-service';
+import {
+  appendNotificationDeepLink,
+  type NotificationDeepLink,
+} from '@/server/auth/notification-deep-link';
 
 const opaque = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const SupernizoIdentitySchema = z.object({
@@ -57,12 +61,16 @@ export function portalUrl(portal: string): URL {
   return url;
 }
 
-export function startSupernizoSignIn(portal: string): NextResponse {
+export function startSupernizoSignIn(
+  portal: string,
+  notificationTarget: NotificationDeepLink | null = null,
+): NextResponse {
   const target = portalUrl(portal);
   const state = randomBytes(32).toString('base64url');
   const verifier = randomBytes(32).toString('base64url');
   target.searchParams.set('state', state);
   target.searchParams.set('challenge', createHash('sha256').update(verifier).digest('base64url'));
+  appendNotificationDeepLink(target, notificationTarget);
   const response = NextResponse.redirect(target);
   response.headers.set('Cache-Control', 'no-store');
   response.headers.set('Referrer-Policy', 'no-referrer');

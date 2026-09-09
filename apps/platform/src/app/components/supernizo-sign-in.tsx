@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { withAppBasePath } from '@/lib/app-path';
 
-export function SupernizoSignIn() {
+export function SupernizoSignIn({
+  callbackPath = '/dashboard',
+}: Readonly<{ callbackPath?: string }>) {
   const started = useRef(false);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -14,18 +16,19 @@ export function SupernizoSignIn() {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
     window.history.replaceState(null, '', url.pathname);
+    const destination = withAppBasePath(callbackPath);
     void signIn('supernizo', {
       code,
       state,
       redirect: false,
-      callbackUrl: withAppBasePath('/dashboard'),
+      callbackUrl: destination,
     })
       .then((result) => {
-        if (result?.ok && !result.error) window.location.replace(withAppBasePath('/dashboard'));
+        if (result?.ok && !result.error) window.location.replace(destination);
         else setFailed(true);
       })
       .catch(() => setFailed(true));
-  }, []);
+  }, [callbackPath]);
   if (!failed) {
     return (
       <p className="sr-only" role="status">

@@ -4,6 +4,8 @@ import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
   ChatInboxQuerySchema,
+  NotificationSyncPageRequestSchema,
+  NotificationSyncPageResponseSchema,
   PaginationSchema,
   RealtimeEventSchema,
   RequestIdSchema,
@@ -117,5 +119,65 @@ describe('shared API contracts', () => {
       limit: 20,
       siteId: 'site_123',
     });
+  });
+
+  it('validates the versioned notification sync page contract', () => {
+    const request = NotificationSyncPageRequestSchema.parse({ schemaVersion: 1 });
+    expect(request).toEqual({ cursor: null, limit: 100, schemaVersion: 1 });
+
+    const response = {
+      nextCursor: {
+        createdAt: '2026-09-09T08:00:00.000Z',
+        id: 'notification_123',
+      },
+      notifications: [
+        {
+          createdAt: '2026-09-09T08:00:00.000Z',
+          messageId: 'message_123',
+          preview: 'Could you help me?',
+          recipientSubject: 'ea83fe17-031e-4e03-902c-65ad60df783d',
+          siteId: 'site_123',
+          siteName: 'Example site',
+          sourceNotificationId: 'notification_123',
+          threadId: 'thread_123',
+          type: 'CHAT_MESSAGE',
+          visitorId: 'visitor_123',
+          visitorLabel: 'Visitor 123',
+        },
+      ],
+      schemaVersion: 1,
+    };
+
+    expect(NotificationSyncPageResponseSchema.parse(response)).toEqual(response);
+  });
+
+  it('rejects unsafe or ambiguous notification sync input', () => {
+    expect(() =>
+      NotificationSyncPageRequestSchema.parse({ schemaVersion: 1, unexpected: true }),
+    ).toThrow();
+    expect(() =>
+      NotificationSyncPageRequestSchema.parse({ limit: '100', schemaVersion: 1 }),
+    ).toThrow();
+    expect(() =>
+      NotificationSyncPageResponseSchema.parse({
+        nextCursor: null,
+        notifications: [
+          {
+            createdAt: '2026-09-09T08:00:01.000Z',
+            messageId: 'message_123',
+            preview: 'Could you help me?',
+            recipientSubject: 'not-a-user-uuid',
+            siteId: 'site_123',
+            siteName: 'Example site',
+            sourceNotificationId: 'notification_123',
+            threadId: 'thread_123',
+            type: 'CHAT_MESSAGE',
+            visitorId: 'visitor_123',
+            visitorLabel: 'Visitor 123',
+          },
+        ],
+        schemaVersion: 1,
+      }),
+    ).toThrow();
   });
 });

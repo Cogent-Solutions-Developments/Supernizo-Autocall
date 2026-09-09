@@ -278,6 +278,45 @@ export const NotificationListQuerySchema = z.object({
 });
 export const NotificationReadRequestSchema = z.object({ read: z.literal(true) });
 
+export const NotificationSyncCursorSchema = z
+  .object({
+    createdAt: UtcDateTimeSchema,
+    id: IdSchema,
+  })
+  .strict();
+
+export const NotificationSyncPageRequestSchema = z
+  .object({
+    cursor: NotificationSyncCursorSchema.nullable().default(null),
+    limit: z.number().int().min(1).max(250).default(100),
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+
+export const NotificationSyncItemSchema = z
+  .object({
+    createdAt: UtcDateTimeSchema,
+    messageId: IdSchema,
+    preview: z.string().trim().min(1).max(500),
+    recipientSubject: RequestIdSchema,
+    siteId: IdSchema,
+    siteName: z.string().trim().min(1).max(191),
+    sourceNotificationId: IdSchema,
+    threadId: IdSchema,
+    type: NotificationTypeSchema,
+    visitorId: IdSchema,
+    visitorLabel: z.string().trim().min(1).max(191),
+  })
+  .strict();
+
+export const NotificationSyncPageResponseSchema = z
+  .object({
+    nextCursor: NotificationSyncCursorSchema.nullable(),
+    notifications: z.array(NotificationSyncItemSchema).max(250),
+    schemaVersion: z.literal(1),
+  })
+  .strict();
+
 export const CallTypeSchema = z.enum(['AUDIO', 'VIDEO']);
 export const CallStatusSchema = z.enum([
   'RINGING',
@@ -405,6 +444,10 @@ export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSche
 export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
 export type DashboardNotification = z.infer<typeof DashboardNotificationSchema>;
 export type NotificationListQuery = z.infer<typeof NotificationListQuerySchema>;
+export type NotificationSyncCursor = z.infer<typeof NotificationSyncCursorSchema>;
+export type NotificationSyncItem = z.infer<typeof NotificationSyncItemSchema>;
+export type NotificationSyncPageRequest = z.infer<typeof NotificationSyncPageRequestSchema>;
+export type NotificationSyncPageResponse = z.infer<typeof NotificationSyncPageResponseSchema>;
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 export type Call = z.infer<typeof CallSchema>;
 export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
