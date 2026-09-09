@@ -306,13 +306,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
             <div
               className={
                 hasActiveMedia
-                  ? 'flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-12 pb-4'
-                  : 'flex min-h-0 flex-1 flex-col items-center justify-center px-6 pt-12 pb-5 text-center'
+                  ? 'call-card__content flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-12 pb-4'
+                  : 'call-card__content flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-6 pt-12 pb-5 text-center'
               }
             >
               {showPermissionPrompt ? (
                 <div className="call-card__permission-panel flex w-full max-w-[300px] flex-col items-center rounded-[18px] border border-white/75 bg-white/80 px-5 py-6 shadow-[0_18px_50px_rgba(24,24,27,0.16),0_2px_8px_rgba(24,24,27,0.08)] backdrop-blur-2xl">
-                  <h1 className="!m-0 max-w-[260px] !text-[22px] !font-semibold !leading-[1.15] !tracking-[-0.035em] text-[#18181b]">
+                  <h1 className="!m-0 max-w-[260px] text-[22px] !font-semibold !leading-[1.15] !tracking-[-0.035em] text-[#18181b]">
                     {call.type === 'VIDEO' ? 'Camera & Microphone' : 'Microphone Access'}
                   </h1>
                   <p className="m-0 mt-3 max-w-[250px] text-[12px] leading-[1.55] text-[#71717a]">
@@ -352,7 +352,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 <div className="w-full">
                   <div className="mb-3 flex items-end justify-between gap-3">
                     <div className="text-left">
-                      <h1 className="!m-0 !text-[19px] !font-semibold !leading-[1.25] !tracking-[-0.025em] text-[#18181b]">
+                      <h1 className="!m-0 text-[19px] !font-semibold !leading-[1.25] !tracking-[-0.025em] text-[#18181b]">
                         {callHeading(call, mediaConnected)}
                       </h1>
                     </div>
@@ -375,7 +375,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                 </div>
               ) : (
                 <div className="call-card__hero flex flex-col items-center">
-                  <span aria-hidden="true" className="h-72 shrink-0" />
+                  <span aria-hidden="true" className="call-card__portrait-space h-72 shrink-0" />
                   <span className="sr-only">
                     {callerName}, {call.type === 'VIDEO' ? 'video call' : 'audio call'}
                   </span>
@@ -384,7 +384,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                       ? `Incoming ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Call`
                       : 'Call status'}
                   </p>
-                  <h1 className="!m-0 mt-2 max-w-[290px] !text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
+                  <h1 className="!m-0 mt-2 max-w-[290px] text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
                     {isRinging
                       ? 'Event Team Is Calling To Guide You'
                       : callHeading(call, mediaConnected)}
@@ -443,6 +443,8 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
         :global(body) {
           color-scheme: light;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
           font-family:
             var(--font-app-sans),
             Geist,
@@ -455,6 +457,30 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
         .call-card__verified {
           animation: call-verified-in 260ms cubic-bezier(0.23, 1, 0.32, 1) 280ms both;
+        }
+        @media (max-width: 320px) {
+          .call-card__content {
+            padding: 40px 14px 12px;
+          }
+          .call-card__content h1 {
+            font-size: 18px !important;
+          }
+          .call-card__portrait-space {
+            height: 170px;
+          }
+          .call-card__verified {
+            top: 12px;
+          }
+          .call-card__actions {
+            gap: 10px;
+            padding: 0 14px 8px;
+          }
+          .call-card__actions button {
+            min-height: 44px;
+          }
+          .call-card__footer {
+            padding: 8px 12px;
+          }
         }
         .call-card__portrait-blend {
           background: linear-gradient(

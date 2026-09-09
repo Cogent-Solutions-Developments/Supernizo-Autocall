@@ -529,6 +529,21 @@ export function LiveKitMediaRoom({
         .end-call:hover {
           background: #be123c;
         }
+        :global(.workspace-theme button.supernizo-media-toggle) {
+          background: transparent;
+          border-color: rgba(255, 255, 255, 0.4);
+          color: #fff;
+        }
+        :global(.workspace-theme button.supernizo-media-toggle svg) {
+          color: #fff;
+        }
+        :global(.workspace-theme button.supernizo-media-toggle:hover) {
+          background: rgba(255, 255, 255, 0.08);
+        }
+        :global(.workspace-theme button.supernizo-media-toggle[data-lk-enabled='false']) {
+          background: rgba(225, 29, 72, 0.15);
+          border-color: #fb7185;
+        }
         :global(button.supernizo-media-toggle:focus-visible),
         .end-call:focus-visible {
           outline: 2px solid #18181b;

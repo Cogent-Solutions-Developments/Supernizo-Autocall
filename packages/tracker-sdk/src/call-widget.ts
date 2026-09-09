@@ -149,6 +149,7 @@ export class CallWidgetController {
   private frame: HTMLIFrameElement | undefined;
   private frameAnimation: Animation | undefined;
   private frameLayout: CallWidgetFrameLayout = 'default';
+  private frameStyle: HTMLStyleElement | undefined;
   private frameVisible = false;
   private configRefreshTimer: number | undefined;
   private configRefreshInFlight = false;
@@ -173,9 +174,29 @@ export class CallWidgetController {
       const frame = document.createElement('iframe');
       frame.setAttribute('aria-label', 'Incoming calls');
       frame.setAttribute('title', 'Incoming calls');
+      frame.dataset.supernizoCall = 'true';
+      frame.dataset.supernizoLayout = this.frameLayout;
+      frame.dataset.supernizoVisible = 'false';
       frame.allow = CALL_WIDGET_PERMISSIONS_POLICY;
       frame.src = widgetUrl.toString();
       frame.style.cssText = callWidgetFrameStyles(false).join(';');
+      const style = document.createElement('style');
+      style.textContent = `
+        @media (max-width:600px) {
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'] {
+            width:300px !important;
+            height:min(420px, calc(100dvh - 32px)) !important;
+          }
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-audio'] {
+            height:min(216px, calc(100dvh - 32px)) !important;
+          }
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-video'] {
+            height:min(400px, calc(100dvh - 32px)) !important;
+          }
+        }
+      `;
+      (document.head ?? document.documentElement).append(style);
+      this.frameStyle = style;
       frame.addEventListener('load', () => this.postConfig());
       window.addEventListener('message', this.receiveMessage);
       (document.body ?? document.documentElement).append(frame);
@@ -213,6 +234,8 @@ export class CallWidgetController {
       launcher.style.zIndex = '2147482999';
     }
     this.frame?.remove();
+    this.frameStyle?.remove();
+    this.frameStyle = undefined;
     this.frame = undefined;
     this.frameVisible = false;
   }
@@ -306,6 +329,7 @@ export class CallWidgetController {
   private setFrameVisibility(visible: boolean): void {
     if (!this.frame || visible === this.frameVisible) return;
     this.frameVisible = visible;
+    this.frame.dataset.supernizoVisible = String(visible);
     this.onVisibilityChange?.(visible);
     this.frameAnimation?.cancel();
     this.frameAnimation = undefined;
@@ -331,6 +355,7 @@ export class CallWidgetController {
   private setFrameLayout(layout: CallWidgetFrameLayout): void {
     if (!this.frame || layout === this.frameLayout) return;
     this.frameLayout = layout;
+    this.frame.dataset.supernizoLayout = layout;
     if (!this.frameVisible) return;
 
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

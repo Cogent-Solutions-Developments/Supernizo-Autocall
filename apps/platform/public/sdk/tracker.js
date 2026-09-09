@@ -395,7 +395,8 @@ function isOutboundMessage(value) {
     if (!value || typeof value !== 'object')
         return false;
     const candidate = value;
-    return typeof candidate.content === 'string' && typeof candidate.threadId === 'string';
+    return (typeof candidate.content === 'string' &&
+        (candidate.threadId === undefined || typeof candidate.threadId === 'string'));
 }
 function isMessage(value) {
     if (!value || typeof value !== 'object')
@@ -474,6 +475,7 @@ class ChatWidgetController {
         frame.setAttribute('aria-label', 'Website chat');
         frame.dataset.supernizoChatFrame = 'true';
         frame.setAttribute('title', 'Website chat');
+        frame.dataset.supernizoChat = 'true';
         frame.src = widgetUrl.toString();
         frame.style.cssText = chatWidgetFrameStyles().join(';');
         frame.addEventListener('load', () => this.postConfig());
@@ -636,14 +638,15 @@ class ChatWidgetController {
         media.className = 'supernizo-chat-launcher__media';
         const identityVideo = document.createElement('video');
         identityVideo.ariaHidden = 'true';
-        identityVideo.autoplay = !reducedMotion;
+        const compactLauncher = window.matchMedia('(max-width:600px)').matches;
+        identityVideo.autoplay = !reducedMotion && !compactLauncher;
         identityVideo.className = 'supernizo-chat-launcher__video';
         identityVideo.disablePictureInPicture = true;
         identityVideo.loop = true;
         identityVideo.muted = true;
         identityVideo.playsInline = true;
         identityVideo.poster = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1-poster.jpg');
-        identityVideo.preload = reducedMotion ? 'metadata' : 'auto';
+        identityVideo.preload = compactLauncher ? 'none' : reducedMotion ? 'metadata' : 'auto';
         identityVideo.src = (0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/sdk/assets/cta-hover-loop1.mp4');
         media.append(identityVideo);
         const footer = document.createElement('span');
@@ -718,10 +721,10 @@ class ChatWidgetController {
         const style = document.createElement('style');
         style.dataset.supernizoChatLauncher = 'true';
         style.textContent = `
-      button[data-supernizo-launcher='true'], button[data-supernizo-launcher='true'] *, button[data-supernizo-launcher='true'] *::before, button[data-supernizo-launcher='true'] *::after { box-sizing:border-box; }
+      button[data-supernizo-launcher='true'], button[data-supernizo-launcher='true'] *, button[data-supernizo-launcher='true'] *::before, button[data-supernizo-launcher='true'] *::after { box-sizing:border-box; font-family:'Google Sans','Product Sans',Arial,sans-serif; }
       .supernizo-chat-launcher__media { background:#efefec; border-radius:12px; display:block; min-height:0; overflow:hidden; pointer-events:none; position:relative; width:100%; }
       .supernizo-chat-launcher__video { display:block; height:100%; inset:0; object-fit:cover; object-position:50% 18%; position:absolute; transform:scale(1.02); width:100%; }
-      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Helvetica Neue',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; pointer-events:none; width:100%; }
+      .supernizo-chat-launcher__footer { align-items:flex-end; display:flex; font-family:'Google Sans','Product Sans',Arial,sans-serif; gap:8px; justify-content:space-between; min-height:0; pointer-events:none; width:100%; }
       .supernizo-chat-launcher__profile { align-items:center; display:flex; min-width:0; }
       .supernizo-chat-launcher__avatar-wrap { flex:0 0 auto; height:30px; position:relative; width:30px; }
       .supernizo-chat-launcher__avatar { border-radius:999px; display:block; height:30px; object-fit:cover; object-position:50% 18%; width:30px; }
@@ -735,7 +738,12 @@ class ChatWidgetController {
       button[data-supernizo-unread='true'] .supernizo-chat-launcher__badge { display:block; }
       button[aria-label='Open chat with the event team']:focus { outline:none; }
       button[aria-label='Open chat with the event team']:focus-visible { box-shadow:0 22px 55px rgba(24,24,27,.18),0 0 0 3px #fff,0 0 0 5px #18181b !important; }
-      @media (max-width:420px) { button[aria-label='Open chat with the event team'] { grid-template-rows:196px 45px !important; height:259px !important; width:200px !important; } }
+      @media (max-width:600px) {
+        button[data-supernizo-launcher='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; width:204px !important; }
+        button[data-supernizo-launcher='true'] .supernizo-chat-launcher__media { display:none; }
+        button[data-supernizo-launcher='true'] .supernizo-chat-launcher__footer { align-items:center; grid-row:2; }
+        iframe[data-supernizo-chat='true'] { width:320px !important; height:min(460px, calc(100dvh - 32px)) !important; }
+      }
       button[data-supernizo-launcher='true'][data-supernizo-collapsed='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; }
       button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__media { opacity:0; visibility:hidden; }
       button[data-supernizo-collapsed='true'] .supernizo-chat-launcher__footer { align-items:center; }
@@ -746,6 +754,8 @@ class ChatWidgetController {
         this.scheduleLauncherCollapse(launcher);
     }
     scheduleLauncherCollapse(launcher) {
+        if (window.matchMedia('(max-width:600px)').matches)
+            return;
         if (!shouldScheduleChatLauncherCollapse(this.callActive, launcher.dataset.supernizoCollapsed === 'true')) {
             return;
         }
@@ -765,7 +775,9 @@ class ChatWidgetController {
             return;
         }
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reducedMotion || typeof launcher.animate !== 'function') {
+        if (reducedMotion ||
+            window.matchMedia('(max-width:600px)').matches ||
+            typeof launcher.animate !== 'function') {
             launcher.dataset.supernizoCollapsed = 'true';
             return;
         }
@@ -947,10 +959,14 @@ class ChatWidgetController {
         this.frame.contentWindow.postMessage({ type: 'supernizo-chat-open' }, new URL(this.bootstrapEndpoint).origin);
     }
     async sendMessage(message) {
-        if (!this.currentConfig || message.threadId !== this.currentConfig.threadId)
-            return;
         const content = message.content.trim().slice(0, 2_000);
         if (!content)
+            return;
+        if (!message.threadId) {
+            await this.startVisitorChat(content);
+            return;
+        }
+        if (!this.currentConfig || message.threadId !== this.currentConfig.threadId)
             return;
         const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, `/api/chat/threads/${message.threadId}/messages`));
         const response = await fetch(endpoint, {
@@ -967,6 +983,29 @@ class ChatWidgetController {
         if (!body || typeof body !== 'object' || !('data' in body) || !isMessage(body.data))
             return;
         this.frame?.contentWindow?.postMessage({ message: body.data, type: 'supernizo-chat-message' }, new URL(this.bootstrapEndpoint).origin);
+    }
+    async startVisitorChat(content) {
+        const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/thread'));
+        const response = await fetch(endpoint, {
+            body: JSON.stringify({ content, context: this.context }),
+            credentials: 'omit',
+            headers: { 'content-type': 'text/plain;charset=UTF-8' },
+            keepalive: true,
+            method: 'POST',
+            mode: 'cors',
+        });
+        if (!response.ok)
+            return;
+        const body = await response.json();
+        if (!body || typeof body !== 'object' || !('data' in body) || !isChatThreadResponse(body.data))
+            return;
+        this.hasSyncedThread = true;
+        this.currentConfig = {
+            messages: body.data.history.messages,
+            threadId: body.data.thread.id,
+            token: body.data.realtime.token,
+        };
+        this.postConfig();
     }
 }
 exports.ChatWidgetController = ChatWidgetController;
@@ -1088,6 +1127,7 @@ class CallWidgetController {
     frame;
     frameAnimation;
     frameLayout = 'default';
+    frameStyle;
     frameVisible = false;
     configRefreshTimer;
     configRefreshInFlight = false;
@@ -1111,9 +1151,29 @@ class CallWidgetController {
             const frame = document.createElement('iframe');
             frame.setAttribute('aria-label', 'Incoming calls');
             frame.setAttribute('title', 'Incoming calls');
+            frame.dataset.supernizoCall = 'true';
+            frame.dataset.supernizoLayout = this.frameLayout;
+            frame.dataset.supernizoVisible = 'false';
             frame.allow = exports.CALL_WIDGET_PERMISSIONS_POLICY;
             frame.src = widgetUrl.toString();
             frame.style.cssText = callWidgetFrameStyles(false).join(';');
+            const style = document.createElement('style');
+            style.textContent = `
+        @media (max-width:600px) {
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'] {
+            width:300px !important;
+            height:min(420px, calc(100dvh - 32px)) !important;
+          }
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-audio'] {
+            height:min(216px, calc(100dvh - 32px)) !important;
+          }
+          iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-video'] {
+            height:min(400px, calc(100dvh - 32px)) !important;
+          }
+        }
+      `;
+            (document.head ?? document.documentElement).append(style);
+            this.frameStyle = style;
             frame.addEventListener('load', () => this.postConfig());
             window.addEventListener('message', this.receiveMessage);
             (document.body ?? document.documentElement).append(frame);
@@ -1148,6 +1208,8 @@ class CallWidgetController {
             launcher.style.zIndex = '2147482999';
         }
         this.frame?.remove();
+        this.frameStyle?.remove();
+        this.frameStyle = undefined;
         this.frame = undefined;
         this.frameVisible = false;
     }
@@ -1222,6 +1284,7 @@ class CallWidgetController {
         if (!this.frame || visible === this.frameVisible)
             return;
         this.frameVisible = visible;
+        this.frame.dataset.supernizoVisible = String(visible);
         this.onVisibilityChange?.(visible);
         this.frameAnimation?.cancel();
         this.frameAnimation = undefined;
@@ -1242,6 +1305,7 @@ class CallWidgetController {
         if (!this.frame || layout === this.frameLayout)
             return;
         this.frameLayout = layout;
+        this.frame.dataset.supernizoLayout = layout;
         if (!this.frameVisible)
             return;
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -1,6 +1,7 @@
 'use client';
 
 import { createRealtime } from '@upstash/realtime/client';
+import { Send } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
@@ -103,7 +104,7 @@ export function DashboardChatPane({
 
   async function sendMessage(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (!threadId || !content.trim()) return;
+    if (!threadId || !content.trim() || isSending) return;
 
     setError(null);
     setIsSending(true);
@@ -129,16 +130,16 @@ export function DashboardChatPane({
     <article
       className={
         embedded
-          ? 'flex min-h-0 flex-1 flex-col bg-[#fbfbfa] text-[#18181b]'
-          : 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm'
+          ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-surface-muted/35 text-strong'
+          : 'rounded-xl border border-line bg-surface-hover p-5 shadow-sm'
       }
     >
       {!embedded ? (
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold text-slate-950">Chat</h2>
+          <h2 className="font-semibold text-strong">Chat</h2>
           {threadId ? (
             <button
-              className="text-sm font-medium text-blue-700 hover:text-blue-800"
+              className="text-sm font-medium text-accent hover:text-accent"
               onClick={() => {
                 setIsOpen((current) => !current);
                 setUnread(0);
@@ -153,14 +154,14 @@ export function DashboardChatPane({
       {!threadId ? (
         canSend ? (
           <button
-            className="mt-4 rounded-lg bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            className="mt-4 rounded-lg bg-action px-4 py-2 text-sm font-medium text-white hover:bg-action-hover"
             onClick={() => void startChat()}
             type="button"
           >
             Start chat
           </button>
         ) : (
-          <p className="mt-3 text-sm text-slate-600">No chat thread has been started.</p>
+          <p className="mt-3 text-sm text-muted">No chat thread has been started.</p>
         )
       ) : null}
       {isOpen && threadId ? (
@@ -171,7 +172,7 @@ export function DashboardChatPane({
             className={
               embedded
                 ? 'min-h-0 flex-1 overflow-y-auto px-4 py-3'
-                : 'max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/80 p-4'
+                : 'max-h-72 overflow-y-auto rounded-xl border border-line bg-surface-muted/80 p-4'
             }
           >
             {messages.length ? (
@@ -179,7 +180,7 @@ export function DashboardChatPane({
                 {messages.map((message) => {
                   if (message.senderType === 'SYSTEM') {
                     return (
-                      <li className="text-center text-xs text-slate-500" key={message.id}>
+                      <li className="text-center text-xs text-muted" key={message.id}>
                         {message.content}
                       </li>
                     );
@@ -195,23 +196,23 @@ export function DashboardChatPane({
                       {isVisitor ? (
                         <span
                           aria-hidden="true"
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-700"
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-hover text-xs font-bold text-accent"
                         >
                           V
                         </span>
                       ) : null}
                       <article
-                        className={`flex max-w-[82%] flex-col ${
+                        className={`flex min-w-0 max-w-[82%] flex-col ${
                           isVisitor ? 'items-start' : 'items-end'
                         }`}
                       >
                         <div
                           className={`mb-1 flex items-center gap-2 px-1 text-[10px] font-medium ${
-                            isVisitor ? 'text-[#85858d]' : 'justify-end text-[#85858d]'
+                            isVisitor ? 'text-muted' : 'justify-end text-muted'
                           }`}
                         >
                           <span>{senderName}</span>
-                          <time className="font-normal text-slate-400" dateTime={message.sentAt}>
+                          <time className="font-normal text-muted" dateTime={message.sentAt}>
                             {formatMessageTime(message.sentAt)}
                           </time>
                         </div>
@@ -219,20 +220,22 @@ export function DashboardChatPane({
                           className={`border px-3.5 py-2.5 text-[13px] leading-[1.5] shadow-[0_1px_2px_rgba(24,24,27,0.04)] ${
                             isVisitor
                               ? embedded
-                                ? 'rounded-[13px] rounded-bl-[4px] border-black/[0.07] bg-white/80 text-[#27272a] backdrop-blur-md'
-                                : 'rounded-2xl rounded-tl-sm border border-blue-200 bg-blue-50 text-slate-900'
+                                ? 'rounded-[13px] rounded-bl-[4px] border-line bg-surface-hover/80 text-body backdrop-blur-md'
+                                : 'rounded-2xl rounded-tl-sm border border-line bg-surface-hover text-strong'
                               : embedded
-                                ? 'rounded-[13px] rounded-br-[4px] border-[#18181b] bg-[#18181b] text-white'
-                                : 'rounded-2xl rounded-tr-sm bg-slate-900 text-white'
+                                ? 'rounded-[13px] rounded-br-[4px] border-action bg-action text-white'
+                                : 'rounded-2xl rounded-tr-sm bg-action text-white'
                           }`}
                         >
-                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {message.content}
+                          </p>
                         </div>
                       </article>
                       {!isVisitor ? (
                         <span
                           aria-hidden="true"
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white"
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-action text-xs font-bold text-white"
                         >
                           A
                         </span>
@@ -242,7 +245,7 @@ export function DashboardChatPane({
                 })}
               </ol>
             ) : (
-              <p className="text-slate-600">No messages yet.</p>
+              <p className="text-muted">No messages yet.</p>
             )}
             <div ref={messageEndRef} />
           </div>
@@ -250,7 +253,7 @@ export function DashboardChatPane({
             <form
               className={
                 embedded
-                  ? 'grid gap-2 border-t border-black/[0.06] bg-gradient-to-t from-[#fbfbfa] via-[#fbfbfa] to-transparent px-3.5 pt-3 pb-3'
+                  ? 'flex items-end gap-2 border-t border-line bg-surface px-3 py-3'
                   : 'mt-3 grid gap-2'
               }
               onSubmit={(event) => void sendMessage(event)}
@@ -261,31 +264,46 @@ export function DashboardChatPane({
               <textarea
                 className={`rounded-lg border p-2 text-sm ${
                   embedded
-                    ? 'min-h-16 border-black/10 bg-white/90 text-[#18181b] shadow-[0_8px_28px_rgba(24,24,27,0.08)] placeholder:text-[#a1a1aa]'
+                    ? 'min-h-11 min-w-0 max-h-32 flex-1 resize-none rounded-2xl border-line bg-surface-hover text-strong placeholder:text-muted'
                     : 'min-h-20 border-slate-300'
                 }`}
                 id={`chat-${threadId}`}
                 maxLength={2000}
+                rows={embedded ? 1 : 2}
+                onKeyDown={(event) => {
+                  if (
+                    embedded &&
+                    event.key === 'Enter' &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    if (!isSending && content.trim()) event.currentTarget.form?.requestSubmit();
+                  }
+                }}
                 onChange={(event) => setContent(event.target.value)}
                 placeholder="Write a message"
                 value={content}
               />
               <button
-                className={`w-fit rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60 ${
-                  embedded ? 'bg-[#18181b] hover:bg-[#3f3f46]' : 'bg-slate-950'
+                aria-label="Send message"
+                className={`shrink-0 bg-action text-sm font-medium text-white hover:bg-action-hover disabled:opacity-60 ${
+                  embedded
+                    ? 'grid size-11 place-items-center rounded-full'
+                    : 'w-fit rounded-lg px-4 py-2'
                 }`}
                 disabled={isSending || !content.trim()}
                 type="submit"
               >
-                Send
+                {embedded ? <Send aria-hidden="true" size={19} /> : 'Send'}
               </button>
             </form>
           ) : (
-            <p className="mt-3 text-sm text-slate-600">Viewers have read-only chat access.</p>
+            <p className="mt-3 text-sm text-muted">Viewers have read-only chat access.</p>
           )}
         </div>
       ) : null}
-      {error ? <p className="mt-3 text-sm text-rose-700">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-rose-300">{error}</p> : null}
     </article>
   );
 }

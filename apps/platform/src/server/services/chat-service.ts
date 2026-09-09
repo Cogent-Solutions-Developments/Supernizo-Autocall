@@ -36,6 +36,11 @@ export type VisitorChatThread = Readonly<{
   thread: ChatThread;
 }>;
 
+type VisitorChatStart = Readonly<{
+  message: ChatMessage;
+  thread: ChatThread;
+}>;
+
 export function visitorOwnsChatThread(
   scope: Readonly<{ siteId: string; visitorId: string }> | null,
   context: Readonly<{ siteId: string; visitorId: string }>,
@@ -98,6 +103,7 @@ function chatChannel(threadId: string): string {
 }
 
 const openingThreads = new Map<string, Promise<ChatThread>>();
+const visitorOpeningThreads = new Map<string, Promise<VisitorChatStart>>();
 
 async function assertChatEnabled(siteId: string): Promise<void> {
   const site = await getDatabaseClient().site.findUnique({
@@ -293,6 +299,79 @@ export async function getVisitorChatThread(
     history,
     realtime: { channel, token: createVisitorRealtimeToken(channel) },
     thread: typedThread,
+  };
+}
+
+/** Opens a visitor-initiated chat and persists its first message. */
+export async function startVisitorChat(
+  origin: string,
+  context: TrackingContext,
+  content: string,
+): Promise<VisitorChatThread> {
+  const resolvedContext = await resolveTrackingContext(context, origin);
+  await assertChatEnabled(resolvedContext.siteId);
+
+  const threadKey = `${resolvedContext.siteId}:${resolvedContext.visitorId}`;
+  const pendingStart = visitorOpeningThreads.get(threadKey);
+  if (pendingStart) {
+    const started = await pendingStart;
+    return getStartedVisitorChatThread(started);
+  }
+
+  const operation = startVisitorChatOnce(resolvedContext, content);
+  visitorOpeningThreads.set(threadKey, operation);
+
+  try {
+    const started = await operation;
+    await emitPersistedMessage(started.message, started.thread);
+    return getStartedVisitorChatThread(started);
+  } finally {
+    if (visitorOpeningThreads.get(threadKey) === operation) {
+      visitorOpeningThreads.delete(threadKey);
+    }
+  }
+}
+
+async function startVisitorChatOnce(
+  context: Readonly<{ sessionId: string; siteId: string; visitorId: string }>,
+  content: string,
+): Promise<VisitorChatStart> {
+  const database = getDatabaseClient();
+  return database.$transaction(async (transaction) => {
+    const existing = await transaction.chatThread.findFirst({
+      where: { siteId: context.siteId, status: 'OPEN', visitorId: context.visitorId },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, siteId: true, visitorId: true },
+    });
+    const thread =
+      existing ??
+      (await transaction.chatThread.create({
+        data: {
+          sessionId: context.sessionId,
+          siteId: context.siteId,
+          visitorId: context.visitorId,
+        },
+        select: { id: true, siteId: true, visitorId: true },
+      }));
+    const created = await transaction.chatMessage.create({
+      data: { content, senderType: 'VISITOR', threadId: thread.id },
+      select: messageSelect,
+    });
+    await transaction.chatThread.update({
+      where: { id: thread.id },
+      data: { lastMessageAt: created.sentAt },
+    });
+    return { message: mapMessage(created), thread: ChatThreadSchema.parse(thread) };
+  });
+}
+
+async function getStartedVisitorChatThread(started: VisitorChatStart): Promise<VisitorChatThread> {
+  const history = await getChatHistory(started.thread.id, { limit: 50 });
+  const channel = chatChannel(started.thread.id);
+  return {
+    history: history ?? { messages: [started.message], nextCursor: null },
+    realtime: { channel, token: createVisitorRealtimeToken(channel) },
+    thread: started.thread,
   };
 }
 
