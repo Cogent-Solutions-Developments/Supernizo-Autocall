@@ -34,4 +34,4 @@
 1. P1: Wide two-column panel obscured the live dashboard and navigation. Fixed by collapsing recent chats into a header selector, constraining the widget to 390px, and moving it to a body-level portal.
 2. Post-fix browser capture: widget remains in the bottom-right corner beneath the navigation; no P0/P1/P2 layout issue remains.
 
-final result: passed
+final result: passed.
