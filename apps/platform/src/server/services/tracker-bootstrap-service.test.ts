@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 
@@ -27,27 +27,43 @@ describe('assertTrackingSiteAccess', () => {
 });
 
 describe('readApproximateGeo', () => {
-  it('reads optional location headers supplied by a trusted reverse proxy', () => {
+  it('looks up the validated address supplied by the trusted reverse proxy', async () => {
     const request = new Request('https://api.infrastructuresg.com/autocall-db', {
       headers: {
-        'x-geo-city': 'Colombo',
-        'x-geo-country': 'lk',
-        'x-geo-region': 'Western',
+        'x-forwarded-for': '198.51.100.20',
+        'x-geo-country': 'US',
+        'x-real-ip': '203.0.113.10',
       },
     });
+    const lookup = vi.fn(async () => ({
+      geoCity: 'Colombo',
+      geoCountry: 'LK',
+      geoRegion: 'Western',
+    }));
 
-    expect(readApproximateGeo(request)).toEqual({
+    await expect(readApproximateGeo(request, lookup)).resolves.toEqual({
       geoCity: 'Colombo',
       geoCountry: 'LK',
       geoRegion: 'Western',
     });
+    expect(lookup).toHaveBeenCalledWith('203.0.113.10');
   });
 
-  it('does not invent location data when the proxy provides none', () => {
-    expect(readApproximateGeo(new Request('http://localhost'))).toEqual({
+  it('ignores forwarded and geolocation headers when the trusted edge address is absent', async () => {
+    const request = new Request('http://localhost', {
+      headers: {
+        'x-forwarded-for': '203.0.113.10',
+        'x-geo-city': 'Spoofed city',
+        'x-geo-country': 'US',
+      },
+    });
+    const lookup = vi.fn();
+
+    await expect(readApproximateGeo(request, lookup)).resolves.toEqual({
       geoCity: null,
       geoCountry: null,
       geoRegion: null,
     });
+    expect(lookup).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { config } from 'dotenv';
-import { resolve } from 'node:path';
+import { posix, resolve, win32 } from 'node:path';
 import { z } from 'zod';
 
 for (const path of [
@@ -41,6 +41,11 @@ const postgresqlUrl = nonEmptyString.url().refine(
 const databaseEnvironmentShape = {
   DATABASE_URL: postgresqlUrl,
 } as const;
+const geoIpDatabasePath = nonEmptyString.refine(
+  (value) =>
+    (posix.isAbsolute(value) || win32.isAbsolute(value)) && value.toLowerCase().endsWith('.mmdb'),
+  { message: 'Must be an absolute path to an MMDB database.' },
+);
 
 const ServerEnvironmentBaseSchema = z.object({
   ...databaseEnvironmentShape,
@@ -84,9 +89,14 @@ const RedisEnvironmentSchema = ServerEnvironmentBaseSchema.pick({
   UPSTASH_REDIS_REST_URL: true,
 });
 
+const GeoIpEnvironmentSchema = z.object({
+  GEOIP_DATABASE_PATH: geoIpDatabasePath,
+});
+
 export type DatabaseEnvironment = z.infer<typeof DatabaseEnvironmentSchema>;
 export type AuthenticationEnvironment = z.infer<typeof AuthenticationEnvironmentSchema>;
 export type RedisEnvironment = z.infer<typeof RedisEnvironmentSchema>;
+export type GeoIpEnvironment = z.infer<typeof GeoIpEnvironmentSchema>;
 
 export class EnvironmentConfigurationError extends Error {
   public constructor(public readonly invalidVariables: readonly string[]) {
@@ -101,6 +111,7 @@ export type EnvironmentReadiness = Readonly<{
   appUrl: boolean;
   auth: boolean;
   database: boolean;
+  geoIp: boolean;
   livekit: boolean;
   redis: boolean;
   realtime: boolean;
@@ -163,10 +174,21 @@ export function getRedisEnvironment(source: EnvironmentSource = process.env): Re
   return result.data;
 }
 
+export function getGeoIpEnvironment(source: EnvironmentSource = process.env): GeoIpEnvironment {
+  const result = GeoIpEnvironmentSchema.safeParse(source);
+
+  if (!result.success) {
+    throw new EnvironmentConfigurationError(['GEOIP_DATABASE_PATH']);
+  }
+
+  return result.data;
+}
+
 export function getEnvironmentReadiness(
   source: EnvironmentSource = process.env,
 ): EnvironmentReadiness {
   const result = ServerEnvironmentSchema.safeParse(source);
+  const geoIpResult = GeoIpEnvironmentSchema.safeParse(source);
   const invalidVariables = result.success
     ? new Set<string>()
     : new Set(invalidEnvironmentVariables(result.error));
@@ -175,6 +197,7 @@ export function getEnvironmentReadiness(
     appUrl: isValid('APP_URL'),
     auth: isValid('AUTH_SECRET'),
     database: isValid('DATABASE_URL'),
+    geoIp: geoIpResult.success,
     livekit: isValid('LIVEKIT_URL') && isValid('LIVEKIT_API_KEY') && isValid('LIVEKIT_API_SECRET'),
     redis: isValid('UPSTASH_REDIS_REST_URL') && isValid('UPSTASH_REDIS_REST_TOKEN'),
     realtime: isValid('UPSTASH_REDIS_REST_URL') && isValid('UPSTASH_REDIS_REST_TOKEN'),

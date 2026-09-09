@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EnvironmentConfigurationError,
   getEnvironmentReadiness,
+  getGeoIpEnvironment,
   getServerEnvironment,
 } from './env';
 
@@ -10,6 +11,7 @@ const completeEnvironment = {
   APP_URL: 'http://localhost:3000',
   AUTH_SECRET: 'a'.repeat(32),
   DATABASE_URL: 'postgresql://user:password@localhost:5432/supernizo',
+  GEOIP_DATABASE_PATH: '/usr/share/GeoIP/GeoLite2-City.mmdb',
   LIVEKIT_API_KEY: 'api-key',
   LIVEKIT_API_SECRET: 'api-secret',
   LIVEKIT_URL: 'wss://supernizo.livekit.cloud',
@@ -43,6 +45,7 @@ describe('server environment', () => {
       appUrl: true,
       auth: false,
       database: false,
+      geoIp: false,
       livekit: false,
       redis: false,
       realtime: false,
@@ -61,5 +64,19 @@ describe('server environment', () => {
         invalidVariables: ['DATABASE_URL'],
       }),
     );
+  });
+
+  it('returns a validated absolute GeoIP database path', () => {
+    expect(getGeoIpEnvironment(completeEnvironment)).toEqual({
+      GEOIP_DATABASE_PATH: '/usr/share/GeoIP/GeoLite2-City.mmdb',
+    });
+  });
+
+  it('rejects a relative or non-MMDB GeoIP database path', () => {
+    for (const GEOIP_DATABASE_PATH of ['GeoLite2-City.mmdb', '/var/lib/GeoIP/city.csv']) {
+      expect(() => getGeoIpEnvironment({ GEOIP_DATABASE_PATH })).toThrowError(
+        expect.objectContaining({ invalidVariables: ['GEOIP_DATABASE_PATH'] }),
+      );
+    }
   });
 });
