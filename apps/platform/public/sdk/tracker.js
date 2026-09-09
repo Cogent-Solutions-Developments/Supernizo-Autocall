@@ -741,7 +741,7 @@ class ChatWidgetController {
       @media (max-width:600px) {
         button[data-supernizo-launcher='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; width:204px !important; }
         button[data-supernizo-launcher='true'] .supernizo-chat-launcher__media { display:none; }
-        button[data-supernizo-launcher='true'] .supernizo-chat-launcher__footer { align-items:center; }
+        button[data-supernizo-launcher='true'] .supernizo-chat-launcher__footer { align-items:center; grid-row:2; }
         iframe[data-supernizo-chat='true'] { width:320px !important; height:min(460px, calc(100dvh - 32px)) !important; }
       }
       button[data-supernizo-launcher='true'][data-supernizo-collapsed='true'] { grid-template-rows:0 ${CHAT_LAUNCHER_COLLAPSED_ROW_HEIGHT_PX}px !important; height:${exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX}px !important; }
