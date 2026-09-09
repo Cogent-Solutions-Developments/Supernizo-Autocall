@@ -187,7 +187,7 @@ It generates three independent random values locally:
 - an Auth.js signing secret;
 - a separate tracking IP hash secret.
 
-It prompts silently for provider tokens and the two Supernizo secrets, writes `.env.production` with mode `0600`, and runs the allow-list validator. It writes `SUPERNIZO_DIRECTORY_SYNC_ENABLED=false` so the receiver remains off during the initial rollout; enable it only after both migrations and the source worker are deployed. It deliberately does not write `DATABASE_URL`: Compose builds the private URL from the PostgreSQL values.
+It prompts silently for provider tokens and the three Supernizo secrets, writes `.env.production` with mode `0600`, and runs the allow-list validator. It writes `SUPERNIZO_DIRECTORY_SYNC_ENABLED=false` and `SUPERNIZO_NOTIFICATION_SYNC_ENABLED=false` so both integrations remain off during their initial rollouts; enable each only after its migrations and counterpart worker are deployed. It deliberately does not write `DATABASE_URL`: Compose builds the private URL from the PostgreSQL values.
 
 To configure an existing file manually instead, copy `.env.production.example`, replace every placeholder, set mode `0600`, and run:
 

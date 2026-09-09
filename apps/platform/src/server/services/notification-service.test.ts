@@ -98,12 +98,45 @@ describe('notification service', () => {
 
   it('does not allow one user to mark another user notification as read', async () => {
     vi.mocked(getDatabaseClient).mockReturnValue({
-      notification: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      notification: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
     } as unknown as ReturnType<typeof getDatabaseClient>);
 
     await expect(markNotificationRead('agent-1', 'notification-2')).rejects.toThrow(
       'notification does not exist',
     );
+  });
+
+  it('does not move the sync timestamp when an already-read notification is retried', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const readAt = new Date('2026-09-09T10:01:00.000Z');
+    const findFirst = vi.fn().mockResolvedValue({
+      createdAt: new Date(message.sentAt),
+      id: 'notification-1',
+      messageId: message.id,
+      preview: message.content,
+      readAt,
+      recipientUserId: 'agent-1',
+      siteId: 'event-1',
+      siteName: 'Annual Conference',
+      threadId: message.threadId,
+      type: 'CHAT_MESSAGE',
+      visitorId: 'visitor-1',
+      visitorLabel: 'Registered visitor',
+    });
+    vi.mocked(getDatabaseClient).mockReturnValue({
+      notification: { findFirst, updateMany },
+    } as unknown as ReturnType<typeof getDatabaseClient>);
+
+    const notification = await markNotificationRead('agent-1', 'notification-1');
+
+    expect(notification.readAt).toBe(readAt.toISOString());
+    expect(updateMany).toHaveBeenCalledWith({
+      data: { readAt: expect.any(Date) },
+      where: { id: 'notification-1', readAt: null, recipientUserId: 'agent-1' },
+    });
   });
 
   it('builds a private user channel', () => {
