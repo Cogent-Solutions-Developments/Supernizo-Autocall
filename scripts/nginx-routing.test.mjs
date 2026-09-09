@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
@@ -19,6 +20,9 @@ http {
   server {
     listen 127.0.0.1:3200;
     location = /autocall-db/ { return 308 /autocall-db; }
+    location = /autocall-db/api/echo-ip {
+      return 200 '$http_x_real_ip|$http_x_forwarded_for|$http_x_geo_country';
+    }
     location / { return 200 'upstream'; }
   }
   server {
@@ -69,6 +73,18 @@ http {
     for (const path of ['/', '/autocall-db-other']) {
       assert.equal(await (await request(path)).text(), 'leadgen');
     }
+    const edgeHeaders = await fetch(`${base}/autocall-db/api/echo-ip`, {
+      headers: {
+        'x-forwarded-for': '198.51.100.20',
+        'x-geo-country': 'US',
+        'x-real-ip': '203.0.113.10',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    const [realIp, forwardedFor, geoCountry] = (await edgeHeaders.text()).split('|');
+    assert.notEqual(isIP(realIp), 0, 'Nginx must supply a valid edge-observed address');
+    assert.equal(forwardedFor, realIp, 'Nginx must overwrite the forwarded address chain');
+    assert.equal(geoCountry, '', 'Nginx must remove client-supplied geolocation headers');
   } finally {
     if (started) docker('stop', name);
     rmSync(directory, { recursive: true, force: true });

@@ -6,6 +6,8 @@ import type { TrackerBootstrapRequest, TrackerBootstrapResponse } from '@superni
 
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/errors/app-error';
 import { getDatabaseClient } from '@/server/db/client';
+import { lookupApproximateGeo, type ApproximateGeo } from '@/server/geoip/reader';
+import { readTrustedClientIp } from '@/server/http/client-ip';
 import { getLiveKitPublicConfig } from '@/server/livekit/config';
 import { isOriginAllowed } from '@/server/sites/origins';
 import { createVisitorRealtimeToken } from '@/server/realtime/visitor-token';
@@ -98,16 +100,15 @@ function classifyDevice(userAgent: string, mobileHint?: boolean): string {
   return mobileHint || /mobile|android|iphone|ipad/i.test(userAgent) ? 'MOBILE' : 'DESKTOP';
 }
 
-export function readApproximateGeo(request: Request): Readonly<{
-  geoCity: string | null;
-  geoCountry: string | null;
-  geoRegion: string | null;
-}> {
-  return {
-    geoCity: request.headers.get('x-geo-city')?.slice(0, 191) ?? null,
-    geoCountry: request.headers.get('x-geo-country')?.slice(0, 2).toUpperCase() ?? null,
-    geoRegion: request.headers.get('x-geo-region')?.slice(0, 191) ?? null,
-  };
+type GeoIpLookup = (ipAddress: string) => Promise<ApproximateGeo>;
+
+export async function readApproximateGeo(
+  request: Request,
+  lookup: GeoIpLookup = lookupApproximateGeo,
+): Promise<ApproximateGeo> {
+  const ipAddress = readTrustedClientIp(request);
+
+  return ipAddress ? lookup(ipAddress) : { geoCity: null, geoCountry: null, geoRegion: null };
 }
 
 export async function bootstrapTracker(
@@ -150,6 +151,7 @@ export async function bootstrapTracker(
   }
 
   const browser = input.payload.browser;
+  const approximateGeo = await readApproximateGeo(input.request);
   const sessionDetails = {
     browserName: classifyBrowser(browser.userAgent),
     currentUrl: browser.url,
@@ -157,7 +159,7 @@ export async function bootstrapTracker(
     geoTimezone: browser.timezone,
     operatingSystem: classifyOperatingSystem(browser.userAgent, browser.clientHints?.platform),
     referrerUrl: browser.referrer,
-    ...readApproximateGeo(input.request),
+    ...approximateGeo,
     ...readUtmValues(browser.url),
   };
 
