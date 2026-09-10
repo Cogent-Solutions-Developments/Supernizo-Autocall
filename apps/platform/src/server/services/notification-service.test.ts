@@ -38,7 +38,7 @@ describe('notification service', () => {
     });
   });
 
-  it('creates an event-labelled notification for every eligible user', async () => {
+  it('creates an event-labelled notification for every linked Supernizo user', async () => {
     const createManyAndReturn = vi.fn().mockResolvedValue([
       {
         createdAt: new Date(message.sentAt),
@@ -55,10 +55,11 @@ describe('notification service', () => {
         visitorLabel: 'Registered visitor',
       },
     ]);
+    const findMany = vi.fn().mockResolvedValue([{ id: 'agent-1' }]);
     vi.mocked(getDatabaseClient).mockReturnValue({
       notification: { createManyAndReturn },
       site: { findUnique: vi.fn().mockResolvedValue({ name: 'Annual Conference' }) },
-      user: { findMany: vi.fn().mockResolvedValue([{ id: 'agent-1' }]) },
+      user: { findMany },
       visitor: {
         findUnique: vi.fn().mockResolvedValue({
           identities: [{ displayName: 'Registered visitor' }],
@@ -72,6 +73,12 @@ describe('notification service', () => {
     });
 
     expect(created).toEqual([expect.objectContaining({ siteName: 'Annual Conference' })]);
+    expect(findMany).toHaveBeenCalledWith({
+      select: { id: true },
+      where: {
+        OR: [{ globalRole: 'ADMIN', supernizoId: null }, { supernizoId: { not: null } }],
+      },
+    });
     expect(createManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
         data: [

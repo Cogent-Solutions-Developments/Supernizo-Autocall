@@ -88,10 +88,7 @@ export async function createChatMessageNotifications(
     }),
     database.user.findMany({
       where: {
-        OR: [
-          { globalRole: 'ADMIN', supernizoId: null },
-          { supernizoState: { is: { eligibility: 'ELIGIBLE' } } },
-        ],
+        OR: [{ globalRole: 'ADMIN', supernizoId: null }, { supernizoId: { not: null } }],
       },
       select: { id: true },
     }),
