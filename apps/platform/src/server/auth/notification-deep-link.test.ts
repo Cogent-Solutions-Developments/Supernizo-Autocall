@@ -23,6 +23,15 @@ describe('notification deep links', () => {
     expect(notificationDeepLinkFromValues(Object.fromEntries(url.searchParams))).toEqual(target);
   });
 
+  it('routes a validated incoming call to its dedicated workspace', () => {
+    const callTarget = { callId: 'call_123' };
+    const url = appendNotificationDeepLink(new URL('https://supernizo.test/autocall'), callTarget);
+    expect(notificationDeepLinkFromValues(Object.fromEntries(url.searchParams))).toEqual(
+      callTarget,
+    );
+    expect(notificationDeepLinkPath(callTarget)).toBe('/dashboard/calls/call_123');
+  });
+
   it('rejects partial and malformed destinations', () => {
     expect(() => notificationDeepLinkFromValues({ siteId: 'site_123' })).toThrow(ValidationError);
     expect(() => notificationDeepLinkFromValues({ ...target, visitorId: '../admin' })).toThrow(

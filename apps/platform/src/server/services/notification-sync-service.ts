@@ -12,6 +12,7 @@ import type { Prisma } from '@generated/prisma/client';
 import { getDatabaseClient } from '@/server/db/client';
 
 const notificationSyncSelect = {
+  callId: true,
   createdAt: true,
   id: true,
   messageId: true,
@@ -31,6 +32,7 @@ type NotificationSyncRow = Prisma.NotificationGetPayload<{
 
 function mapNotification(notification: NotificationSyncRow): NotificationSyncItem {
   return NotificationSyncItemSchema.parse({
+    callId: notification.callId,
     createdAt: notification.createdAt.toISOString(),
     messageId: notification.messageId,
     preview: notification.preview,

@@ -43,6 +43,7 @@ enum SiteStatus {
 
 enum NotificationType {
   CHAT_MESSAGE
+  INCOMING_CALL
 }
 
 model User {
@@ -273,8 +274,9 @@ model Notification {
   recipientUserId String           @db.VarChar(30)
   siteId          String           @db.VarChar(30)
   siteName        String           @db.VarChar(191)
-  threadId        String           @db.VarChar(30)
-  messageId       String           @db.VarChar(30)
+  threadId        String?          @db.VarChar(30)
+  messageId       String?          @db.VarChar(30)
+  callId          String?          @db.VarChar(30)
   visitorId       String           @db.VarChar(30)
   visitorLabel    String           @db.VarChar(191)
   preview         String           @db.VarChar(500)
@@ -282,10 +284,12 @@ model Notification {
   readAt          DateTime?        @db.Timestamp(3)
   recipient       User             @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
   site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  thread          ChatThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  message         ChatMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  thread          ChatThread?      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  message         ChatMessage?     @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  call            Call?            @relation(fields: [callId], references: [id], onDelete: Cascade)
 
   @@unique([recipientUserId, type, messageId])
+  @@unique([recipientUserId, type, callId])
   @@index([recipientUserId, readAt, createdAt])
   @@index([siteId, createdAt])
 }
@@ -297,6 +301,7 @@ model Call {
   sessionId   String?     @db.VarChar(30)
   agentId     String?     @db.VarChar(30)
   type        CallType
+  visitorInitiated Boolean @default(false)
   status      CallStatus  @default(RINGING)
   roomName    String?     @unique @db.VarChar(191)
   requestedAt DateTime    @default(now()) @db.Timestamp(3)
@@ -311,6 +316,7 @@ model Call {
   session     Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
   agent       User?       @relation("CallAgent", fields: [agentId], references: [id], onDelete: SetNull)
   events      CallEvent[]
+  notifications Notification[]
 
   @@index([visitorId, requestedAt])
   @@index([agentId, requestedAt])

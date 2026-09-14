@@ -13,6 +13,7 @@ import { NotFoundError } from '@/server/errors/app-error';
 import { UpstashRealtimeProvider } from '@/server/realtime';
 
 const notificationSelect = {
+  callId: true,
   createdAt: true,
   id: true,
   messageId: true,
@@ -118,6 +119,43 @@ export async function createChatMessageNotifications(
 
   await emitNotifications(notifications);
   return notifications;
+}
+
+export async function createIncomingCallNotification(
+  input: Readonly<{
+    callId: string;
+    recipientUserId: string;
+    siteId: string;
+    siteName: string;
+    visitorId: string;
+    visitorLabel: string;
+    type: 'AUDIO' | 'VIDEO';
+  }>,
+): Promise<DashboardNotification | null> {
+  const notification = await getDatabaseClient().notification.upsert({
+    where: {
+      recipientUserId_type_callId: {
+        callId: input.callId,
+        recipientUserId: input.recipientUserId,
+        type: 'INCOMING_CALL',
+      },
+    },
+    create: {
+      callId: input.callId,
+      preview: `Visitor is requesting a ${input.type === 'VIDEO' ? 'video' : 'voice'} call.`,
+      recipientUserId: input.recipientUserId,
+      siteId: input.siteId,
+      siteName: input.siteName,
+      type: 'INCOMING_CALL',
+      visitorId: input.visitorId,
+      visitorLabel: input.visitorLabel,
+    },
+    update: {},
+    select: notificationSelect,
+  });
+  const mapped = mapNotification(notification);
+  await emitNotifications([mapped]);
+  return mapped;
 }
 
 export async function listNotificationsForUser(

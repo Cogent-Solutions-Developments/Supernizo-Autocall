@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { DashboardNotificationSchema, type DashboardNotification } from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
-import { visitorChatHref } from '@/lib/notification-navigation';
+import { dashboardNotificationHref } from '@/lib/notification-navigation';
 
 import {
   markDashboardNotificationRead,
@@ -129,7 +129,7 @@ export function DashboardNotificationCenter({
     setToast(null);
     setQueuedToastCount(0);
     setToastPaused(false);
-    router.push(visitorChatHref(notification));
+    router.push(dashboardNotificationHref(notification));
     if (notification.readAt) return;
 
     const readAt = new Date().toISOString();

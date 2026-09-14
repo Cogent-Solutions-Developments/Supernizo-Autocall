@@ -19,9 +19,11 @@ import { getEnvironmentReadiness } from '@/server/env';
 import { terminateLiveKitRoom } from '@/server/livekit/room-service';
 import { logger } from '@/server/logging/logger';
 import { getPresenceRepository } from '@/server/presence/presence-repository';
+import { getAgentPresenceRepository } from '@/server/presence/agent-presence-repository';
 import { UpstashRealtimeProvider } from '@/server/realtime';
 
 import { assertAgentCanStartCall, markAgentBusy, releaseAgent } from './agent-presence-service';
+import { createIncomingCallNotification } from './notification-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
 const terminalStatuses: CallStatus[] = ['REJECTED', 'ENDED', 'MISSED', 'FAILED', 'CANCELLED'];
@@ -68,6 +70,7 @@ const callSelect = {
   siteId: true,
   status: true,
   type: true,
+  visitorInitiated: true,
   visitor: { select: { anonymousId: true } },
   visitorId: true,
 } satisfies Prisma.CallSelect;
@@ -454,6 +457,154 @@ export async function createCall(
   return typedCall;
 }
 
+/**
+ * Creates a visitor-initiated call and reserves exactly one currently available
+ * Supernizo agent. The database transaction is the concurrency authority; the
+ * presence snapshot only narrows the candidates we are willing to ring.
+ */
+export async function requestVisitorCall(
+  origin: string,
+  context: TrackingContext,
+  type: CallType,
+  options?: CallTransitionOptions,
+): Promise<Call> {
+  const resolved = await resolveTrackingContext(context, origin);
+  await assertCallEnabled(resolved.siteId, type);
+  const visitorPresence = await getPresenceRepository().get(resolved.siteId, resolved.visitorId);
+  if (!visitorPresence || visitorPresence.sessionId !== context.sessionId) {
+    throw new ConflictError('Keep this page open to request a call.');
+  }
+
+  const database = getDatabaseClient();
+  const possibleAgents = await database.user.findMany({
+    where: { supernizoId: { not: null } },
+    orderBy: { id: 'asc' },
+    select: { id: true },
+  });
+  const snapshots = await Promise.all(
+    possibleAgents.map(async (agent) => ({
+      agent,
+      presence: await getAgentPresenceRepository().get(agent.id),
+    })),
+  );
+  const candidates = snapshots
+    .filter(({ presence }) => presence?.availability === 'AVAILABLE')
+    .map(({ agent }) => agent.id);
+  if (candidates.length === 0) {
+    throw new ConflictError('No event agent is available right now. Please try again shortly.');
+  }
+
+  for (const agentId of candidates) {
+    try {
+      const created = await database.$transaction(async (transaction) => {
+        await lockCallParticipants(
+          (query) => transaction.$queryRaw(query),
+          agentId,
+          resolved.visitorId,
+        );
+        const expiredCalls = await expireStalePendingCalls(
+          transaction,
+          resolved.visitorId,
+          agentId,
+        );
+        const [visitor, session, existingVisitorCall, existingAgentCall, site] = await Promise.all([
+          transaction.visitor.findFirst({
+            where: { id: resolved.visitorId, siteId: resolved.siteId },
+            select: {
+              anonymousId: true,
+              id: true,
+              identities: {
+                orderBy: { linkedAt: 'desc' },
+                select: { displayName: true },
+                take: 1,
+              },
+            },
+          }),
+          transaction.session.findUnique({
+            where: { id: resolved.sessionId },
+            select: { id: true, visitorId: true },
+          }),
+          transaction.call.findFirst({
+            where: { status: { notIn: terminalStatuses }, visitorId: resolved.visitorId },
+            select: { id: true },
+          }),
+          transaction.call.findFirst({
+            where: { agentId, status: { notIn: terminalStatuses } },
+            select: { id: true },
+          }),
+          transaction.site.findUnique({ where: { id: resolved.siteId }, select: { name: true } }),
+        ]);
+        if (!visitor || !session || session.visitorId !== visitor.id || !site) {
+          throw new ConflictError('The visitor session is no longer available.');
+        }
+        if (existingVisitorCall)
+          throw new ConflictError('This visitor already has an active call.');
+        if (existingAgentCall) throw new ConflictError('The selected agent is busy.');
+
+        const call = await transaction.call.create({
+          data: {
+            agentId,
+            events: { create: { payload: { source: 'VISITOR_WIDGET' }, type: 'RINGING' } },
+            roomName: roomName(),
+            sessionId: session.id,
+            siteId: resolved.siteId,
+            type,
+            visitorInitiated: true,
+            visitorId: visitor.id,
+          },
+          select: callSelect,
+        });
+        return {
+          call,
+          expiredCalls,
+          siteName: site.name,
+          visitorAnonymousId: visitor.anonymousId,
+          visitorLabel:
+            visitor.identities[0]?.displayName?.trim() || `Visitor #${visitor.id.slice(-6)}`,
+        };
+      });
+
+      const typedCall = mapCall(created.call);
+      await runOrScheduleCreatedCallOperationalSync(
+        {
+          agentId: created.call.agentId,
+          call: typedCall,
+          expiredCalls: created.expiredCalls.map((expiredCall) => ({
+            agentId: expiredCall.agentId,
+            call: mapCall(expiredCall),
+          })),
+        },
+        options?.scheduleOperationalSync,
+      );
+      await emitCall(
+        `visitor:${typedCall.siteId}:${created.visitorAnonymousId}`,
+        'call.incoming',
+        typedCall,
+      );
+      try {
+        await createIncomingCallNotification({
+          callId: typedCall.id,
+          recipientUserId: created.call.agentId!,
+          siteId: typedCall.siteId,
+          siteName: created.siteName,
+          type,
+          visitorId: typedCall.visitorId,
+          visitorLabel: created.visitorLabel,
+        });
+      } catch (error: unknown) {
+        logger.log('error', 'incoming_call_notification_failed', {
+          callId: typedCall.id,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+        });
+      }
+      return typedCall;
+    } catch (error: unknown) {
+      if (!(error instanceof ConflictError)) throw error;
+    }
+  }
+  throw new ConflictError('All available agents became busy. Please try again shortly.');
+}
+
 export async function getCall(callId: string): Promise<Call | null> {
   return expireCallIfNeeded(callId);
 }
@@ -588,6 +739,18 @@ export async function acceptVisitorCall(
   ]);
   if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
     throw new ForbiddenError('The requested call is not available to this visitor session.');
+  }
+  return transitionSelectedCall(call, 'accept', undefined, options);
+}
+
+export async function acceptAssignedAgentCall(
+  callId: string,
+  agentId: string,
+  options?: CallTransitionOptions,
+): Promise<Call> {
+  const call = await getSelectedCall(callId);
+  if (!call || call.agentId !== agentId || !call.visitorInitiated) {
+    throw new ForbiddenError('The requested call is not assigned to this agent.');
   }
   return transitionSelectedCall(call, 'accept', undefined, options);
 }
