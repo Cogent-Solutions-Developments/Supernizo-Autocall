@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
-import { DashboardNotificationSchema, type DashboardNotification } from '@supernizo/shared';
+import {
+  CallSchema,
+  DashboardNotificationSchema,
+  type Call,
+  type DashboardNotification,
+} from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
 import { dashboardNotificationHref } from '@/lib/notification-navigation';
@@ -16,6 +21,7 @@ import {
   mergeDashboardNotification,
   unreadNotificationCount,
 } from './notification-state';
+import { IncomingCallModal } from './incoming-call-modal';
 
 const { useRealtime } = createRealtime<{
   notification: {
@@ -26,6 +32,7 @@ const { useRealtime } = createRealtime<{
 const NotificationListResponseSchema = z.object({
   data: z.object({ notifications: z.array(DashboardNotificationSchema) }),
 });
+const CallResponseSchema = z.object({ data: CallSchema });
 
 type DashboardNotificationCenterProps = Readonly<{
   initialNotifications: DashboardNotification[];
@@ -44,6 +51,7 @@ export function DashboardNotificationCenter({
   const [queuedToastCount, setQueuedToastCount] = useState(0);
   const [toastPaused, setToastPaused] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [incomingCall, setIncomingCall] = useState<Call | null>(null);
   const seenIds = useRef(new Set(initialNotifications.map(({ id }) => id)));
   const toastRef = useRef<DashboardNotification | null>(null);
   const originalTitle = useRef<string | null>(null);
@@ -141,13 +149,7 @@ export function DashboardNotificationCenter({
     (notification) => eventFilter === 'all' || notification.siteId === eventFilter,
   );
 
-  function openNotification(notification: DashboardNotification): void {
-    setIsOpen(false);
-    toastRef.current = null;
-    setToast(null);
-    setQueuedToastCount(0);
-    setToastPaused(false);
-    router.push(dashboardNotificationHref(notification));
+  function markNotificationRead(notification: DashboardNotification): void {
     if (notification.readAt) return;
 
     const readAt = new Date().toISOString();
@@ -169,6 +171,30 @@ export function DashboardNotificationCenter({
         );
         setLoadError('The notification could not be marked as read.');
       });
+  }
+
+  async function openNotification(notification: DashboardNotification): Promise<void> {
+    setIsOpen(false);
+    toastRef.current = null;
+    setToast(null);
+    setQueuedToastCount(0);
+    setToastPaused(false);
+    markNotificationRead(notification);
+
+    if (notification.type === 'INCOMING_CALL' && notification.callId) {
+      try {
+        const response = await fetchAppApi(`/api/calls/${notification.callId}`, {
+          credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error('Incoming call could not be loaded.');
+        setIncomingCall(CallResponseSchema.parse(await response.json()).data);
+      } catch {
+        setLoadError('Incoming call could not be loaded.');
+      }
+      return;
+    }
+
+    router.push(dashboardNotificationHref(notification));
   }
 
   return (
@@ -294,6 +320,9 @@ export function DashboardNotificationCenter({
             </span>
           </span>
         </button>
+      ) : null}
+      {incomingCall ? (
+        <IncomingCallModal call={incomingCall} onClose={() => setIncomingCall(null)} />
       ) : null}
     </div>
   );
