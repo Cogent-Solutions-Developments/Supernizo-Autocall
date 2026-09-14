@@ -378,6 +378,8 @@ export const Tracker: TrackerRuntime = {
               visitorId: responseBody.visitorId,
             },
             bootstrapEndpoint,
+            responseBody.features.audioCallEnabled,
+            () => callWidget?.requestAudioCall(),
           )
         : undefined;
       chatWidget?.stop();

@@ -220,6 +220,22 @@ export class CallWidgetController {
     }
   }
 
+  public requestAudioCall(): void {
+    const launcher = this.launcher;
+    if (launcher?.disabled) return;
+
+    if (launcher) {
+      launcher.disabled = true;
+      launcher.textContent = '…';
+    }
+    void this.requestVisitorCall();
+    window.setTimeout(() => {
+      if (!launcher || this.frameVisible) return;
+      launcher.disabled = false;
+      launcher.textContent = 'Call';
+    }, 8_000);
+  }
+
   public stop(): void {
     if (this.syncTimer !== undefined) {
       window.clearInterval(this.syncTimer);
@@ -416,16 +432,7 @@ export class CallWidgetController {
       'right:236px',
       'z-index:2147482999',
     ].join(';');
-    launcher.addEventListener('click', () => {
-      launcher.disabled = true;
-      launcher.textContent = '…';
-      void this.requestVisitorCall();
-      window.setTimeout(() => {
-        if (this.frameVisible) return;
-        launcher.disabled = false;
-        launcher.textContent = 'Call';
-      }, 8_000);
-    });
+    launcher.addEventListener('click', () => this.requestAudioCall());
     (document.body ?? document.documentElement).append(launcher);
     return launcher;
   }

@@ -9,6 +9,7 @@ import {
   Search,
   CircleUserRound as UserCircleIcon,
   ExternalLink,
+  PhoneCall,
 } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -19,6 +20,7 @@ import { ChatInboxThreadSchema, ChatMessageSchema, type ChatInboxThread } from '
 import { fetchAppApi } from '@/lib/app-fetch';
 
 import { DashboardChatPane } from './dashboard-chat-pane';
+import { LiveVisitorCallModal } from './live-visitor-call-modal';
 
 const { useRealtime } = createRealtime<{
   chat: {
@@ -69,6 +71,7 @@ export function DashboardChatInbox({
   const [search, setSearch] = useState('');
   const [mobileConversation, setMobileConversation] = useState(Boolean(initialThread));
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [callThread, setCallThread] = useState<ChatInboxThread | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     initialThread?.id ?? null,
   );
@@ -259,9 +262,18 @@ export function DashboardChatInbox({
                   </h3>
                   <p className="mt-0.5 text-xs text-muted">Visitor conversation</p>
                 </div>
+                <button
+                  aria-label={`Call ${selectedThread.visitorLabel}`}
+                  className="ml-auto grid size-9 shrink-0 place-items-center rounded-full bg-action text-white transition hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canSend}
+                  onClick={() => setCallThread(selectedThread)}
+                  type="button"
+                >
+                  <PhoneCall aria-hidden="true" size={16} />
+                </button>
                 <Link
                   aria-label={`View details for ${selectedThread.visitorLabel}`}
-                  className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-xs font-semibold text-body transition hover:bg-surface-hover hover:text-strong"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-xs font-semibold text-body transition hover:bg-surface-hover hover:text-strong"
                   href={`/dashboard/visitors/${selectedThread.visitorId}?siteId=${encodeURIComponent(selectedThread.siteId)}&threadId=${encodeURIComponent(selectedThread.id)}`}
                 >
                   Details
@@ -284,6 +296,15 @@ export function DashboardChatInbox({
           )}
         </div>
       </div>
+      {callThread ? (
+        <LiveVisitorCallModal
+          callType="AUDIO"
+          canCall={canSend}
+          onClose={() => setCallThread(null)}
+          siteId={callThread.siteId}
+          visitor={{ label: callThread.visitorLabel, visitorId: callThread.visitorId }}
+        />
+      ) : null}
     </section>,
     document.body,
   );
