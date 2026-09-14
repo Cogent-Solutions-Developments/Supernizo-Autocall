@@ -1129,11 +1129,14 @@ class CallWidgetController {
     frameLayout = 'default';
     frameStyle;
     frameVisible = false;
+    frameReady = false;
     configRefreshTimer;
     configRefreshInFlight = false;
     lastConfigRefreshAt = Date.now();
     lastConfigRefreshAttemptAt = 0;
     launcherAnimation;
+    launcher;
+    pendingVisitorCall;
     syncTimer;
     constructor(context, endpoint, config, renewConfig, onVisibilityChange) {
         this.context = context;
@@ -1170,10 +1173,15 @@ class CallWidgetController {
           iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-video'] {
             height:min(400px, calc(100dvh - 32px)) !important;
           }
+          button[data-supernizo-call-launcher='true'] {
+            bottom:84px !important;
+            right:16px !important;
+          }
         }
       `;
             (document.head ?? document.documentElement).append(style);
             this.frameStyle = style;
+            this.launcher = this.createLauncher();
             frame.addEventListener('load', () => this.postConfig());
             window.addEventListener('message', this.receiveMessage);
             (document.body ?? document.documentElement).append(frame);
@@ -1201,7 +1209,7 @@ class CallWidgetController {
         this.frameAnimation = undefined;
         this.launcherAnimation?.cancel();
         this.launcherAnimation = undefined;
-        const launcher = this.findLauncher();
+        const launcher = this.launcher;
         if (launcher) {
             launcher.style.opacity = '';
             launcher.style.pointerEvents = '';
@@ -1211,6 +1219,9 @@ class CallWidgetController {
         this.frameStyle?.remove();
         this.frameStyle = undefined;
         this.frame = undefined;
+        this.frameReady = false;
+        this.launcher?.remove();
+        this.launcher = undefined;
         this.frameVisible = false;
     }
     receiveMessage = (event) => {
@@ -1230,7 +1241,17 @@ class CallWidgetController {
             return;
         }
         if (data.type === 'supernizo-call-ready') {
+            this.frameReady = true;
             this.postConfig();
+            this.deliverPendingVisitorCall();
+            return;
+        }
+        if (data.type === 'supernizo-call-request') {
+            void this.requestVisitorCall();
+            return;
+        }
+        if (data.type === 'supernizo-call-request-media' && isCall(data.call)) {
+            void this.requestMedia(data.call);
             return;
         }
         if (data.type === 'supernizo-call-action' &&
@@ -1315,7 +1336,77 @@ class CallWidgetController {
         this.frame.style.height = callWidgetFrameHeight(layout);
     }
     findLauncher() {
-        return document.querySelector('[data-supernizo-launcher="true"]');
+        return this.launcher ?? null;
+    }
+    createLauncher() {
+        const launcher = document.createElement('button');
+        launcher.setAttribute('aria-label', 'Request a voice call from the event team');
+        launcher.setAttribute('title', 'Call event team');
+        launcher.dataset.supernizoCallLauncher = 'true';
+        launcher.textContent = 'Call';
+        launcher.type = 'button';
+        launcher.style.cssText = [
+            'align-items:center',
+            'background:#18181b',
+            'border:1px solid rgba(255,255,255,.2)',
+            'border-radius:999px',
+            'bottom:24px',
+            'box-shadow:0 10px 30px rgba(0,0,0,.24)',
+            'color:#fff',
+            'cursor:pointer',
+            'display:inline-flex',
+            'font:700 10px/1 system-ui,sans-serif',
+            'height:42px',
+            'justify-content:center',
+            'min-width:42px',
+            'padding:0 10px',
+            'position:fixed',
+            'right:236px',
+            'z-index:2147482999',
+        ].join(';');
+        launcher.addEventListener('click', () => {
+            launcher.disabled = true;
+            launcher.textContent = '…';
+            void this.requestVisitorCall();
+            window.setTimeout(() => {
+                if (this.frameVisible)
+                    return;
+                launcher.disabled = false;
+                launcher.textContent = 'Call';
+            }, 8_000);
+        });
+        (document.body ?? document.documentElement).append(launcher);
+        return launcher;
+    }
+    async requestVisitorCall() {
+        try {
+            const response = await fetch(new URL((0, platform_url_1.resolveApplicationEndpoint)(this.endpoint, '/api/calls/request')), {
+                body: JSON.stringify({ context: this.context, type: 'AUDIO' }),
+                credentials: 'omit',
+                headers: { 'content-type': 'text/plain;charset=UTF-8' },
+                method: 'POST',
+                mode: 'cors',
+            });
+            const body = await response.json();
+            const actionResponse = readCallActionResponse(body);
+            if (!response.ok || !actionResponse)
+                throw new Error('The call could not be requested.');
+            this.pendingVisitorCall = actionResponse.call;
+            this.deliverPendingVisitorCall();
+        }
+        catch {
+            if (this.launcher) {
+                this.launcher.disabled = false;
+                this.launcher.textContent = 'Retry';
+                this.launcher.title = 'No agent is available. Try again shortly.';
+            }
+        }
+    }
+    deliverPendingVisitorCall() {
+        if (!this.frameReady || !this.pendingVisitorCall)
+            return;
+        this.frame?.contentWindow?.postMessage({ call: this.pendingVisitorCall, type: 'supernizo-call-outbound' }, new URL(this.endpoint).origin);
+        this.pendingVisitorCall = undefined;
     }
     setLauncherVisible(visible, reducedMotion) {
         const launcher = this.findLauncher();
