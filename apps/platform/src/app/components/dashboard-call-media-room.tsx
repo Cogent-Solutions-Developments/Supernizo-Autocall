@@ -59,7 +59,7 @@ export function DashboardCallMediaRoom({
     session;
 
   useEffect(() => {
-    if (initialMedia) return;
+    if (!active || initialMedia) return;
 
     let mounted = true;
     void fetchAppApi('/api/livekit/token', {
@@ -83,7 +83,7 @@ export function DashboardCallMediaRoom({
     return () => {
       mounted = false;
     };
-  }, [call.id, initialMedia]);
+  }, [active, call.id, initialMedia]);
 
   useEffect(() => {
     if (!active || !room || isCapturing || localTracks.length > 0 || captureError) {
