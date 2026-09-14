@@ -270,7 +270,6 @@ export function DashboardNotificationCenter({
           </span>
         </button>
       ) : null}
-
     </div>
   );
 }
