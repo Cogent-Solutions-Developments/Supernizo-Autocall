@@ -4,19 +4,21 @@ import { AgentAvailabilityControl } from '@/app/components/agent-availability-co
 import { DashboardDock } from '@/app/components/dashboard-dock';
 import { DashboardSessionGuard } from '@/app/components/dashboard-session-guard';
 import { DashboardNotificationCenter } from '@/app/components/dashboard-notification-center';
+import { IncomingCallAlert } from '@/app/components/incoming-call-alert';
 import { requireDashboardUser } from '@/server/auth/access';
 import { AutocallWordmark } from '@/app/components/autocall-wordmark';
 import { HeavyWorkspaceBackground } from '@/app/components/heavy-workspace-background';
 import { listNotificationsForUser } from '@/server/services/notification-service';
+import { listIncomingCallsForAgent } from '@/server/services/call-service';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
   const user = await requireDashboardUser();
-  const initialNotifications = await listNotificationsForUser(user.id, {
-    limit: 50,
-    unreadOnly: false,
-  });
+  const [initialNotifications, initialCalls] = await Promise.all([
+    listNotificationsForUser(user.id, { limit: 50, unreadOnly: false }),
+    listIncomingCallsForAgent(),
+  ]);
   return (
     <DashboardSessionGuard returnTo={user.returnTo}>
       <div className="workspace-theme workspace-canvas">
@@ -39,6 +41,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
         <main className="workspace-content" id="workspace-content" tabIndex={-1}>
           {children}
         </main>
+        <IncomingCallAlert initialCalls={initialCalls} />
         <Suspense>
           <DashboardDock returnTo={user.returnTo} />
         </Suspense>

@@ -1,4 +1,4 @@
-import { after, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 import { IdSchema } from '@supernizo/shared';
 
@@ -7,7 +7,7 @@ import { assertRole } from '@/server/auth/roles';
 import { ValidationError } from '@/server/errors/app-error';
 import { toHttpErrorResponse } from '@/server/http/error-response';
 import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { acceptAssignedAgentCall, getCallScope } from '@/server/services/call-service';
+import { claimIncomingCall, getCallScope } from '@/server/services/call-service';
 
 type RouteContext = Readonly<{ params: Promise<{ callId: string }> }>;
 
@@ -24,9 +24,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     if (!scope) throw new ValidationError('The requested call is not available.');
     const access = await requireSiteAccess(scope.siteId);
     assertRole(access.siteRole, ['ADMIN', 'AGENT']);
-    const call = await acceptAssignedAgentCall(parsed.data, user.id, {
-      scheduleOperationalSync: after,
-    });
+    const call = await claimIncomingCall(parsed.data, user.id);
     return withRequestId(NextResponse.json({ data: call, requestId }), requestId);
   } catch (error: unknown) {
     return withRequestId(toHttpErrorResponse(error, requestId), requestId);
