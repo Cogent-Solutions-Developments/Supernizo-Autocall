@@ -11,7 +11,6 @@ import {
   type Call,
   type CallType,
   type LiveKitTokenResponse,
-  type VisitorPresenceSnapshot,
 } from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
@@ -32,7 +31,11 @@ type LiveVisitorCallModalProps = Readonly<{
   canCall: boolean;
   onClose: () => void;
   siteId: string;
-  visitor: VisitorPresenceSnapshot;
+  visitor: Readonly<{
+    city?: string | null;
+    label?: string | null;
+    visitorId: string;
+  }>;
 }>;
 
 export function LiveVisitorCallModal({
@@ -148,7 +151,8 @@ export function LiveVisitorCallModal({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold text-strong" id="live-call-title">
-              {callType === 'VIDEO' ? 'Video' : 'Audio'} call to {visitor.city ?? 'visitor'}
+              {callType === 'VIDEO' ? 'Video' : 'Audio'} call to{' '}
+              {visitor.label ?? visitor.city ?? 'visitor'}
             </h2>
           </div>
           <button
@@ -196,6 +200,15 @@ export function LiveVisitorCallModal({
             type="button"
           >
             Cancel call
+          </button>
+        ) : null}
+        {callIsTerminal || error ? (
+          <button
+            className="mt-5 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-body hover:bg-surface-hover hover:text-strong"
+            onClick={onClose}
+            type="button"
+          >
+            Close and call again
           </button>
         ) : null}
       </section>
