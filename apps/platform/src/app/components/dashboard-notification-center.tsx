@@ -2,15 +2,15 @@
 
 import { createRealtime } from '@upstash/realtime/client';
 import { Bell, CalendarDays, MessageCircle, X } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { DashboardNotificationSchema, type DashboardNotification } from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
+import { visitorChatHref } from '@/lib/notification-navigation';
 
-import { DashboardChatPane } from './dashboard-chat-pane';
 import {
   markDashboardNotificationRead,
   mergeDashboardNotification,
@@ -28,19 +28,17 @@ const NotificationListResponseSchema = z.object({
 });
 
 type DashboardNotificationCenterProps = Readonly<{
-  canSend: boolean;
   initialNotifications: DashboardNotification[];
   userId: string;
 }>;
 
 export function DashboardNotificationCenter({
-  canSend,
   initialNotifications,
   userId,
 }: DashboardNotificationCenterProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState(initialNotifications);
   const [isOpen, setIsOpen] = useState(false);
-  const [activeNotification, setActiveNotification] = useState<DashboardNotification | null>(null);
   const [eventFilter, setEventFilter] = useState('all');
   const [toast, setToast] = useState<DashboardNotification | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -115,33 +113,31 @@ export function DashboardNotificationCenter({
     (notification) => eventFilter === 'all' || notification.siteId === eventFilter,
   );
 
-  async function openNotification(notification: DashboardNotification): Promise<void> {
-    setActiveNotification({
-      ...notification,
-      readAt: notification.readAt ?? new Date().toISOString(),
-    });
+  function openNotification(notification: DashboardNotification): void {
     setIsOpen(false);
     setToast(null);
+    router.push(visitorChatHref(notification));
     if (notification.readAt) return;
 
     const readAt = new Date().toISOString();
     setNotifications((current) => markDashboardNotificationRead(current, notification.id, readAt));
-    try {
-      const response = await fetchAppApi(`/api/notifications/${notification.id}`, {
-        body: JSON.stringify({ read: true }),
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        method: 'PATCH',
+    void fetchAppApi(`/api/notifications/${notification.id}`, {
+      body: JSON.stringify({ read: true }),
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      method: 'PATCH',
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Notification could not be marked as read.');
+      })
+      .catch(() => {
+        setNotifications((current) =>
+          current.map((item) =>
+            item.id === notification.id ? { ...item, readAt: notification.readAt } : item,
+          ),
+        );
+        setLoadError('The notification could not be marked as read.');
       });
-      if (!response.ok) throw new Error('Notification could not be marked as read.');
-    } catch {
-      setNotifications((current) =>
-        current.map((item) =>
-          item.id === notification.id ? { ...item, readAt: notification.readAt } : item,
-        ),
-      );
-      setLoadError('The notification could not be marked as read.');
-    }
   }
 
   return (
@@ -244,47 +240,6 @@ export function DashboardNotificationCenter({
         </button>
       ) : null}
 
-      {activeNotification ? (
-        <section
-          aria-label={`Chat with ${activeNotification.visitorLabel}`}
-          role="dialog"
-          className="fixed right-3 bottom-24 z-[55] flex h-[min(40rem,calc(100dvh-7rem))] w-[calc(100vw-1.5rem)] max-w-[32rem] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_68px_rgba(0,0,0,0.5)] sm:right-6 sm:bottom-6"
-        >
-          <header className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-4 py-3">
-            <div className="min-w-0">
-              <h2 className="truncate font-semibold text-strong">
-                {activeNotification.visitorLabel}
-              </h2>
-              <p className="mt-1 flex items-center gap-1.5 truncate text-xs font-medium text-accent">
-                <CalendarDays aria-hidden="true" size={13} />
-                Event: {activeNotification.siteName}
-              </p>
-              <Link
-                className="mt-1 inline-block text-xs text-muted underline hover:text-strong"
-                href={`/dashboard/live?siteId=${encodeURIComponent(activeNotification.siteId)}`}
-              >
-                View event
-              </Link>
-            </div>
-            <button
-              aria-label="Close chat"
-              className="grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-surface-hover hover:text-white"
-              onClick={() => setActiveNotification(null)}
-              type="button"
-            >
-              <X aria-hidden="true" size={18} />
-            </button>
-          </header>
-          <DashboardChatPane
-            canSend={canSend}
-            embedded
-            initialThreadId={activeNotification.threadId}
-            key={activeNotification.threadId}
-            siteId={activeNotification.siteId}
-            visitorId={activeNotification.visitorId}
-          />
-        </section>
-      ) : null}
     </div>
   );
 }

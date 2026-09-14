@@ -30,7 +30,6 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           </Link>
           <div className="workspace-account">
             <DashboardNotificationCenter
-              canSend={user.role === 'ADMIN' || user.role === 'AGENT'}
               initialNotifications={initialNotifications}
               userId={user.id}
             />
