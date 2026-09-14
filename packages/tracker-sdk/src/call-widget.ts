@@ -194,6 +194,10 @@ export class CallWidgetController {
           iframe[data-supernizo-call='true'][data-supernizo-visible='true'][data-supernizo-layout='connected-video'] {
             height:min(400px, calc(100dvh - 32px)) !important;
           }
+          button[data-supernizo-call-launcher='true'] {
+            bottom:84px !important;
+            right:16px !important;
+          }
         }
       `;
       (document.head ?? document.documentElement).append(style);
@@ -384,28 +388,32 @@ export class CallWidgetController {
   private createLauncher(): HTMLButtonElement {
     const launcher = document.createElement('button');
     launcher.setAttribute('aria-label', 'Request a voice call from the event team');
+    launcher.setAttribute('title', 'Call event team');
     launcher.dataset.supernizoCallLauncher = 'true';
-    launcher.textContent = 'Call event team';
+    launcher.textContent = 'Call';
     launcher.type = 'button';
     launcher.style.cssText = [
       'align-items:center',
       'background:#18181b',
       'border:1px solid rgba(255,255,255,.2)',
       'border-radius:999px',
-      'bottom:22px',
+      'bottom:24px',
       'box-shadow:0 10px 30px rgba(0,0,0,.24)',
       'color:#fff',
       'cursor:pointer',
       'display:inline-flex',
-      'font:600 13px/1 system-ui,sans-serif',
-      'padding:13px 17px',
+      'font:700 10px/1 system-ui,sans-serif',
+      'height:42px',
+      'justify-content:center',
+      'min-width:42px',
+      'padding:0 10px',
       'position:fixed',
-      'right:22px',
+      'right:236px',
       'z-index:2147482999',
     ].join(';');
     launcher.addEventListener('click', () => {
       launcher.disabled = true;
-      launcher.textContent = 'Requesting call…';
+      launcher.textContent = '…';
       this.frame?.contentWindow?.postMessage(
         { type: 'supernizo-call-request' },
         new URL(this.endpoint).origin,
@@ -413,7 +421,7 @@ export class CallWidgetController {
       window.setTimeout(() => {
         if (this.frameVisible) return;
         launcher.disabled = false;
-        launcher.textContent = 'Call event team';
+        launcher.textContent = 'Call';
       }, 8_000);
     });
     (document.body ?? document.documentElement).append(launcher);
