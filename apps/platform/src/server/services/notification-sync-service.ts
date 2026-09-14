@@ -32,7 +32,7 @@ type NotificationSyncRow = Prisma.NotificationGetPayload<{
 
 function mapNotification(notification: NotificationSyncRow): NotificationSyncItem {
   return NotificationSyncItemSchema.parse({
-    callId: notification.callId,
+    callId: notification.callId ?? null,
     createdAt: notification.createdAt.toISOString(),
     messageId: notification.messageId,
     preview: notification.preview,
