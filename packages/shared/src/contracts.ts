@@ -256,7 +256,7 @@ export const ChatInboxQuerySchema = PaginationSchema.extend({ siteId: IdSchema }
 
 export const NotificationTypeSchema = z.enum(['CHAT_MESSAGE', 'INCOMING_CALL']);
 export const DashboardNotificationSchema = z.object({
-  callId: IdSchema.nullable(),
+  callId: IdSchema.nullable().optional(),
   createdAt: UtcDateTimeSchema,
   id: IdSchema,
   messageId: IdSchema.nullable(),
@@ -296,7 +296,7 @@ export const NotificationSyncPageRequestSchema = z
 
 export const NotificationSyncItemSchema = z
   .object({
-    callId: IdSchema.nullable(),
+    callId: IdSchema.nullable().optional(),
     createdAt: UtcDateTimeSchema,
     messageId: IdSchema.nullable(),
     preview: z.string().trim().min(1).max(500),

@@ -11,7 +11,7 @@ export function visitorChatHref({ siteId, threadId, visitorId }: NotificationCon
 
 export function dashboardNotificationHref(
   notification: Readonly<{
-    callId: string | null;
+    callId?: string | null | undefined;
     siteId: string;
     threadId: string | null;
     type: string;
