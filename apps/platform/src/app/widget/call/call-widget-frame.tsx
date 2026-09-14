@@ -2,7 +2,7 @@
 
 import { MicrophoneIcon, VideoCameraIcon } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import {
@@ -70,6 +70,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [outboundCallId, setOutboundCallId] = useState<string | null>(null);
   const endingCallId = useRef<string | null>(null);
   const mediaFailureCallId = useRef<string | null>(null);
+  const outboundJoinAttemptedCallId = useRef<string | null>(null);
   const callIsTerminal =
     call !== null && ['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(call.status);
   const callMedia = useLiveKitCallSession(
@@ -80,6 +81,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
         }
       : null,
   );
+  const { captureLocalTracks, room } = callMedia;
   const releaseLocalTracks = callMedia.releaseLocalTracks;
 
   useEffect(() => {
@@ -228,20 +230,36 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     );
   }
 
-  function joinOutboundCall(): void {
+  const joinOutboundCall = useCallback((): void => {
     if (!call) return;
-    if (!navigator.mediaDevices?.getUserMedia || !callMedia.room) {
+    if (!navigator.mediaDevices?.getUserMedia || !room) {
       setPermissionError('The secure media room is still preparing. Please try again.');
       return;
     }
     setPermissionError(null);
-    void callMedia.captureLocalTracks(call.type).then(
+    void captureLocalTracks(call.type).then(
       () => {
         window.parent.postMessage({ call, type: 'supernizo-call-request-media' }, hostOrigin);
       },
       () => setPermissionError('Microphone access is required to join this call.'),
     );
-  }
+  }, [call, captureLocalTracks, hostOrigin, room]);
+
+  useEffect(() => {
+    if (
+      !call ||
+      call.status !== 'ACCEPTED' ||
+      call.id !== outboundCallId ||
+      media ||
+      !room ||
+      outboundJoinAttemptedCallId.current === call.id
+    ) {
+      return;
+    }
+
+    outboundJoinAttemptedCallId.current = call.id;
+    joinOutboundCall();
+  }, [call, joinOutboundCall, media, outboundCallId, room]);
 
   function endCall(): void {
     if (!call) return;
@@ -426,13 +444,13 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                       {callCopy(call, Boolean(media), mediaConnected)}
                     </p>
                   ) : null}
-                  {isOutbound && call.status === 'ACCEPTED' && !media ? (
+                  {isOutbound && call.status === 'ACCEPTED' && !media && permissionError ? (
                     <button
                       className="mt-5 inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#18181b] px-5 text-xs font-semibold text-white"
                       onClick={joinOutboundCall}
                       type="button"
                     >
-                      Join call
+                      Enable microphone to join
                     </button>
                   ) : null}
                 </div>

@@ -402,6 +402,7 @@ export const Tracker: TrackerRuntime = {
               },
               renewCallWidgetConfig,
               (visible) => nextChatWidget?.setCallActive(visible),
+              false,
             )
           : undefined;
       callWidget?.start();

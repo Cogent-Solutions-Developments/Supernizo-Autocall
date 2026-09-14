@@ -167,6 +167,7 @@ export class CallWidgetController {
     private config: CallWidgetConfig,
     private readonly renewConfig?: () => Promise<CallWidgetConfig | undefined>,
     private readonly onVisibilityChange?: (visible: boolean) => void,
+    private readonly showLauncher = true,
   ) {}
 
   public start(): void {
@@ -204,7 +205,7 @@ export class CallWidgetController {
       `;
       (document.head ?? document.documentElement).append(style);
       this.frameStyle = style;
-      this.launcher = this.createLauncher();
+      this.launcher = this.showLauncher ? this.createLauncher() : undefined;
       frame.addEventListener('load', () => this.postConfig());
       window.addEventListener('message', this.receiveMessage);
       (document.body ?? document.documentElement).append(frame);

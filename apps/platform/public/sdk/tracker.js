@@ -413,6 +413,8 @@ function isMessage(value) {
 class ChatWidgetController {
     context;
     bootstrapEndpoint;
+    callEnabled;
+    onCallRequest;
     currentConfig;
     frame;
     frameAnimation;
@@ -426,9 +428,11 @@ class ChatWidgetController {
     latestAgentMessageId;
     openRequested = false;
     syncTimer;
-    constructor(context, bootstrapEndpoint) {
+    constructor(context, bootstrapEndpoint, callEnabled = false, onCallRequest) {
         this.context = context;
         this.bootstrapEndpoint = bootstrapEndpoint;
+        this.callEnabled = callEnabled;
+        this.onCallRequest = onCallRequest;
     }
     start() {
         try {
@@ -897,6 +901,7 @@ class ChatWidgetController {
             return;
         const data = event.data;
         if (data.type === 'supernizo-chat-ready') {
+            this.postCallAvailability();
             this.postConfig();
             this.postOpenRequest();
             this.animateFrameOpen();
@@ -905,6 +910,10 @@ class ChatWidgetController {
         if (data.type === 'supernizo-chat-close') {
             this.openRequested = false;
             this.animateFrameClosed();
+            return;
+        }
+        if (data.type === 'supernizo-chat-call-request') {
+            this.onCallRequest?.();
             return;
         }
         if (data.type === 'supernizo-chat-send' && isOutboundMessage(data.message)) {
@@ -951,7 +960,15 @@ class ChatWidgetController {
     postConfig() {
         if (!this.currentConfig || !this.frame?.contentWindow)
             return;
-        this.frame.contentWindow.postMessage({ config: this.currentConfig, type: 'supernizo-chat-config' }, new URL(this.bootstrapEndpoint).origin);
+        this.frame.contentWindow.postMessage({
+            config: { ...this.currentConfig, callEnabled: this.callEnabled },
+            type: 'supernizo-chat-config',
+        }, new URL(this.bootstrapEndpoint).origin);
+    }
+    postCallAvailability() {
+        if (!this.frame?.contentWindow)
+            return;
+        this.frame.contentWindow.postMessage({ callEnabled: this.callEnabled, type: 'supernizo-chat-call-availability' }, new URL(this.bootstrapEndpoint).origin);
     }
     postOpenRequest() {
         if (!this.openRequested || !this.frame?.contentWindow)
@@ -1124,6 +1141,7 @@ class CallWidgetController {
     config;
     renewConfig;
     onVisibilityChange;
+    showLauncher;
     frame;
     frameAnimation;
     frameLayout = 'default';
@@ -1138,12 +1156,13 @@ class CallWidgetController {
     launcher;
     pendingVisitorCall;
     syncTimer;
-    constructor(context, endpoint, config, renewConfig, onVisibilityChange) {
+    constructor(context, endpoint, config, renewConfig, onVisibilityChange, showLauncher = true) {
         this.context = context;
         this.endpoint = endpoint;
         this.config = config;
         this.renewConfig = renewConfig;
         this.onVisibilityChange = onVisibilityChange;
+        this.showLauncher = showLauncher;
     }
     start() {
         try {
@@ -1181,7 +1200,7 @@ class CallWidgetController {
       `;
             (document.head ?? document.documentElement).append(style);
             this.frameStyle = style;
-            this.launcher = this.createLauncher();
+            this.launcher = this.showLauncher ? this.createLauncher() : undefined;
             frame.addEventListener('load', () => this.postConfig());
             window.addEventListener('message', this.receiveMessage);
             (document.body ?? document.documentElement).append(frame);
@@ -1193,6 +1212,22 @@ class CallWidgetController {
         catch {
             // The optional call UI must not interrupt the tracked website.
         }
+    }
+    requestAudioCall() {
+        const launcher = this.launcher;
+        if (launcher?.disabled)
+            return;
+        if (launcher) {
+            launcher.disabled = true;
+            launcher.textContent = '…';
+        }
+        void this.requestVisitorCall();
+        window.setTimeout(() => {
+            if (!launcher || this.frameVisible)
+                return;
+            launcher.disabled = false;
+            launcher.textContent = 'Call';
+        }, 8_000);
     }
     stop() {
         if (this.syncTimer !== undefined) {
@@ -1364,17 +1399,7 @@ class CallWidgetController {
             'right:236px',
             'z-index:2147482999',
         ].join(';');
-        launcher.addEventListener('click', () => {
-            launcher.disabled = true;
-            launcher.textContent = '…';
-            void this.requestVisitorCall();
-            window.setTimeout(() => {
-                if (this.frameVisible)
-                    return;
-                launcher.disabled = false;
-                launcher.textContent = 'Call';
-            }, 8_000);
-        });
+        launcher.addEventListener('click', () => this.requestAudioCall());
         (document.body ?? document.documentElement).append(launcher);
         return launcher;
     }
@@ -1871,7 +1896,7 @@ exports.Tracker = {
                     sessionId: responseBody.sessionId,
                     sitePublicKey,
                     visitorId: responseBody.visitorId,
-                }, bootstrapEndpoint)
+                }, bootstrapEndpoint, responseBody.features.audioCallEnabled, () => callWidget?.requestAudioCall())
                 : undefined;
             chatWidget?.stop();
             chatWidget = nextChatWidget;
@@ -1887,7 +1912,7 @@ exports.Tracker = {
                         channel: responseBody.realtime.channel,
                         ...(responseBody.calling ? { livekitUrl: responseBody.calling.url } : {}),
                         token: responseBody.realtime.authorizationToken,
-                    }, renewCallWidgetConfig, (visible) => nextChatWidget?.setCallActive(visible))
+                    }, renewCallWidgetConfig, (visible) => nextChatWidget?.setCallActive(visible), false)
                     : undefined;
             callWidget?.start();
             return responseBody;
