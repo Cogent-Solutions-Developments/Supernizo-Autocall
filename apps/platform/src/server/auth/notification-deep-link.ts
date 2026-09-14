@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { ValidationError } from '@/server/errors/app-error';
 
-export const NotificationDeepLinkSchema = z
+const VisitorNotificationDeepLinkSchema = z
   .object({
     siteId: IdSchema,
     threadId: IdSchema,
@@ -13,11 +13,24 @@ export const NotificationDeepLinkSchema = z
   })
   .strict();
 
+const CallNotificationDeepLinkSchema = z.object({ callId: IdSchema }).strict();
+
+export const NotificationDeepLinkSchema = z.union([
+  VisitorNotificationDeepLinkSchema,
+  CallNotificationDeepLinkSchema,
+]);
+
 export type NotificationDeepLink = z.infer<typeof NotificationDeepLinkSchema>;
 
 export function notificationDeepLinkFromValues(
   values: Readonly<Record<string, string | string[] | undefined>>,
 ): NotificationDeepLink | null {
+  const callId = typeof values.callId === 'string' ? values.callId : undefined;
+  if (callId !== undefined) {
+    const parsed = CallNotificationDeepLinkSchema.safeParse({ callId });
+    if (!parsed.success) throw new ValidationError('Invalid notification destination.');
+    return parsed.data;
+  }
   const candidate = {
     siteId: typeof values.siteId === 'string' ? values.siteId : undefined,
     threadId: typeof values.threadId === 'string' ? values.threadId : undefined,
@@ -33,6 +46,7 @@ export function notificationDeepLinkFromSearchParams(
   searchParams: URLSearchParams,
 ): NotificationDeepLink | null {
   return notificationDeepLinkFromValues({
+    callId: searchParams.get('callId') ?? undefined,
     siteId: searchParams.get('siteId') ?? undefined,
     threadId: searchParams.get('threadId') ?? undefined,
     visitorId: searchParams.get('visitorId') ?? undefined,
@@ -41,6 +55,10 @@ export function notificationDeepLinkFromSearchParams(
 
 export function appendNotificationDeepLink(url: URL, target: NotificationDeepLink | null): URL {
   if (!target) return url;
+  if ('callId' in target) {
+    url.searchParams.set('callId', target.callId);
+    return url;
+  }
   url.searchParams.set('siteId', target.siteId);
   url.searchParams.set('visitorId', target.visitorId);
   url.searchParams.set('threadId', target.threadId);
@@ -49,6 +67,7 @@ export function appendNotificationDeepLink(url: URL, target: NotificationDeepLin
 
 export function notificationDeepLinkPath(target: NotificationDeepLink | null): string {
   if (!target) return '/dashboard';
+  if ('callId' in target) return `/dashboard/calls/${encodeURIComponent(target.callId)}`;
   const query = new URLSearchParams({ siteId: target.siteId, threadId: target.threadId });
   return `/dashboard/visitors/${encodeURIComponent(target.visitorId)}?${query.toString()}`;
 }

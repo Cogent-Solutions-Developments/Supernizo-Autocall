@@ -156,6 +156,7 @@ export class CallWidgetController {
   private lastConfigRefreshAt = Date.now();
   private lastConfigRefreshAttemptAt = 0;
   private launcherAnimation: Animation | undefined;
+  private launcher: HTMLButtonElement | undefined;
   private syncTimer: number | undefined;
 
   public constructor(
@@ -197,6 +198,7 @@ export class CallWidgetController {
       `;
       (document.head ?? document.documentElement).append(style);
       this.frameStyle = style;
+      this.launcher = this.createLauncher();
       frame.addEventListener('load', () => this.postConfig());
       window.addEventListener('message', this.receiveMessage);
       (document.body ?? document.documentElement).append(frame);
@@ -227,7 +229,7 @@ export class CallWidgetController {
     this.frameAnimation = undefined;
     this.launcherAnimation?.cancel();
     this.launcherAnimation = undefined;
-    const launcher = this.findLauncher();
+    const launcher = this.launcher;
     if (launcher) {
       launcher.style.opacity = '';
       launcher.style.pointerEvents = '';
@@ -237,6 +239,8 @@ export class CallWidgetController {
     this.frameStyle?.remove();
     this.frameStyle = undefined;
     this.frame = undefined;
+    this.launcher?.remove();
+    this.launcher = undefined;
     this.frameVisible = false;
   }
 
@@ -267,6 +271,14 @@ export class CallWidgetController {
     }
     if (data.type === 'supernizo-call-ready') {
       this.postConfig();
+      return;
+    }
+    if (data.type === 'supernizo-call-request') {
+      void this.requestVisitorCall();
+      return;
+    }
+    if (data.type === 'supernizo-call-request-media' && isCall(data.call)) {
+      void this.requestMedia(data.call);
       return;
     }
     if (
@@ -366,7 +378,73 @@ export class CallWidgetController {
   }
 
   private findLauncher(): HTMLButtonElement | null {
-    return document.querySelector<HTMLButtonElement>('[data-supernizo-launcher="true"]');
+    return this.launcher ?? null;
+  }
+
+  private createLauncher(): HTMLButtonElement {
+    const launcher = document.createElement('button');
+    launcher.setAttribute('aria-label', 'Request a voice call from the event team');
+    launcher.dataset.supernizoCallLauncher = 'true';
+    launcher.textContent = 'Call event team';
+    launcher.type = 'button';
+    launcher.style.cssText = [
+      'align-items:center',
+      'background:#18181b',
+      'border:1px solid rgba(255,255,255,.2)',
+      'border-radius:999px',
+      'bottom:22px',
+      'box-shadow:0 10px 30px rgba(0,0,0,.24)',
+      'color:#fff',
+      'cursor:pointer',
+      'display:inline-flex',
+      'font:600 13px/1 system-ui,sans-serif',
+      'padding:13px 17px',
+      'position:fixed',
+      'right:22px',
+      'z-index:2147482999',
+    ].join(';');
+    launcher.addEventListener('click', () => {
+      launcher.disabled = true;
+      launcher.textContent = 'Requesting call…';
+      this.frame?.contentWindow?.postMessage(
+        { type: 'supernizo-call-request' },
+        new URL(this.endpoint).origin,
+      );
+      window.setTimeout(() => {
+        if (this.frameVisible) return;
+        launcher.disabled = false;
+        launcher.textContent = 'Call event team';
+      }, 8_000);
+    });
+    (document.body ?? document.documentElement).append(launcher);
+    return launcher;
+  }
+
+  private async requestVisitorCall(): Promise<void> {
+    try {
+      const response = await fetch(
+        new URL(resolveApplicationEndpoint(this.endpoint, '/api/calls/request')),
+        {
+          body: JSON.stringify({ context: this.context, type: 'AUDIO' }),
+          credentials: 'omit',
+          headers: { 'content-type': 'text/plain;charset=UTF-8' },
+          method: 'POST',
+          mode: 'cors',
+        },
+      );
+      const body: unknown = await response.json();
+      const actionResponse = readCallActionResponse(body);
+      if (!response.ok || !actionResponse) throw new Error('The call could not be requested.');
+      this.frame?.contentWindow?.postMessage(
+        { call: actionResponse.call, type: 'supernizo-call-outbound' },
+        new URL(this.endpoint).origin,
+      );
+    } catch {
+      this.frame?.contentWindow?.postMessage(
+        { type: 'supernizo-call-request-error' },
+        new URL(this.endpoint).origin,
+      );
+    }
   }
 
   private setLauncherVisible(visible: boolean, reducedMotion: boolean): void {

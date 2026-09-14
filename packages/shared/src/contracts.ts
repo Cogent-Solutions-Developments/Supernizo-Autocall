@@ -254,17 +254,18 @@ export const ChatVisitorMessageRequestSchema = z.object({
 export const ChatHistoryQuerySchema = PaginationSchema;
 export const ChatInboxQuerySchema = PaginationSchema.extend({ siteId: IdSchema });
 
-export const NotificationTypeSchema = z.enum(['CHAT_MESSAGE']);
+export const NotificationTypeSchema = z.enum(['CHAT_MESSAGE', 'INCOMING_CALL']);
 export const DashboardNotificationSchema = z.object({
+  callId: IdSchema.nullable(),
   createdAt: UtcDateTimeSchema,
   id: IdSchema,
-  messageId: IdSchema,
+  messageId: IdSchema.nullable(),
   preview: z.string().trim().min(1).max(500),
   readAt: UtcDateTimeSchema.nullable(),
   recipientUserId: IdSchema,
   siteId: IdSchema,
   siteName: z.string().trim().min(1).max(191),
-  threadId: IdSchema,
+  threadId: IdSchema.nullable(),
   type: NotificationTypeSchema,
   visitorId: IdSchema,
   visitorLabel: z.string().trim().min(1).max(191),
@@ -295,14 +296,15 @@ export const NotificationSyncPageRequestSchema = z
 
 export const NotificationSyncItemSchema = z
   .object({
+    callId: IdSchema.nullable(),
     createdAt: UtcDateTimeSchema,
-    messageId: IdSchema,
+    messageId: IdSchema.nullable(),
     preview: z.string().trim().min(1).max(500),
     recipientSubject: RequestIdSchema,
     siteId: IdSchema,
     siteName: z.string().trim().min(1).max(191),
     sourceNotificationId: IdSchema,
-    threadId: IdSchema,
+    threadId: IdSchema.nullable(),
     type: NotificationTypeSchema,
     visitorId: IdSchema,
     visitorLabel: z.string().trim().min(1).max(191),
@@ -346,6 +348,11 @@ export const CallCreateRequestSchema = z.object({
   siteId: IdSchema,
   type: CallTypeSchema,
   visitorId: IdSchema,
+});
+
+export const CallRequestRequestSchema = z.object({
+  context: TrackingContextSchema,
+  type: CallTypeSchema,
 });
 
 export const CallVisitorActionRequestSchema = z.object({
@@ -451,6 +458,7 @@ export type NotificationSyncPageResponse = z.infer<typeof NotificationSyncPageRe
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 export type Call = z.infer<typeof CallSchema>;
 export type CallCreateRequest = z.infer<typeof CallCreateRequestSchema>;
+export type CallRequestRequest = z.infer<typeof CallRequestRequestSchema>;
 export type CallMediaFailureCode = z.infer<typeof CallMediaFailureCodeSchema>;
 export type CallStatus = z.infer<typeof CallStatusSchema>;
 export type CallType = z.infer<typeof CallTypeSchema>;

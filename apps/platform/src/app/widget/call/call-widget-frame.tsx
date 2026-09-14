@@ -67,6 +67,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [isPermissionPromptOpen, setIsPermissionPromptOpen] = useState(false);
   const [connectedMediaCallId, setConnectedMediaCallId] = useState<string | null>(null);
+  const [outboundCallId, setOutboundCallId] = useState<string | null>(null);
   const endingCallId = useRef<string | null>(null);
   const mediaFailureCallId = useRef<string | null>(null);
   const callIsTerminal =
@@ -105,6 +106,17 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
           }
         }
       }
+      if (data.type === 'supernizo-call-outbound') {
+        const parsed = CallSchema.safeParse(data.call);
+        if (parsed.success) {
+          setOutboundCallId(parsed.data.id);
+          setCall(parsed.data);
+          setPermissionError(null);
+        }
+      }
+      if (data.type === 'supernizo-call-request-error') {
+        setPermissionError('No event agent is available right now. Please try again shortly.');
+      }
       if (data.type === 'supernizo-call-media') {
         const parsed = LiveKitTokenResponseSchema.safeParse(data.media);
         if (
@@ -140,6 +152,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
   }, [call, hostOrigin]);
 
   const isRinging = call?.status === 'RINGING';
+  const isOutbound = call?.id === outboundCallId;
   const hasActiveMedia =
     media !== null && call !== null && ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
   const agentName = call?.agentDisplayName ?? 'Event team';
@@ -149,7 +162,7 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
       ? 'Swetha Sahanya'
       : agentName;
   const mediaConnected = call?.id === connectedMediaCallId;
-  const showPermissionPrompt = Boolean(isRinging && isPermissionPromptOpen);
+  const showPermissionPrompt = Boolean(isRinging && !isOutbound && isPermissionPromptOpen);
 
   useEffect(() => {
     const layout = hasActiveMedia
@@ -212,6 +225,21 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
     window.parent.postMessage(
       { action: 'reject', call, type: 'supernizo-call-action' },
       hostOrigin,
+    );
+  }
+
+  function joinOutboundCall(): void {
+    if (!call) return;
+    if (!navigator.mediaDevices?.getUserMedia || !callMedia.room) {
+      setPermissionError('The secure media room is still preparing. Please try again.');
+      return;
+    }
+    setPermissionError(null);
+    void callMedia.captureLocalTracks(call.type).then(
+      () => {
+        window.parent.postMessage({ call, type: 'supernizo-call-request-media' }, hostOrigin);
+      },
+      () => setPermissionError('Microphone access is required to join this call.'),
     );
   }
 
@@ -381,12 +409,16 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                   </span>
                   <p className="m-0 mt-5 text-[12px] font-medium text-[#71717a]">
                     {isRinging
-                      ? `Incoming ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Call`
+                      ? isOutbound
+                        ? `Calling ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Support`
+                        : `Incoming ${call.type === 'VIDEO' ? 'Video' : 'Voice'} Call`
                       : 'Call status'}
                   </p>
                   <h1 className="!m-0 mt-2 max-w-[290px] text-[25px] !font-semibold !leading-[1.18] !tracking-[-0.04em] text-[#18181b]">
                     {isRinging
-                      ? 'Event Team Is Calling To Guide You'
+                      ? isOutbound
+                        ? 'Waiting for an event agent'
+                        : 'Event Team Is Calling To Guide You'
                       : callHeading(call, mediaConnected)}
                   </h1>
                   {!isRinging ? (
@@ -394,12 +426,31 @@ export function CallWidgetFrame({ hostOrigin }: CallWidgetFrameProps) {
                       {callCopy(call, Boolean(media), mediaConnected)}
                     </p>
                   ) : null}
+                  {isOutbound && call.status === 'ACCEPTED' && !media ? (
+                    <button
+                      className="mt-5 inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#18181b] px-5 text-xs font-semibold text-white"
+                      onClick={joinOutboundCall}
+                      type="button"
+                    >
+                      Join call
+                    </button>
+                  ) : null}
                 </div>
               )}
             </div>
 
             {isRinging ? (
-              !isPermissionPromptOpen ? (
+              isOutbound ? (
+                <div className="call-card__actions flex justify-center gap-4 px-6 pb-5">
+                  <button
+                    className="inline-flex min-h-10 w-[150px] items-center justify-center gap-2 rounded-[10px] border border-[#dc2626] bg-[#dc2626] px-2.5 text-xs font-semibold text-white"
+                    onClick={endCall}
+                    type="button"
+                  >
+                    Cancel call
+                  </button>
+                </div>
+              ) : !isPermissionPromptOpen ? (
                 <div className="call-card__actions flex justify-center gap-4 px-6 pb-5">
                   <button
                     className="inline-flex min-h-10 w-[120px] items-center justify-center gap-2 rounded-[10px] border border-[#dc2626] bg-[#dc2626] px-2.5 text-xs font-semibold text-white shadow-[0_2px_4px_rgba(127,29,29,0.14)] transition-[transform,box-shadow,background-color] hover:bg-[#c81e1e] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626] active:translate-y-px active:shadow-none"
