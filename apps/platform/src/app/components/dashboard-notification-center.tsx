@@ -1,7 +1,7 @@
 'use client';
 
 import { createRealtime } from '@upstash/realtime/client';
-import { Bell, CalendarDays, MessageCircle, X } from 'lucide-react';
+import { Bell, CalendarDays, MessageCircle, PhoneCall, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -48,7 +48,7 @@ export function DashboardNotificationCenter({
   const toastRef = useRef<DashboardNotification | null>(null);
   const originalTitle = useRef<string | null>(null);
 
-  const { status } = useRealtime({
+  useRealtime({
     channels: [`user:${userId}`],
     events: ['notification.created'],
     onData: ({ data }) => {
@@ -64,17 +64,27 @@ export function DashboardNotificationCenter({
   });
 
   useEffect(() => {
-    if (status !== 'connected') return;
     let active = true;
+    let refreshing = false;
 
-    void fetchAppApi('/api/notifications?limit=50', { credentials: 'same-origin' })
-      .then(async (response) => {
+    const refresh = async (): Promise<void> => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetchAppApi('/api/notifications?limit=50', {
+          credentials: 'same-origin',
+        });
         if (!response.ok) throw new Error('Notifications could not be refreshed.');
-        return NotificationListResponseSchema.parse(await response.json());
-      })
-      .then(({ data }) => {
+        const { data } = NotificationListResponseSchema.parse(await response.json());
         if (!active) return;
-        for (const notification of data.notifications) seenIds.current.add(notification.id);
+        for (const notification of data.notifications) {
+          if (!seenIds.current.has(notification.id)) {
+            seenIds.current.add(notification.id);
+            if (toastRef.current) setQueuedToastCount((current) => current + 1);
+            toastRef.current = notification;
+            setToast(notification);
+          }
+        }
         setNotifications((current) =>
           data.notifications.reduce(
             (merged, notification) => mergeDashboardNotification(merged, notification),
@@ -82,13 +92,21 @@ export function DashboardNotificationCenter({
           ),
         );
         setLoadError(null);
-      })
-      .catch(() => active && setLoadError('Notifications could not be refreshed.'));
+      } catch {
+        if (active) setLoadError('Notifications could not be refreshed.');
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 5_000);
 
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
-  }, [status]);
+  }, []);
 
   useEffect(() => {
     if (!toast || toastPaused) return;
@@ -240,7 +258,7 @@ export function DashboardNotificationCenter({
 
       {toast ? (
         <button
-          aria-label={`Open chat with ${toast.visitorLabel} from ${toast.siteName}`}
+          aria-label={`Open ${toast.type === 'INCOMING_CALL' ? 'incoming call' : 'chat'} with ${toast.visitorLabel} from ${toast.siteName}`}
           className="fixed top-24 left-1/2 z-[60] w-[min(25rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[1.4rem] border border-line/90 bg-surface/95 p-3.5 text-left shadow-[0_20px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-surface-hover"
           onClick={() => void openNotification(toast)}
           onBlur={() => setToastPaused(false)}
@@ -251,11 +269,18 @@ export function DashboardNotificationCenter({
         >
           <span className="flex items-start gap-3">
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-action/15 text-accent ring-1 ring-accent/20">
-              <MessageCircle aria-hidden="true" size={18} />
+              {toast.type === 'INCOMING_CALL' ? (
+                <PhoneCall aria-hidden="true" size={18} />
+              ) : (
+                <MessageCircle aria-hidden="true" size={18} />
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-3 text-xs font-semibold text-accent">
-                <span className="truncate">New message · {toast.siteName}</span>
+                <span className="truncate">
+                  {toast.type === 'INCOMING_CALL' ? 'Incoming call' : 'New message'} ·{' '}
+                  {toast.siteName}
+                </span>
                 {queuedToastCount ? (
                   <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] text-body">
                     +{queuedToastCount} new

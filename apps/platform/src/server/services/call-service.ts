@@ -22,7 +22,12 @@ import { getPresenceRepository } from '@/server/presence/presence-repository';
 import { getAgentPresenceRepository } from '@/server/presence/agent-presence-repository';
 import { UpstashRealtimeProvider } from '@/server/realtime';
 
-import { assertAgentCanStartCall, markAgentBusy, releaseAgent } from './agent-presence-service';
+import {
+  assertAgentCanStartCall,
+  canAgentStartCall,
+  markAgentBusy,
+  releaseAgent,
+} from './agent-presence-service';
 import { createIncomingCallNotification } from './notification-service';
 import { resolveTrackingContext } from './tracker-engagement-service';
 
@@ -458,9 +463,10 @@ export async function createCall(
 }
 
 /**
- * Creates a visitor-initiated call and reserves exactly one currently available
- * Supernizo agent. The database transaction is the concurrency authority; the
- * presence snapshot only narrows the candidates we are willing to ring.
+ * Creates a visitor-initiated call and reserves exactly one eligible
+ * Supernizo agent. A missing Autocall heartbeat is allowed so agents working
+ * from the Supernizo dashboard can receive their first call; the database
+ * transaction remains the concurrency authority.
  */
 export async function requestVisitorCall(
   origin: string,
@@ -488,7 +494,7 @@ export async function requestVisitorCall(
     })),
   );
   const candidates = snapshots
-    .filter(({ presence }) => presence?.availability === 'AVAILABLE')
+    .filter(({ presence }) => canAgentStartCall(presence?.availability ?? null))
     .map(({ agent }) => agent.id);
   if (candidates.length === 0) {
     throw new ConflictError('No event agent is available right now. Please try again shortly.');
