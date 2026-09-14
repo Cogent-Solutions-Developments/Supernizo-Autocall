@@ -77,6 +77,7 @@ function ChatSubscription({
 }
 
 function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
+  const [callEnabled, setCallEnabled] = useState(false);
   const [config, setConfig] = useState<WidgetConfig | null>(null);
   const [content, setContent] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -91,13 +92,25 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
       if (event.origin !== hostOrigin || !event.data || typeof event.data !== 'object') return;
-      const data = event.data as { config?: unknown; message?: unknown; type?: unknown };
+      const data = event.data as {
+        callEnabled?: unknown;
+        config?: unknown;
+        message?: unknown;
+        type?: unknown;
+      };
 
       if (data.type === 'supernizo-chat-config') {
         const parsed = WidgetConfigSchema.safeParse(data.config);
         if (!parsed.success) return;
         setConfig(parsed.data);
+        setCallEnabled(parsed.data.callEnabled);
         setMessages(parsed.data.messages);
+      }
+      if (
+        data.type === 'supernizo-chat-call-availability' &&
+        typeof data.callEnabled === 'boolean'
+      ) {
+        setCallEnabled(data.callEnabled);
       }
       if (data.type === 'supernizo-chat-message') {
         const parsed = ChatMessageSchema.safeParse(data.message);
@@ -216,7 +229,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {config?.callEnabled ? (
+                {callEnabled ? (
                   <button
                     aria-label="Request a voice call"
                     className="chat-call flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#2563eb] text-white shadow-[0_5px_14px_rgba(37,99,235,0.3)] transition-[background-color,transform,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"

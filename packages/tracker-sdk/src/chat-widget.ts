@@ -675,6 +675,7 @@ export class ChatWidgetController {
     const data = event.data as { message?: unknown; type?: unknown };
 
     if (data.type === 'supernizo-chat-ready') {
+      this.postCallAvailability();
       this.postConfig();
       this.postOpenRequest();
       this.animateFrameOpen();
@@ -751,6 +752,14 @@ export class ChatWidgetController {
         config: { ...this.currentConfig, callEnabled: this.callEnabled },
         type: 'supernizo-chat-config',
       },
+      new URL(this.bootstrapEndpoint).origin,
+    );
+  }
+
+  private postCallAvailability(): void {
+    if (!this.frame?.contentWindow) return;
+    this.frame.contentWindow.postMessage(
+      { callEnabled: this.callEnabled, type: 'supernizo-chat-call-availability' },
       new URL(this.bootstrapEndpoint).origin,
     );
   }
