@@ -10,6 +10,7 @@ import {
 } from '@supernizo/shared';
 
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
+import { fetchAppApi } from '@/lib/app-fetch';
 
 import { LiveKitMediaRoom } from './livekit-media-room';
 import { getLiveKitMediaErrorMessage } from './livekit-media-state';
@@ -61,7 +62,7 @@ export function DashboardCallMediaRoom({
     if (initialMedia) return;
 
     let mounted = true;
-    void fetch('/api/livekit/token', {
+    void fetchAppApi('/api/livekit/token', {
       body: JSON.stringify({ callId: call.id, participantRole: 'AGENT' }),
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
@@ -93,7 +94,7 @@ export function DashboardCallMediaRoom({
 
   function endCall(): void {
     onEnded();
-    void fetch(`/api/calls/${call.id}/end`, {
+    void fetchAppApi(`/api/calls/${call.id}/end`, {
       credentials: 'same-origin',
       keepalive: true,
       method: 'POST',
