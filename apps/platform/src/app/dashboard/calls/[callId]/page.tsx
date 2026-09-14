@@ -16,7 +16,7 @@ export default async function IncomingCallPage({ params }: CallPageProps) {
   if (!IdSchema.safeParse(callId).success) notFound();
   const user = await requireRole('ADMIN', 'AGENT');
   const [call, scope] = await Promise.all([getCall(callId), getCallScope(callId)]);
-  if (!call || !scope || scope.agentId !== user.id) notFound();
+  if (!call || !scope || (scope.agentId !== null && scope.agentId !== user.id)) notFound();
   const access = await requireSiteAccess(scope.siteId);
   assertRole(access.siteRole, ['ADMIN', 'AGENT']);
 
