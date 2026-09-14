@@ -304,7 +304,7 @@ export function LiveVisitorDashboard({
           <thead>
             <tr>
               <th className="px-6 py-4">Score</th>
-              <th className="px-4 py-4">Visitor / location</th>
+              <th className="px-4 py-4">Visitor ID / location</th>
               <th className="px-4 py-4">Current page</th>
               <th className="px-4 py-4">Active</th>
               <th className="px-4 py-4">Source</th>
@@ -320,11 +320,22 @@ export function LiveVisitorDashboard({
                   {visitor.intentScore ?? '—'}
                 </td>
                 <td className="px-4 py-4">
-                  <span
-                    className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400"
-                    aria-label="Online"
-                  />
-                  {visitor.city ?? 'Unknown city'}, {visitor.country ?? '—'}
+                  <p className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                    <span className="shrink-0 font-medium tracking-wide uppercase">Visitor ID</span>
+                    <code
+                      className="max-w-[15rem] truncate rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-body"
+                      title={visitor.visitorId}
+                    >
+                      {visitor.visitorId}
+                    </code>
+                  </p>
+                  <p className="mt-2 text-sm text-strong">
+                    <span
+                      className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400"
+                      aria-label="Online"
+                    />
+                    {visitor.city ?? 'Unknown city'}, {visitor.country ?? '—'}
+                  </p>
                   <p className="mt-1 text-xs text-muted">
                     {visitor.returningVisitCount > 1
                       ? `Returning · ${visitor.returningVisitCount} visits`
@@ -393,7 +404,20 @@ export function LiveVisitorDashboard({
               <p className="font-semibold">{displayPath(visitor.currentUrl)}</p>
               <span>{visitor.intentScore ?? '—'}</span>
             </div>
+            <p className="mt-2 flex min-w-0 items-center gap-2 text-xs text-muted">
+              <span className="shrink-0 font-medium tracking-wide uppercase">Visitor ID</span>
+              <code
+                className="truncate rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px] text-body"
+                title={visitor.visitorId}
+              >
+                {visitor.visitorId}
+              </code>
+            </p>
             <p className="mt-2 text-sm text-muted">
+              <span
+                className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald-400"
+                aria-label="Online"
+              />
               {visitor.city ?? 'Unknown city'}, {visitor.country ?? '—'} ·{' '}
               {visitor.source ?? 'Direct'}
             </p>
