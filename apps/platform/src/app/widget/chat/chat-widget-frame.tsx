@@ -1,6 +1,6 @@
 'use client';
 
-import { ChecksIcon, PaperPlaneRightIcon, XIcon } from '@phosphor-icons/react';
+import { ChecksIcon, PaperPlaneRightIcon, PhoneIcon, XIcon } from '@phosphor-icons/react';
 import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import { withAppBasePath } from '@/lib/app-path';
 import { NizoVerifiedIcon } from '../call/call-action-icons';
 
 const WidgetConfigSchema = z.object({
+  callEnabled: z.boolean().default(false),
   messages: z.array(ChatMessageSchema),
   threadId: z.string().min(1),
   token: z.string().min(1),
@@ -152,6 +153,10 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
     window.parent.postMessage({ type: 'supernizo-chat-close' }, hostOrigin);
   }
 
+  function requestCall(): void {
+    window.parent.postMessage({ type: 'supernizo-chat-call-request' }, hostOrigin);
+  }
+
   return (
     <>
       <RealtimeProvider
@@ -210,14 +215,26 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                   </div>
                 </div>
               </div>
-              <button
-                aria-label="Close chat"
-                className="chat-close flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-[#71717a] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md transition-[background-color,color,transform] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b]"
-                onClick={closeChat}
-                type="button"
-              >
-                <XIcon aria-hidden="true" size={16} weight="bold" />
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {config?.callEnabled ? (
+                  <button
+                    aria-label="Request a voice call"
+                    className="chat-call flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#2563eb] text-white shadow-[0_5px_14px_rgba(37,99,235,0.3)] transition-[background-color,transform,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb]"
+                    onClick={requestCall}
+                    type="button"
+                  >
+                    <PhoneIcon aria-hidden="true" size={16} weight="fill" />
+                  </button>
+                ) : null}
+                <button
+                  aria-label="Close chat"
+                  className="chat-close flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-[#71717a] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md transition-[background-color,color,transform] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b]"
+                  onClick={closeChat}
+                  type="button"
+                >
+                  <XIcon aria-hidden="true" size={16} weight="bold" />
+                </button>
+              </div>
             </header>
 
             <div
@@ -416,6 +433,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
           transform-origin: bottom;
         }
         .chat-close:active,
+        .chat-call:active,
         .send-button:not(:disabled):active {
           transform: scale(0.94);
         }
@@ -424,6 +442,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             background: rgba(255, 255, 255, 0.98);
             color: #18181b;
             transform: scale(1.04);
+          }
+          .chat-call:hover {
+            background: #1d4ed8;
+            box-shadow: 0 7px 18px rgba(37, 99, 235, 0.38);
+            transform: translateY(-1px);
           }
           .send-button:not(:disabled):hover {
             background: #000;
@@ -469,6 +492,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             animation: none;
           }
           .chat-close,
+          .chat-call,
           .send-button,
           .composer-field {
             transition: none;

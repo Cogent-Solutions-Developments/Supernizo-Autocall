@@ -264,13 +264,12 @@ export function DashboardChatInbox({
                 </div>
                 <button
                   aria-label={`Call ${selectedThread.visitorLabel}`}
-                  className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-action px-2.5 py-2 text-xs font-semibold text-white transition hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50"
+                  className="ml-auto grid size-9 shrink-0 place-items-center rounded-full bg-action text-white transition hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!canSend}
                   onClick={() => setCallThread(selectedThread)}
                   type="button"
                 >
-                  <PhoneCall aria-hidden="true" size={14} />
-                  Call
+                  <PhoneCall aria-hidden="true" size={16} />
                 </button>
                 <Link
                   aria-label={`View details for ${selectedThread.visitorLabel}`}

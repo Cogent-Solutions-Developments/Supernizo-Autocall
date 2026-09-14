@@ -9,6 +9,7 @@ type ChatThreadResponse = Readonly<{
 }>;
 
 type ChatWidgetConfig = Readonly<{
+  callEnabled?: boolean;
   messages: ChatMessage[];
   threadId: string;
   token: string;
@@ -114,6 +115,8 @@ export class ChatWidgetController {
   public constructor(
     private readonly context: TrackingContext,
     private readonly bootstrapEndpoint: string,
+    private readonly callEnabled = false,
+    private readonly onCallRequest?: () => void,
   ) {}
 
   public start(): void {
@@ -684,6 +687,11 @@ export class ChatWidgetController {
       return;
     }
 
+    if (data.type === 'supernizo-chat-call-request') {
+      this.onCallRequest?.();
+      return;
+    }
+
     if (data.type === 'supernizo-chat-send' && isOutboundMessage(data.message)) {
       void this.sendMessage(data.message);
     }
@@ -739,7 +747,10 @@ export class ChatWidgetController {
   private postConfig(): void {
     if (!this.currentConfig || !this.frame?.contentWindow) return;
     this.frame.contentWindow.postMessage(
-      { config: this.currentConfig, type: 'supernizo-chat-config' },
+      {
+        config: { ...this.currentConfig, callEnabled: this.callEnabled },
+        type: 'supernizo-chat-config',
+      },
       new URL(this.bootstrapEndpoint).origin,
     );
   }
