@@ -151,12 +151,14 @@ export class CallWidgetController {
   private frameLayout: CallWidgetFrameLayout = 'default';
   private frameStyle: HTMLStyleElement | undefined;
   private frameVisible = false;
+  private frameReady = false;
   private configRefreshTimer: number | undefined;
   private configRefreshInFlight = false;
   private lastConfigRefreshAt = Date.now();
   private lastConfigRefreshAttemptAt = 0;
   private launcherAnimation: Animation | undefined;
   private launcher: HTMLButtonElement | undefined;
+  private pendingVisitorCall: Call | undefined;
   private syncTimer: number | undefined;
 
   public constructor(
@@ -243,6 +245,7 @@ export class CallWidgetController {
     this.frameStyle?.remove();
     this.frameStyle = undefined;
     this.frame = undefined;
+    this.frameReady = false;
     this.launcher?.remove();
     this.launcher = undefined;
     this.frameVisible = false;
@@ -274,7 +277,9 @@ export class CallWidgetController {
       return;
     }
     if (data.type === 'supernizo-call-ready') {
+      this.frameReady = true;
       this.postConfig();
+      this.deliverPendingVisitorCall();
       return;
     }
     if (data.type === 'supernizo-call-request') {
@@ -414,10 +419,7 @@ export class CallWidgetController {
     launcher.addEventListener('click', () => {
       launcher.disabled = true;
       launcher.textContent = '…';
-      this.frame?.contentWindow?.postMessage(
-        { type: 'supernizo-call-request' },
-        new URL(this.endpoint).origin,
-      );
+      void this.requestVisitorCall();
       window.setTimeout(() => {
         if (this.frameVisible) return;
         launcher.disabled = false;
@@ -443,16 +445,24 @@ export class CallWidgetController {
       const body: unknown = await response.json();
       const actionResponse = readCallActionResponse(body);
       if (!response.ok || !actionResponse) throw new Error('The call could not be requested.');
-      this.frame?.contentWindow?.postMessage(
-        { call: actionResponse.call, type: 'supernizo-call-outbound' },
-        new URL(this.endpoint).origin,
-      );
+      this.pendingVisitorCall = actionResponse.call;
+      this.deliverPendingVisitorCall();
     } catch {
-      this.frame?.contentWindow?.postMessage(
-        { type: 'supernizo-call-request-error' },
-        new URL(this.endpoint).origin,
-      );
+      if (this.launcher) {
+        this.launcher.disabled = false;
+        this.launcher.textContent = 'Retry';
+        this.launcher.title = 'No agent is available. Try again shortly.';
+      }
     }
+  }
+
+  private deliverPendingVisitorCall(): void {
+    if (!this.frameReady || !this.pendingVisitorCall) return;
+    this.frame?.contentWindow?.postMessage(
+      { call: this.pendingVisitorCall, type: 'supernizo-call-outbound' },
+      new URL(this.endpoint).origin,
+    );
+    this.pendingVisitorCall = undefined;
   }
 
   private setLauncherVisible(visible: boolean, reducedMotion: boolean): void {
