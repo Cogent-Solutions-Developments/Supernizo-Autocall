@@ -41,8 +41,11 @@ export function DashboardNotificationCenter({
   const [isOpen, setIsOpen] = useState(false);
   const [eventFilter, setEventFilter] = useState('all');
   const [toast, setToast] = useState<DashboardNotification | null>(null);
+  const [queuedToastCount, setQueuedToastCount] = useState(0);
+  const [toastPaused, setToastPaused] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const seenIds = useRef(new Set(initialNotifications.map(({ id }) => id)));
+  const toastRef = useRef<DashboardNotification | null>(null);
   const originalTitle = useRef<string | null>(null);
 
   const { status } = useRealtime({
@@ -52,6 +55,8 @@ export function DashboardNotificationCenter({
       const incoming = data.notification;
       if (!seenIds.current.has(incoming.id)) {
         seenIds.current.add(incoming.id);
+        if (toastRef.current) setQueuedToastCount((current) => current + 1);
+        toastRef.current = incoming;
         setToast(incoming);
       }
       setNotifications((current) => mergeDashboardNotification(current, incoming));
@@ -86,10 +91,15 @@ export function DashboardNotificationCenter({
   }, [status]);
 
   useEffect(() => {
-    if (!toast) return;
-    const timeout = window.setTimeout(() => setToast(null), 6_000);
+    if (!toast || toastPaused) return;
+    const timeout = window.setTimeout(() => {
+      toastRef.current = null;
+      setToast(null);
+      setQueuedToastCount(0);
+      setToastPaused(false);
+    }, 6_000);
     return () => window.clearTimeout(timeout);
-  }, [toast]);
+  }, [toast, toastPaused]);
 
   const unreadCount = unreadNotificationCount(notifications);
   useEffect(() => {
@@ -115,7 +125,10 @@ export function DashboardNotificationCenter({
 
   function openNotification(notification: DashboardNotification): void {
     setIsOpen(false);
+    toastRef.current = null;
     setToast(null);
+    setQueuedToastCount(0);
+    setToastPaused(false);
     router.push(visitorChatHref(notification));
     if (notification.readAt) return;
 
@@ -227,16 +240,34 @@ export function DashboardNotificationCenter({
 
       {toast ? (
         <button
-          className="fixed top-24 right-4 z-[60] w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-line bg-surface p-4 text-left shadow-[0_20px_60px_rgba(0,0,0,0.45)] transition hover:bg-surface-hover sm:right-6"
+          aria-label={`Open chat with ${toast.visitorLabel} from ${toast.siteName}`}
+          className="fixed top-24 left-1/2 z-[60] w-[min(25rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[1.4rem] border border-line/90 bg-surface/95 p-3.5 text-left shadow-[0_20px_60px_rgba(0,0,0,0.5)] ring-1 ring-white/5 backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-surface-hover"
           onClick={() => void openNotification(toast)}
+          onBlur={() => setToastPaused(false)}
+          onFocus={() => setToastPaused(true)}
+          onMouseEnter={() => setToastPaused(true)}
+          onMouseLeave={() => setToastPaused(false)}
           type="button"
         >
-          <span className="flex items-center gap-2 text-xs font-semibold text-accent">
-            <MessageCircle aria-hidden="true" size={15} />
-            New message · {toast.siteName}
+          <span className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-action/15 text-accent ring-1 ring-accent/20">
+              <MessageCircle aria-hidden="true" size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-3 text-xs font-semibold text-accent">
+                <span className="truncate">New message · {toast.siteName}</span>
+                {queuedToastCount ? (
+                  <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] text-body">
+                    +{queuedToastCount} new
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-1.5 block truncate text-sm font-semibold text-strong">
+                {toast.visitorLabel}
+              </span>
+              <span className="mt-0.5 block truncate text-sm text-muted">{toast.preview}</span>
+            </span>
           </span>
-          <span className="mt-2 block text-sm font-semibold text-strong">{toast.visitorLabel}</span>
-          <span className="mt-1 block truncate text-sm text-muted">{toast.preview}</span>
         </button>
       ) : null}
 
