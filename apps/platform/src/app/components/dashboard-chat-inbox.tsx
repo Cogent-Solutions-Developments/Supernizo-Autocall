@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { createRealtime } from '@upstash/realtime/client';
 import {
   MessageCircle as ChatCircleDotsIcon,
@@ -7,6 +8,7 @@ import {
   ArrowLeft,
   Search,
   CircleUserRound as UserCircleIcon,
+  ExternalLink,
 } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -257,6 +259,14 @@ export function DashboardChatInbox({
                   </h3>
                   <p className="mt-0.5 text-xs text-muted">Visitor conversation</p>
                 </div>
+                <Link
+                  aria-label={`View details for ${selectedThread.visitorLabel}`}
+                  className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-xs font-semibold text-body transition hover:bg-surface-hover hover:text-strong"
+                  href={`/dashboard/visitors/${selectedThread.visitorId}?siteId=${encodeURIComponent(selectedThread.siteId)}&threadId=${encodeURIComponent(selectedThread.id)}`}
+                >
+                  Details
+                  <ExternalLink aria-hidden="true" size={14} />
+                </Link>
               </div>
               <DashboardChatPane
                 canSend={canSend}
