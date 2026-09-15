@@ -8,14 +8,20 @@ const terminalCallStatuses: readonly CallStatus[] = [
   'REJECTED',
 ];
 
-export function canOpenCallWorkspace(input: Readonly<{
+export type CallWorkspaceAccess = 'WORKSPACE' | 'CLAIMED_BY_ANOTHER_AGENT';
+
+export function getCallWorkspaceAccess(input: Readonly<{
   assignedAgentId: string | null;
   callStatus: CallStatus;
   userId: string;
-}>): boolean {
-  return (
+}>): CallWorkspaceAccess {
+  if (
     input.assignedAgentId === null ||
     input.assignedAgentId === input.userId ||
     terminalCallStatuses.includes(input.callStatus)
-  );
+  ) {
+    return 'WORKSPACE';
+  }
+
+  return 'CLAIMED_BY_ANOTHER_AGENT';
 }
