@@ -21,6 +21,7 @@ import { terminateLiveKitRoom } from '@/server/livekit/room-service';
 import { logger } from '@/server/logging/logger';
 import { getPresenceRepository } from '@/server/presence/presence-repository';
 import { UpstashRealtimeProvider } from '@/server/realtime';
+import { notifySupernizoCallResolution } from '@/server/integrations/supernizo-call-resolution-client';
 
 import { assertAgentCanStartCall, markAgentBusy, releaseAgent } from './agent-presence-service';
 import { createIncomingCallNotification } from './notification-service';
@@ -224,6 +225,18 @@ async function notifyCallStatus(call: Call, visitorAnonymousId?: string): Promis
     logger.log('error', 'call_status_delivery_failed', {
       callId: call.id,
       errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
+  }
+}
+
+async function notifySupernizoCallResolutionSafely(call: Call): Promise<void> {
+  try {
+    await notifySupernizoCallResolution(call);
+  } catch (error: unknown) {
+    logger.log('error', 'supernizo_call_resolution_delivery_failed', {
+      callId: call.id,
+      status: call.status,
+      error: error instanceof Error ? error.message : 'unknown_error',
     });
   }
 }
@@ -680,7 +693,10 @@ async function transitionSelectedCall(
   if (options?.scheduleOperationalSync) {
     // Deliver the peer-visible state before returning. Cleanup and presence can
     // run after the response, but delaying ACCEPTED/ENDED makes calls feel slow.
-    await notifyCallStatus(typedCall, updated.visitor.anonymousId);
+    await Promise.all([
+      notifyCallStatus(typedCall, updated.visitor.anonymousId),
+      notifySupernizoCallResolutionSafely(typedCall),
+    ]);
     await runOrScheduleCallOperationalSync(existing.id, options.scheduleOperationalSync);
   } else {
     await Promise.all([
@@ -690,6 +706,7 @@ async function transitionSelectedCall(
           ? releaseAgentIfAvailable(updated.agentId)
           : Promise.resolve(),
       notifyCallStatus(typedCall, updated.visitor.anonymousId),
+      notifySupernizoCallResolutionSafely(typedCall),
       isTerminal(target) && updated.roomName
         ? terminateLiveKitRoom(updated.roomName)
         : Promise.resolve(),
@@ -779,7 +796,11 @@ export async function claimIncomingCall(callId: string, agentId: string): Promis
     return transaction.call.findUniqueOrThrow({ where: { id: callId }, select: callSelect });
   });
   const call = mapCall(updated);
-  await Promise.all([markAgentBusy(agentId), notifyCallStatus(call, updated.visitor.anonymousId)]);
+  await Promise.all([
+    markAgentBusy(agentId),
+    notifyCallStatus(call, updated.visitor.anonymousId),
+    notifySupernizoCallResolutionSafely(call),
+  ]);
   return call;
 }
 
