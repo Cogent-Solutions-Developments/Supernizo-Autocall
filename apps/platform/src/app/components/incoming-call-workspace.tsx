@@ -108,7 +108,7 @@ export function IncomingCallWorkspace({
       ) : null}
       {terminal ? (
         <p className="mt-6 rounded-lg bg-surface-muted p-4 text-sm text-muted">
-          This call is no longer available.
+          {call.status === 'ENDED' ? 'Call was ended.' : 'This call is no longer available.'}
         </p>
       ) : null}
       <DashboardCallMediaRoom
