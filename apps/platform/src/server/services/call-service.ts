@@ -508,7 +508,7 @@ export async function requestVisitorCall(
       }),
       transaction.session.findUnique({
         where: { id: resolved.sessionId },
-        select: { id: true, visitorId: true },
+        select: { geoCity: true, geoCountry: true, id: true, visitorId: true },
       }),
       transaction.call.findFirst({
         where: { status: { notIn: terminalStatuses }, visitorId: resolved.visitorId },
@@ -538,8 +538,10 @@ export async function requestVisitorCall(
       expiredCalls,
       siteName: site.name,
       visitorAnonymousId: visitor.anonymousId,
-      visitorLabel:
-        visitor.identities[0]?.displayName?.trim() || `Visitor #${visitor.id.slice(-6)}`,
+      visitorLocation:
+        [session.geoCity, session.geoCountry]
+          .filter((value): value is string => Boolean(value))
+          .join(', ') || 'Location unavailable',
     };
   });
 
@@ -569,7 +571,7 @@ export async function requestVisitorCall(
         siteName: created.siteName,
         type,
         visitorId: typedCall.visitorId,
-        visitorLabel: created.visitorLabel,
+        visitorLabel: created.visitorLocation,
       }),
     ),
   );
