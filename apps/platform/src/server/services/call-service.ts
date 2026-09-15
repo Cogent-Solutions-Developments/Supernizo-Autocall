@@ -9,6 +9,7 @@ import {
   type CallMediaFailureCode,
   type CallStatus,
   type CallType,
+  type IncomingCallSummary,
   type TrackingContext,
 } from '@supernizo/shared';
 import { Prisma, type CallStatus as PrismaCallStatus } from '@generated/prisma/client';
@@ -65,7 +66,8 @@ const callSelect = {
   requestedAt: true,
   roomName: true,
   sessionId: true,
-  site: { select: { widgetAvatarUrl: true } },
+  session: { select: { geoCity: true, geoCountry: true } },
+  site: { select: { name: true, widgetAvatarUrl: true } },
   siteId: true,
   status: true,
   type: true,
@@ -132,6 +134,17 @@ export function staleCallAction(status: CallStatus): CallAction | null {
 
 function roomName(): string {
   return `call_${randomUUID().replaceAll('-', '')}`;
+}
+
+export function visitorLocationLabel(
+  input: Readonly<{ geoCity?: string | null; geoCountry?: string | null }>,
+): string {
+  return (
+    [input.geoCity, input.geoCountry]
+      .map((value) => value?.trim())
+      .filter((value): value is string => Boolean(value))
+      .join(', ') || 'Location unavailable'
+  );
 }
 
 function buildCallParticipantLockQueries(
@@ -538,10 +551,7 @@ export async function requestVisitorCall(
       expiredCalls,
       siteName: site.name,
       visitorAnonymousId: visitor.anonymousId,
-      visitorLocation:
-        [session.geoCity, session.geoCountry]
-          .filter((value): value is string => Boolean(value))
-          .join(', ') || 'Location unavailable',
+      visitorLocation: visitorLocationLabel(session),
     };
   });
 
@@ -585,16 +595,26 @@ export async function getCall(callId: string): Promise<Call | null> {
   return expireCallIfNeeded(callId);
 }
 
-export async function listIncomingCallsForAgent(): Promise<Call[]> {
+export async function listIncomingCallsForAgent(): Promise<IncomingCallSummary[]> {
   const calls = await getDatabaseClient().call.findMany({
     where: { status: 'RINGING', visitorInitiated: true },
     orderBy: { requestedAt: 'desc' },
     select: callSelect,
     take: 10,
   });
-  return Promise.all(calls.map((call) => expireCallIfNeeded(call.id))).then((resolved) =>
-    resolved.filter((call): call is Call => call?.status === 'RINGING'),
+  const resolved = await Promise.all(
+    calls.map(async (call): Promise<IncomingCallSummary | null> => {
+      const activeCall = await expireCallIfNeeded(call.id);
+      if (activeCall?.status !== 'RINGING') return null;
+
+      return {
+        call: activeCall,
+        eventName: call.site.name,
+        visitorLocation: visitorLocationLabel(call.session ?? {}),
+      };
+    }),
   );
+  return resolved.filter((call): call is IncomingCallSummary => call !== null);
 }
 
 export async function getCallScope(

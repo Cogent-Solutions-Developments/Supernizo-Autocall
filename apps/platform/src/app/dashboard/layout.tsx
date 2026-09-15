@@ -41,10 +41,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
         <main className="workspace-content" id="workspace-content" tabIndex={-1}>
           {children}
         </main>
-        <IncomingCallAlert
-          initialCalls={initialCalls}
-          initialNotifications={initialNotifications}
-        />
+        <IncomingCallAlert initialCalls={initialCalls} />
         <Suspense>
           <DashboardDock returnTo={user.returnTo} />
         </Suspense>

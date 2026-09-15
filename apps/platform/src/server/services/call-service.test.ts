@@ -9,6 +9,7 @@ import {
   lockCallParticipants,
   staleCallAction,
   transitionCallStatus,
+  visitorLocationLabel,
 } from './call-service';
 
 describe('call state machine', () => {
@@ -66,6 +67,11 @@ describe('call state machine', () => {
     const requestedAt = new Date('2026-08-31T10:00:00.000Z');
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 29_999, 30)).toBe(false);
     expect(isRingingCallExpired(requestedAt, requestedAt.getTime() + 30_000, 30)).toBe(true);
+  });
+
+  it('formats the incoming-call visitor location with a safe fallback', () => {
+    expect(visitorLocationLabel({ geoCity: ' Doha ', geoCountry: 'QA' })).toBe('Doha, QA');
+    expect(visitorLocationLabel({ geoCity: null, geoCountry: null })).toBe('Location unavailable');
   });
 
   it('reconciles only stale ringing and media-connection states into terminal outcomes', () => {

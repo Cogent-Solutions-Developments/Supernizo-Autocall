@@ -344,6 +344,12 @@ export const CallSchema = z.object({
   visitorId: IdSchema,
 });
 
+export const IncomingCallSummarySchema = z.object({
+  call: CallSchema,
+  eventName: z.string().trim().min(1).max(191),
+  visitorLocation: z.string().trim().min(1).max(191),
+});
+
 export const CallCreateRequestSchema = z.object({
   siteId: IdSchema,
   type: CallTypeSchema,
@@ -450,6 +456,7 @@ export type ChatThread = z.infer<typeof ChatThreadSchema>;
 export type ChatThreadCreateRequest = z.infer<typeof ChatThreadCreateRequestSchema>;
 export type ChatVisitorMessageRequest = z.infer<typeof ChatVisitorMessageRequestSchema>;
 export type DashboardNotification = z.infer<typeof DashboardNotificationSchema>;
+export type IncomingCallSummary = z.infer<typeof IncomingCallSummarySchema>;
 export type NotificationListQuery = z.infer<typeof NotificationListQuerySchema>;
 export type NotificationSyncCursor = z.infer<typeof NotificationSyncCursorSchema>;
 export type NotificationSyncItem = z.infer<typeof NotificationSyncItemSchema>;
