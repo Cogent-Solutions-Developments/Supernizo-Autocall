@@ -4,7 +4,11 @@ import type { Call } from '@supernizo/shared';
 
 import { ServiceUnavailableError } from '@/server/errors/app-error';
 
-import { notificationSyncEnabled, notificationSyncSecret, signIntegrationRequest } from './supernizo-signature';
+import {
+  notificationSyncEnabled,
+  notificationSyncSecret,
+  signIntegrationRequest,
+} from './supernizo-signature';
 
 const callResolutionPath = '/api/auth/autocall/notifications/call-resolved';
 
@@ -27,7 +31,9 @@ function receiverUrl(): URL {
   return url;
 }
 
-export async function notifySupernizoCallResolution(call: Pick<Call, 'id' | 'status'>): Promise<void> {
+export async function notifySupernizoCallResolution(
+  call: Pick<Call, 'id' | 'status'>,
+): Promise<void> {
   if (!notificationSyncEnabled() || call.status === 'RINGING') return;
   const url = receiverUrl();
   const body = JSON.stringify({ callId: call.id, status: call.status });
@@ -53,9 +59,13 @@ export async function notifySupernizoCallResolution(call: Pick<Call, 'id' | 'sta
       },
     });
   } catch {
-    throw new ServiceUnavailableError('Supernizo notification synchronization is temporarily unavailable.');
+    throw new ServiceUnavailableError(
+      'Supernizo notification synchronization is temporarily unavailable.',
+    );
   }
   if (!response.ok) {
-    throw new ServiceUnavailableError('Supernizo notification synchronization is temporarily unavailable.');
+    throw new ServiceUnavailableError(
+      'Supernizo notification synchronization is temporarily unavailable.',
+    );
   }
 }

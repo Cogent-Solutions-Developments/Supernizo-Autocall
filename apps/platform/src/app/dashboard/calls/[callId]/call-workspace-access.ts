@@ -10,11 +10,13 @@ const terminalCallStatuses: readonly CallStatus[] = [
 
 export type CallWorkspaceAccess = 'WORKSPACE' | 'CLAIMED_BY_ANOTHER_AGENT';
 
-export function getCallWorkspaceAccess(input: Readonly<{
-  assignedAgentId: string | null;
-  callStatus: CallStatus;
-  userId: string;
-}>): CallWorkspaceAccess {
+export function getCallWorkspaceAccess(
+  input: Readonly<{
+    assignedAgentId: string | null;
+    callStatus: CallStatus;
+    userId: string;
+  }>,
+): CallWorkspaceAccess {
   if (
     input.assignedAgentId === null ||
     input.assignedAgentId === input.userId ||
