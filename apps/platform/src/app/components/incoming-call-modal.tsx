@@ -9,10 +9,17 @@ import { IncomingCallWorkspace } from './incoming-call-workspace';
 
 type IncomingCallModalProps = Readonly<{
   call: Call;
+  eventName?: string;
   onClose: () => void;
+  visitorLocation?: string;
 }>;
 
-export function IncomingCallModal({ call, onClose }: IncomingCallModalProps) {
+export function IncomingCallModal({
+  call,
+  eventName,
+  onClose,
+  visitorLocation,
+}: IncomingCallModalProps) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -37,7 +44,11 @@ export function IncomingCallModal({ call, onClose }: IncomingCallModalProps) {
         >
           <X aria-hidden="true" size={20} />
         </button>
-        <IncomingCallWorkspace initialCall={call} />
+        <IncomingCallWorkspace
+          initialCall={call}
+          {...(eventName ? { eventName } : {})}
+          {...(visitorLocation ? { visitorLocation } : {})}
+        />
       </div>
     </div>
   );

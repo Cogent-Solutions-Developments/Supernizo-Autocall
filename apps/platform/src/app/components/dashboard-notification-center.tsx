@@ -38,6 +38,11 @@ type DashboardNotificationCenterProps = Readonly<{
   initialNotifications: DashboardNotification[];
   userId: string;
 }>;
+type IncomingCallNotification = Readonly<{
+  call: Call;
+  eventName: string;
+  visitorLocation: string;
+}>;
 
 export function DashboardNotificationCenter({
   initialNotifications,
@@ -51,7 +56,7 @@ export function DashboardNotificationCenter({
   const [queuedToastCount, setQueuedToastCount] = useState(0);
   const [toastPaused, setToastPaused] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [incomingCall, setIncomingCall] = useState<Call | null>(null);
+  const [incomingCall, setIncomingCall] = useState<IncomingCallNotification | null>(null);
   const seenIds = useRef(new Set(initialNotifications.map(({ id }) => id)));
   const toastRef = useRef<DashboardNotification | null>(null);
   const originalTitle = useRef<string | null>(null);
@@ -187,7 +192,11 @@ export function DashboardNotificationCenter({
           credentials: 'same-origin',
         });
         if (!response.ok) throw new Error('Incoming call could not be loaded.');
-        setIncomingCall(CallResponseSchema.parse(await response.json()).data);
+        setIncomingCall({
+          call: CallResponseSchema.parse(await response.json()).data,
+          eventName: notification.siteName,
+          visitorLocation: notification.visitorLabel,
+        });
       } catch {
         setLoadError('Incoming call could not be loaded.');
       }
@@ -263,10 +272,10 @@ export function DashboardNotificationCenter({
                     >
                       <span className="flex items-center gap-1.5 text-xs font-semibold text-accent">
                         <CalendarDays aria-hidden="true" size={13} />
-                        {notification.siteName}
+                        Event: {notification.siteName}
                       </span>
                       <span className="mt-1 block text-sm font-semibold text-strong">
-                        {notification.visitorLabel}
+                        Visitor location: {notification.visitorLabel}
                       </span>
                       <span className="mt-1 block truncate text-sm text-muted">
                         {notification.preview}
@@ -304,8 +313,7 @@ export function DashboardNotificationCenter({
             <span className="min-w-0 flex-1">
               <span className="flex items-center justify-between gap-3 text-xs font-semibold text-accent">
                 <span className="truncate">
-                  {toast.type === 'INCOMING_CALL' ? 'Incoming call' : 'New message'} ·{' '}
-                  {toast.siteName}
+                  {toast.type === 'INCOMING_CALL' ? 'Incoming call' : 'New message'}
                 </span>
                 {queuedToastCount ? (
                   <span className="shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] text-body">
@@ -314,15 +322,24 @@ export function DashboardNotificationCenter({
                 ) : null}
               </span>
               <span className="mt-1.5 block truncate text-sm font-semibold text-strong">
-                {toast.visitorLabel}
+                {toast.type === 'INCOMING_CALL' ? `Event: ${toast.siteName}` : toast.visitorLabel}
               </span>
-              <span className="mt-0.5 block truncate text-sm text-muted">{toast.preview}</span>
+              <span className="mt-0.5 block truncate text-sm text-muted">
+                {toast.type === 'INCOMING_CALL'
+                  ? `Visitor location: ${toast.visitorLabel}`
+                  : toast.preview}
+              </span>
             </span>
           </span>
         </button>
       ) : null}
       {incomingCall ? (
-        <IncomingCallModal call={incomingCall} onClose={() => setIncomingCall(null)} />
+        <IncomingCallModal
+          call={incomingCall.call}
+          eventName={incomingCall.eventName}
+          onClose={() => setIncomingCall(null)}
+          visitorLocation={incomingCall.visitorLocation}
+        />
       ) : null}
     </div>
   );

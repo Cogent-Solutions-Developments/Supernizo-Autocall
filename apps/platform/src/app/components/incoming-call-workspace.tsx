@@ -13,7 +13,17 @@ import { DashboardCallMediaRoom } from './dashboard-call-media-room';
 const CallResponseSchema = z.object({ data: CallSchema });
 const ErrorResponseSchema = z.object({ error: z.object({ message: z.string().min(1).max(500) }) });
 
-export function IncomingCallWorkspace({ initialCall }: Readonly<{ initialCall: Call }>) {
+type IncomingCallWorkspaceProps = Readonly<{
+  eventName?: string;
+  initialCall: Call;
+  visitorLocation?: string;
+}>;
+
+export function IncomingCallWorkspace({
+  eventName,
+  initialCall,
+  visitorLocation,
+}: IncomingCallWorkspaceProps) {
   const [call, setCall] = useState(initialCall);
   const [error, setError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
@@ -44,7 +54,10 @@ export function IncomingCallWorkspace({ initialCall }: Readonly<{ initialCall: C
   }
 
   return (
-    <section className="workspace-panel mx-auto max-w-3xl p-6 sm:p-8">
+    <section
+      className="workspace-panel mx-auto max-w-3xl p-6 sm:p-8"
+      style={{ backgroundColor: 'rgb(11 17 24)' }}
+    >
       <div className="flex items-start gap-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-emerald-400/15 text-emerald-300">
           {call.type === 'VIDEO' ? (
@@ -61,6 +74,22 @@ export function IncomingCallWorkspace({ initialCall }: Readonly<{ initialCall: C
             {call.type === 'VIDEO' ? 'Video call requested' : 'Voice call requested'}
           </h1>
           <p className="mt-2 text-muted">Accept to join the visitor in a secure LiveKit room.</p>
+          {eventName || visitorLocation ? (
+            <dl className="mt-4 grid gap-1.5 text-sm text-muted">
+              {eventName ? (
+                <div className="flex flex-wrap gap-x-2">
+                  <dt>Event</dt>
+                  <dd className="font-medium text-strong">{eventName}</dd>
+                </div>
+              ) : null}
+              {visitorLocation ? (
+                <div className="flex flex-wrap gap-x-2">
+                  <dt>Visitor location</dt>
+                  <dd className="font-medium text-strong">{visitorLocation}</dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : null}
         </div>
       </div>
 
