@@ -9,6 +9,7 @@ import {
   lockCallParticipants,
   staleCallAction,
   transitionCallStatus,
+  visitorTerminationAction,
   visitorLocationLabel,
 } from './call-service';
 
@@ -49,6 +50,13 @@ describe('call state machine', () => {
     expect(() => transitionCallStatus('RINGING', 'end')).toThrow(ConflictError);
     expect(() => transitionCallStatus('ACCEPTED', 'reject')).toThrow(ConflictError);
     expect(() => transitionCallStatus('CANCELLED', 'accept')).toThrow(ConflictError);
+  });
+
+  it('cancels a ringing visitor call and ends one already accepted by an agent', () => {
+    expect(visitorTerminationAction('RINGING')).toBe('cancel');
+    expect(visitorTerminationAction('ACCEPTED')).toBe('end');
+    expect(visitorTerminationAction('ACTIVE')).toBe('end');
+    expect(visitorTerminationAction('CANCELLED')).toBeNull();
   });
 
   it('uses a bounded 30-second default timeout', () => {

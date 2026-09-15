@@ -133,6 +133,12 @@ export function staleCallAction(status: CallStatus): CallAction | null {
   return status === 'ACCEPTED' || status === 'CONNECTING' ? 'fail' : null;
 }
 
+export function visitorTerminationAction(status: CallStatus): 'cancel' | 'end' | null {
+  if (status === 'RINGING') return 'cancel';
+  if (status === 'ACCEPTED' || status === 'CONNECTING' || status === 'ACTIVE') return 'end';
+  return null;
+}
+
 function roomName(): string {
   return `call_${randomUUID().replaceAll('-', '')}`;
 }
@@ -825,14 +831,28 @@ export async function endVisitorCall(
   context: TrackingContext,
   options?: CallTransitionOptions,
 ): Promise<Call> {
-  const [resolved, call] = await Promise.all([
-    resolveTrackingContext(context, origin),
-    getSelectedCall(callId),
-  ]);
-  if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
-    throw new ForbiddenError('The requested call is not available to this visitor session.');
+  const resolved = await resolveTrackingContext(context, origin);
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const call = await getSelectedCall(callId);
+    if (!call || call.visitorId !== resolved.visitorId || call.sessionId !== resolved.sessionId) {
+      throw new ForbiddenError('The requested call is not available to this visitor session.');
+    }
+
+    const action = visitorTerminationAction(CallStatusSchema.parse(call.status));
+    if (!action) return mapCall(call);
+
+    try {
+      return await transitionSelectedCall(call, action, undefined, options);
+    } catch (error: unknown) {
+      // If an agent accepted at the same instant, reload the call and end that
+      // newly accepted call instead of leaving the agent in an empty room.
+      if (error instanceof ConflictError && attempt === 0) continue;
+      throw error;
+    }
   }
-  return transitionSelectedCall(call, 'end', undefined, options);
+
+  throw new ConflictError('The call state changed. Please try again.');
 }
 
 export async function failVisitorCall(

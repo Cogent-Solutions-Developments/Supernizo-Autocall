@@ -50,8 +50,16 @@ export function DashboardCallMediaRoom({
       }>
     | undefined
   >();
-  const media = initialMedia ?? (tokenRequest?.callId === call.id ? tokenRequest.media : null);
-  const error = initialMedia ? null : tokenRequest?.callId === call.id ? tokenRequest.error : null;
+  const availableMedia =
+    initialMedia ?? (tokenRequest?.callId === call.id ? tokenRequest.media : null);
+  const media = active ? availableMedia : null;
+  const error = active
+    ? initialMedia
+      ? null
+      : tokenRequest?.callId === call.id
+        ? tokenRequest.error
+        : null
+    : null;
   const session = useLiveKitCallSession(
     media ? { callId: call.id, token: media.token, url: media.url } : null,
   );

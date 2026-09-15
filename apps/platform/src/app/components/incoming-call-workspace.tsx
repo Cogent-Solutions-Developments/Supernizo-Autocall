@@ -1,5 +1,6 @@
 'use client';
 
+import { createRealtime } from '@upstash/realtime/client';
 import { Phone, Video } from 'lucide-react';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -9,9 +10,17 @@ import { CallSchema, type Call } from '@supernizo/shared';
 import { fetchAppApi } from '@/lib/app-fetch';
 
 import { DashboardCallMediaRoom } from './dashboard-call-media-room';
+import {
+  canConnectAgentMedia,
+  isTerminalCallStatus,
+  terminalCallMessage,
+} from './incoming-call-workspace-state';
 
 const CallResponseSchema = z.object({ data: CallSchema });
 const ErrorResponseSchema = z.object({ error: z.object({ message: z.string().min(1).max(500) }) });
+const { useRealtime } = createRealtime<{
+  call: { status: z.ZodObject<{ call: typeof CallSchema }> };
+}>();
 
 type IncomingCallWorkspaceProps = Readonly<{
   eventName?: string;
@@ -27,8 +36,24 @@ export function IncomingCallWorkspace({
   const [call, setCall] = useState(initialCall);
   const [error, setError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
-  const active = ['ACCEPTED', 'CONNECTING', 'ACTIVE'].includes(call.status);
-  const terminal = ['CANCELLED', 'ENDED', 'FAILED', 'MISSED', 'REJECTED'].includes(call.status);
+  const [acceptedByCurrentAgent, setAcceptedByCurrentAgent] = useState(
+    () => initialCall.status !== 'RINGING' && !isTerminalCallStatus(initialCall.status),
+  );
+  const active = canConnectAgentMedia(call.status, acceptedByCurrentAgent);
+  const terminal = isTerminalCallStatus(call.status);
+  const acceptedByAnotherAgent =
+    !acceptedByCurrentAgent &&
+    (call.status === 'ACCEPTED' || call.status === 'CONNECTING' || call.status === 'ACTIVE');
+
+  useRealtime({
+    channels: [`call:${call.id}`],
+    events: ['call.status'],
+    onData: ({ data }) => {
+      if (data.call.id !== call.id) return;
+      setCall(data.call);
+      if (isTerminalCallStatus(data.call.status)) setAcceptedByCurrentAgent(false);
+    },
+  });
 
   async function accept(): Promise<void> {
     setAccepting(true);
@@ -45,7 +70,9 @@ export function IncomingCallWorkspace({
           parsed.success ? parsed.data.error.message : 'The call could not be accepted.',
         );
       }
-      setCall(CallResponseSchema.parse(body).data);
+      const accepted = CallResponseSchema.parse(body).data;
+      setCall((current) => (isTerminalCallStatus(current.status) ? current : accepted));
+      setAcceptedByCurrentAgent(true);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : 'The call could not be accepted.');
     } finally {
@@ -106,9 +133,14 @@ export function IncomingCallWorkspace({
       {error ? (
         <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>
       ) : null}
+      {acceptedByAnotherAgent ? (
+        <p className="mt-6 rounded-lg bg-surface-muted p-4 text-sm text-muted">
+          Call was accepted by another agent.
+        </p>
+      ) : null}
       {terminal ? (
         <p className="mt-6 rounded-lg bg-surface-muted p-4 text-sm text-muted">
-          {call.status === 'ENDED' ? 'Call was ended.' : 'This call is no longer available.'}
+          {terminalCallMessage(call.status)}
         </p>
       ) : null}
       <DashboardCallMediaRoom
