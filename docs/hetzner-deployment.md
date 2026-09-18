@@ -331,7 +331,7 @@ curl --fail http://127.0.0.1:3200/autocall-db/api/health/ready
 curl --fail https://api.infrastructuresg.com/autocall-db/api/health/ready
 ```
 
-The readiness response must report `database` and `ready` as `true`. It also reports Redis status for diagnostics, but a transient external Redis failure does not block deployment promotion. Treat `redis: false` as a degraded-service alert and verify the production Upstash URL, token, and provider availability.
+The readiness response must report `database`, `redis`, and `ready` as `true`. A configured but expired, deleted, or unreachable Upstash endpoint returns HTTP 503 and blocks promotion.
 
 The two state files contain only a commit and public image digests, not credentials.
 

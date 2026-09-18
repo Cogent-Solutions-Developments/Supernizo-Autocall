@@ -19,10 +19,7 @@ export async function getDependencyReadiness(): Promise<DependencyReadiness> {
 
   return {
     database,
-    // PostgreSQL is the durable system of record and the deployment readiness
-    // gate. Redis is reported separately so transient provider failures do not
-    // replace an otherwise healthy application during deployment.
-    ready: database,
+    ready: database && redis,
     redis,
   };
 }
