@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { getDatabaseClient } from '@/server/db/client';
+import { getDependencyReadiness } from '@/server/diagnostics/dependency-readiness';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 export async function GET(): Promise<NextResponse> {
-  try {
-    await getDatabaseClient().$queryRaw`SELECT 1`;
-    return NextResponse.json({ database: true, ready: true });
-  } catch {
-    return NextResponse.json({ database: false, ready: false }, { status: 503 });
-  }
+  const readiness = await getDependencyReadiness();
+  return NextResponse.json(readiness, { status: readiness.ready ? 200 : 503 });
 }

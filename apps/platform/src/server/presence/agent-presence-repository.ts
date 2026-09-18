@@ -3,6 +3,7 @@ import 'server-only';
 import type { AgentAvailability } from '@supernizo/shared';
 
 import { getEnvironmentReadiness } from '@/server/env';
+import { ServiceUnavailableError } from '@/server/errors/app-error';
 import { getRedisClient } from '@/server/redis/client';
 
 export const AGENT_PRESENCE_TTL_SECONDS = 60;
@@ -23,7 +24,11 @@ function key(agentId: string): string {
 
 export class RedisAgentPresenceRepository implements AgentPresenceRepository {
   public async get(agentId: string): Promise<AgentPresenceSnapshot | null> {
-    return getRedisClient().get<AgentPresenceSnapshot>(key(agentId));
+    try {
+      return await getRedisClient().get<AgentPresenceSnapshot>(key(agentId));
+    } catch (cause: unknown) {
+      throw new ServiceUnavailableError('Agent presence is temporarily unavailable.', { cause });
+    }
   }
 
   public async set(
@@ -31,7 +36,11 @@ export class RedisAgentPresenceRepository implements AgentPresenceRepository {
     availability: AgentAvailability,
   ): Promise<AgentPresenceSnapshot> {
     const snapshot = { availability, updatedAt: new Date().toISOString() };
-    await getRedisClient().set(key(agentId), snapshot, { ex: AGENT_PRESENCE_TTL_SECONDS });
+    try {
+      await getRedisClient().set(key(agentId), snapshot, { ex: AGENT_PRESENCE_TTL_SECONDS });
+    } catch (cause: unknown) {
+      throw new ServiceUnavailableError('Agent presence is temporarily unavailable.', { cause });
+    }
     return snapshot;
   }
 }

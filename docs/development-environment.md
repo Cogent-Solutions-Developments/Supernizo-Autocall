@@ -84,12 +84,12 @@ pnpm test
 pnpm build
 ```
 
-The application base path is `/autocall-db`. `GET /autocall-db/api/health/config` reports only boolean configuration readiness. `GET /autocall-db/api/health/ready` additionally verifies a database query and is used by Docker and deployment health checks.
+The application base path is `/autocall-db`. `GET /autocall-db/api/health/config` reports only boolean configuration readiness. `GET /autocall-db/api/health/ready` additionally probes PostgreSQL and Upstash Redis and is used by Docker and deployment health checks.
 
 ## Troubleshooting startup
 
 - **Prisma P1001 at `127.0.0.1:5433`:** start Docker Desktop and run `pnpm db:up` before deploying migrations or seeding. Generating Prisma Client does not start PostgreSQL or create tables.
 - **Local login returns 401:** first check `/autocall-db/api/health/ready`, then run `pnpm prisma:deploy` and `pnpm prisma:seed`. The credentials provider returns a generic sign-in failure when its database query fails as well as when credentials are invalid.
 - **Repeated `/sso/start` redirects:** this route intentionally redirects to the configured Supernizo portal. Verify the correct Light/Heavy portal is running at its configured URL and has a valid Supernizo session. Use the local administrator form for standalone Autocall testing. See [Supernizo integration](supernizo-integration.md) for the full SSO setup.
-- **Health configuration is ready but calls/presence fail:** configuration readiness validates settings, not provider connectivity. Upstash Redis and LiveKit must be reachable with valid development credentials; media testing also requires microphone/camera permission.
+- **Health configuration is ready but readiness fails:** configuration readiness validates settings, while `/api/health/ready` verifies PostgreSQL and Upstash Redis connectivity. LiveKit must also be reachable for calls; media testing requires microphone/camera permission.
 - **Redis `ENOTFOUND` or live visitors fails to load:** verify that `UPSTASH_REDIS_REST_URL` belongs to an active database and that its REST token matches. Replace obsolete settings in `.env.local` and restart `pnpm dev`. Files with other names, such as `.envv`, are not loaded by the application.

@@ -38,7 +38,7 @@ PostgreSQL has no host port and no public URL. It is reachable only as `postgres
 
 Pull requests and `main` pushes run lint, type-checking, unit tests, PostgreSQL repository tests, migrations, and the production build in GitHub Actions. A successful `main` run connects to Hetzner using a pinned SSH host key and asks the fixed server checkout to deploy that exact reviewed commit.
 
-The server deploy script validates its protected environment file, builds immutable commit-tagged app and migration images locally, starts PostgreSQL, applies committed Prisma migrations once, and replaces the application container. If the app fails its database-backed readiness check, the previous app image is restored when it is still present. Database migrations are never automatically reversed.
+The server deploy script validates its protected environment file, builds immutable commit-tagged app and migration images locally, starts PostgreSQL, applies committed Prisma migrations once, and replaces the application container. If the app fails its PostgreSQL-and-Redis readiness check, the previous app image is restored when it is still present. Database migrations are never automatically reversed.
 
 ## Security boundaries
 

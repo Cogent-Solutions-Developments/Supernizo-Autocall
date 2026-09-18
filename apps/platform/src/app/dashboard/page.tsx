@@ -1,5 +1,5 @@
 import { SiteManagement } from '@/app/components/site-management';
-import { requireUser } from '@/server/auth/access';
+import { requireDashboardUser } from '@/server/auth/access';
 import { listSitesForUser } from '@/server/services/site-service';
 
 export const metadata = { title: 'Autocall | Supernizo' };
@@ -7,7 +7,7 @@ export const metadata = { title: 'Autocall | Supernizo' };
 export default async function DashboardPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ siteId?: string }> }>) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
+  const [user, query] = await Promise.all([requireDashboardUser(), searchParams]);
   const sites = await listSitesForUser(user.role);
   return (
     <div className="grid gap-8">

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { requireUser, requireSiteAccess } from '@/server/auth/access';
+import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
 import { listAgentsForSite, listCallHistory } from '@/server/services/call-history-service';
 import { reconcileStaleCallsForAgent } from '@/server/services/call-service';
 import { listSitesForUser } from '@/server/services/site-service';
@@ -30,7 +30,7 @@ function duration(value: number | null): string {
 }
 
 export default async function CallHistoryPage({ searchParams }: CallHistoryPageProps) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
+  const [user, query] = await Promise.all([requireDashboardUser(), searchParams]);
   await reconcileStaleCallsForAgent(user.id);
   const sites = await listSitesForUser(user.role);
   const siteId = scalar(query.siteId) ?? sites.at(0)?.id;

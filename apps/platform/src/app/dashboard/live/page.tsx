@@ -2,7 +2,7 @@ import { LiveVisitorDashboard } from '@/app/components/live-visitor-dashboard';
 import { IdSchema } from '@supernizo/shared';
 import { notFound } from 'next/navigation';
 
-import { requireUser } from '@/server/auth/access';
+import { requireDashboardUser } from '@/server/auth/access';
 import { listLiveVisitorsForSite } from '@/server/services/live-presence-service';
 import { listSitesForUser } from '@/server/services/site-service';
 
@@ -17,7 +17,7 @@ function scalar(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function LivePresencePage({ searchParams }: LivePresencePageProps) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
+  const [user, query] = await Promise.all([requireDashboardUser(), searchParams]);
   const sites = await listSitesForUser(user.role);
   const requestedSiteId = scalar(query.siteId);
   const selectedSite = requestedSiteId

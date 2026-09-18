@@ -329,6 +329,8 @@ curl --fail http://127.0.0.1:3200/autocall-db/api/health/ready
 curl --fail https://api.infrastructuresg.com/autocall-db/api/health/ready
 ```
 
+The readiness response must report `database`, `redis`, and `ready` as `true`. A configured but expired, deleted, or unreachable Upstash endpoint returns HTTP 503 and blocks promotion.
+
 The two state files contain only a commit and public image digests, not credentials.
 
 ## 10. Provision the first production administrator
