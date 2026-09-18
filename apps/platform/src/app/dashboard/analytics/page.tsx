@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 
 import { DashboardDateRangeSchema, IdSchema } from '@supernizo/shared';
 
-import { requireSiteAccess, requireUser } from '@/server/auth/access';
+import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
 import { getSiteAnalytics } from '@/server/services/visitor-insights-service';
 import { listSitesForUser } from '@/server/services/site-service';
 
@@ -58,7 +58,7 @@ function MetricList({
 export const dynamic = 'force-dynamic';
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
-  const [user, query] = await Promise.all([requireUser(), searchParams]);
+  const [user, query] = await Promise.all([requireDashboardUser(), searchParams]);
   const sites = await listSitesForUser(user.role);
   const rawSiteId = scalar(query.siteId);
   const chosenSite = rawSiteId ? sites.find((site) => site.id === rawSiteId) : sites.at(0);

@@ -17,6 +17,8 @@ This runbook deploys the complete Supernizo Autocall application and its private
 
 This reuses the current server and has no additional software licence cost. It still consumes the existing Hetzner server, GHCR, provider, storage, and backup quotas.
 
+Automatic Vercel Git deployments are disabled only for commits on `hetzner-prod` by the committed `vercel.json` files at the repository root and `apps/platform`. Deployments from `main` and other source branches remain enabled. The duplicate placement covers either Vercel project-root setting; only the configuration inside the selected project root is read. Vercel evaluates the source branch, so a feature-branch preview can still run before or during a pull request targeting `hetzner-prod`, but the resulting merge commit on `hetzner-prod` is not deployed to Vercel.
+
 ## 2. Repository and GitHub preparation
 
 Merge reviewed releases into `hetzner-prod` only when they are approved for production. In GitHub repository **Settings → Actions → General**:
@@ -328,6 +330,8 @@ cat .deployment/current-images.env
 curl --fail http://127.0.0.1:3200/autocall-db/api/health/ready
 curl --fail https://api.infrastructuresg.com/autocall-db/api/health/ready
 ```
+
+The readiness response must report `database`, `redis`, and `ready` as `true`. A configured but expired, deleted, or unreachable Upstash endpoint returns HTTP 503 and blocks promotion.
 
 The two state files contain only a commit and public image digests, not credentials.
 
