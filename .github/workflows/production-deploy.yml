@@ -89,8 +89,8 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Test Nginx routing
-        run: node --test scripts/nginx-routing.test.mjs
+      - name: Test deployment configuration
+        run: node --test scripts/nginx-routing.test.mjs scripts/vercel-config.test.mjs
 
       - name: Test PostgreSQL repositories
         run: pnpm test:db

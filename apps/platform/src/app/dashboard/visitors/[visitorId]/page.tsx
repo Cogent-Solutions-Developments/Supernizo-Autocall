@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { IdSchema } from '@supernizo/shared';
 
 import { DashboardChatPane } from '@/app/components/dashboard-chat-pane';
-import { requireSiteAccess } from '@/server/auth/access';
+import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
 import { getLiveVisitor } from '@/server/services/live-presence-service';
 import { getVisitorProfile } from '@/server/services/visitor-insights-service';
 import { listVisitorCallHistory } from '@/server/services/call-history-service';
@@ -38,6 +38,7 @@ function formatActiveSeconds(seconds: number): string {
 export const dynamic = 'force-dynamic';
 
 export default async function VisitorProfilePage({ params, searchParams }: VisitorPageProps) {
+  await requireDashboardUser();
   const [{ visitorId: rawVisitorId }, query] = await Promise.all([params, searchParams]);
   const visitorId = IdSchema.safeParse(rawVisitorId);
   const siteId = IdSchema.safeParse(scalar(query.siteId));
