@@ -38,6 +38,8 @@ function bindRepository(getClient: () => Prisma.TransactionClient): ChatReposito
         select: {
           id: true,
           lastMessageAt: true,
+          followUpStatus: true,
+          contactConsentAt: true,
           messages: {
             orderBy: [{ sentAt: 'desc' }, { id: 'desc' }],
             select: { content: true },
@@ -118,6 +120,12 @@ function bindRepository(getClient: () => Prisma.TransactionClient): ChatReposito
     },
     async findThreadForStart(context) {
       const database = getClient();
+      await database.$executeRaw(
+        Prisma.sql(
+          ['SELECT pg_advisory_xact_lock(hashtextextended(', ', 0))'],
+          'chat:' + context.siteId + ':' + context.visitorId,
+        ),
+      );
       return database.chatThread.findFirst({
         where: { siteId: context.siteId, status: 'OPEN', visitorId: context.visitorId },
         orderBy: { updatedAt: 'desc' },
@@ -146,7 +154,7 @@ function bindRepository(getClient: () => Prisma.TransactionClient): ChatReposito
       const database = getClient();
       return database.chatThread.update({
         where: { id: thread.id },
-        data: { lastMessageAt: created.sentAt },
+        data: { lastMessageAt: created.sentAt, followUpStatus: 'NEEDS_REPLY' },
       });
     },
     async createAgentMessage(agentId, content, threadId) {
@@ -174,7 +182,7 @@ function bindRepository(getClient: () => Prisma.TransactionClient): ChatReposito
       const database = getClient();
       return database.chatThread.update({
         where: { id: threadId },
-        data: { lastMessageAt: created.sentAt },
+        data: { lastMessageAt: created.sentAt, followUpStatus: 'NEEDS_REPLY' },
       });
     },
   };
@@ -184,6 +192,27 @@ export function createChatRepository(
 ): ChatRepository {
   return {
     ...bindRepository(getClient),
+    createThread: (agentId, siteId, visitorId) =>
+      getClient().$transaction(async (database) => {
+        await database.$executeRaw(
+          Prisma.sql(
+            ['SELECT pg_advisory_xact_lock(hashtextextended(', ', 0))'],
+            'chat:' + siteId + ':' + visitorId,
+          ),
+        );
+        const existing = await database.chatThread.findFirst({
+          where: { siteId, visitorId, status: 'OPEN' },
+          orderBy: { updatedAt: 'desc' },
+          select: { id: true, siteId: true, visitorId: true },
+        });
+        return (
+          existing ??
+          database.chatThread.create({
+            data: { assignedAgentId: agentId, siteId, visitorId },
+            select: { id: true, siteId: true, visitorId: true },
+          })
+        );
+      }),
     transaction: (work, options) =>
       getClient().$transaction((transaction) => work(bindRepository(() => transaction)), options),
   };

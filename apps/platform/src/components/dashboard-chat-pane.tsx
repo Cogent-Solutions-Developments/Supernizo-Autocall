@@ -5,9 +5,16 @@ import { Send } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
-import { ChatMessageSchema, ChatThreadSchema, type ChatMessage } from '@supernizo/shared';
+import {
+  ChatMessageSchema,
+  ChatThreadSchema,
+  type ChatMessage,
+  type ChatFollowUpStatus,
+} from '@supernizo/shared';
 
 import { fetchAppApi } from '@/lib/app-fetch';
+
+import { ChatFollowUpPanel } from './chat-follow-up-panel';
 
 import { mergeChatMessage } from './chat-state';
 
@@ -33,6 +40,7 @@ function formatMessageDateTime(sentAt: string): string {
 
 type DashboardChatPaneProps = Readonly<{
   canSend: boolean;
+  onFollowUpChange?: (status: ChatFollowUpStatus) => void;
   embedded?: boolean;
   initialThreadId: string | null;
   siteId: string;
@@ -41,6 +49,7 @@ type DashboardChatPaneProps = Readonly<{
 
 export function DashboardChatPane({
   canSend,
+  onFollowUpChange,
   embedded = false,
   initialThreadId,
   siteId,
@@ -169,6 +178,9 @@ export function DashboardChatPane({
       ) : null}
       {isOpen && threadId ? (
         <div className={embedded ? 'flex min-h-0 flex-1 flex-col' : 'mt-4'}>
+          {canSend ? (
+            <ChatFollowUpPanel key={threadId} threadId={threadId} onChange={onFollowUpChange} />
+          ) : null}
           <div
             aria-live="polite"
             aria-relevant="additions text"

@@ -8,6 +8,8 @@ export type ListInboxResult = Array<{
   siteId: string;
   visitorId: string;
   visitor: { identities: Array<{ displayName: null | string }> };
+  followUpStatus: 'NEEDS_REPLY' | 'FOLLOW_UP_PENDING' | 'RESOLVED';
+  contactConsentAt: Date | null;
   lastMessageAt: null | Date;
   messages: Array<{ content: string }>;
 }>;

@@ -19,6 +19,8 @@ import { ChatInboxThreadSchema, ChatMessageSchema, type ChatInboxThread } from '
 
 import { fetchAppApi } from '@/lib/app-fetch';
 
+import { followUpLabels } from './chat-follow-up-panel';
+
 import { DashboardChatPane } from './dashboard-chat-pane';
 import { LiveVisitorCallModal } from './live-visitor-call-modal';
 
@@ -52,6 +54,8 @@ function incomingThread(
   existing: ChatInboxThread | undefined,
 ): ChatInboxThread {
   return {
+    followUpStatus: 'NEEDS_REPLY',
+    hasContact: existing?.hasContact ?? false,
     id: message.threadId,
     lastMessageAt: message.sentAt,
     lastMessagePreview: message.content,
@@ -99,29 +103,33 @@ export function DashboardChatInbox({
 
   useEffect(() => {
     let active = true;
-    void fetchAppApi(`/api/chat/threads?siteId=${encodeURIComponent(siteId)}`, {
-      credentials: 'same-origin',
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Recent chats could not be loaded.');
-        return ChatInboxResponseSchema.parse(await response.json());
+    const load = () =>
+      fetchAppApi(`/api/chat/threads?siteId=${encodeURIComponent(siteId)}`, {
+        credentials: 'same-origin',
       })
-      .then((response) => {
-        if (!active) return;
-        setLoadError(null);
-        setThreads(response.data.threads);
-        setSelectedThreadId((current) =>
-          current && response.data.threads.some((thread) => thread.id === current)
-            ? current
-            : (response.data.threads[0]?.id ?? null),
-        );
-      })
-      .catch(() => active && setLoadError('Recent chats could not be loaded.'));
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Recent chats could not be loaded.');
+          return ChatInboxResponseSchema.parse(await response.json());
+        })
+        .then((response) => {
+          if (!active) return;
+          setLoadError(null);
+          setThreads(response.data.threads);
+          setSelectedThreadId((current) =>
+            current && response.data.threads.some((thread) => thread.id === current)
+              ? current
+              : (response.data.threads[0]?.id ?? null),
+          );
+        })
+        .catch(() => active && setLoadError('Recent chats could not be loaded.'));
+    void load();
+    const timer = isOpen ? window.setInterval(() => void load(), 15_000) : undefined;
 
     return () => {
       active = false;
+      if (timer !== undefined) window.clearInterval(timer);
     };
-  }, [siteId]);
+  }, [siteId, isOpen]);
 
   const selectedThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
 
@@ -229,6 +237,10 @@ export function DashboardChatInbox({
                         <span className="mt-1 block truncate text-xs text-muted">
                           {thread.lastMessagePreview || 'No messages yet'}
                         </span>
+                        <span className="mt-1 block text-[10px] text-accent">
+                          {followUpLabels[thread.followUpStatus ?? 'NEEDS_REPLY']}
+                          {thread.hasContact ? ' · Contact saved' : ''}
+                        </span>
                       </span>
                     </button>
                   </li>
@@ -282,6 +294,15 @@ export function DashboardChatInbox({
               </div>
               <DashboardChatPane
                 canSend={canSend}
+                onFollowUpChange={(status) =>
+                  setThreads((current) =>
+                    current.map((thread) =>
+                      thread.id === selectedThread.id
+                        ? { ...thread, followUpStatus: status }
+                        : thread,
+                    ),
+                  )
+                }
                 embedded
                 initialThreadId={selectedThread.id}
                 key={selectedThread.id}

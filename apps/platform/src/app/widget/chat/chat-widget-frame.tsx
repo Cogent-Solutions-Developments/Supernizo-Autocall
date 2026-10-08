@@ -5,12 +5,20 @@ import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
-import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
+import {
+  ChatContactPromptSchema,
+  type ChatContactInput,
+  type ChatContactPrompt,
+  ChatMessageSchema,
+  type ChatMessage,
+} from '@supernizo/shared';
 
 import { CallerIdentityVideo } from '@/components/caller-identity-video';
 import { mergeChatMessage } from '@/components/chat-state';
 import { FlowingRibbons } from '@/components/flowing-ribbons';
 import { withAppBasePath } from '@/lib/app-path';
+
+import { ChatContactForm } from './chat-contact-form';
 
 import { NizoVerifiedIcon } from '../call/call-action-icons';
 
@@ -81,6 +89,11 @@ function ChatSubscription({
 
 function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   const [callEnabled, setCallEnabled] = useState(false);
+  const [contactPrompt, setContactPrompt] = useState<ChatContactPrompt>({
+    available: null,
+    saved: false,
+  });
+  const [contactState, setContactState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [config, setConfig] = useState<WidgetConfig | null>(null);
   const [content, setContent] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -94,14 +107,29 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
-      if (event.origin !== hostOrigin || !event.data || typeof event.data !== 'object') return;
+      if (
+        event.source !== window.parent ||
+        event.origin !== hostOrigin ||
+        !event.data ||
+        typeof event.data !== 'object'
+      )
+        return;
       const data = event.data as {
+        prompt?: unknown;
+        saved?: unknown;
         callEnabled?: unknown;
         config?: unknown;
         message?: unknown;
         type?: unknown;
       };
 
+      if (data.type === 'supernizo-chat-contact-state') {
+        const parsed = ChatContactPromptSchema.safeParse(data.prompt);
+        if (parsed.success) setContactPrompt(parsed.data);
+      }
+      if (data.type === 'supernizo-chat-contact-result' && typeof data.saved === 'boolean') {
+        setContactState(data.saved ? 'saved' : 'error');
+      }
       if (data.type === 'supernizo-chat-config') {
         const parsed = WidgetConfigSchema.safeParse(data.config);
         if (!parsed.success) return;
@@ -163,6 +191,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
     event.currentTarget.form?.requestSubmit();
+  }
+
+  function saveContact(contact: ChatContactInput): void {
+    setContactState('saving');
+    window.parent.postMessage({ type: 'supernizo-chat-contact-save', contact }, hostOrigin);
   }
 
   function closeChat(): void {
@@ -374,6 +407,12 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 <span>{content.length > 1600 ? `${content.length}/2000` : 'Enter to send'}</span>
               </div>
             </form>
+            <ChatContactForm
+              prompt={contactPrompt}
+              hasVisitorMessage={messages.some((message) => message.senderType === 'VISITOR')}
+              state={contactState}
+              onSave={saveContact}
+            />
           </div>
         </section>
       ) : (

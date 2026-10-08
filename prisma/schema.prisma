@@ -30,6 +30,18 @@ enum CallStatus {
   CANCELLED
 }
 
+enum ChatFollowUpStatus {
+  NEEDS_REPLY
+  FOLLOW_UP_PENDING
+  RESOLVED
+}
+
+enum ChatContactChannel {
+  EMAIL
+  WHATSAPP
+  BOTH
+}
+
 enum ChatSenderType {
   VISITOR
   AGENT
@@ -232,21 +244,27 @@ model VisitorEvent {
 }
 
 model ChatThread {
-  id              String         @id @default(cuid()) @db.VarChar(30)
-  siteId          String         @db.VarChar(30)
-  visitorId       String         @db.VarChar(30)
-  sessionId       String?        @db.VarChar(30)
-  assignedAgentId String?        @db.VarChar(30)
-  status          String         @default("OPEN") @db.VarChar(32)
-  createdAt       DateTime       @default(now()) @db.Timestamp(3)
-  updatedAt       DateTime       @updatedAt @db.Timestamp(3)
-  lastMessageAt   DateTime?      @db.Timestamp(3)
-  site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  visitor         Visitor        @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  session         Session?       @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  assignedAgent   User?          @relation("ChatThreadAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  messages        ChatMessage[]
-  notifications   Notification[]
+  followUpStatus        ChatFollowUpStatus  @default(NEEDS_REPLY)
+  contactEmail          String?             @db.VarChar(254)
+  contactWhatsApp       String?             @db.VarChar(16)
+  contactChannel        ChatContactChannel?
+  contactConsentAt      DateTime?           @db.Timestamp(3)
+  contactConsentVersion String?             @db.VarChar(64)
+  id                    String              @id @default(cuid()) @db.VarChar(30)
+  siteId                String              @db.VarChar(30)
+  visitorId             String              @db.VarChar(30)
+  sessionId             String?             @db.VarChar(30)
+  assignedAgentId       String?             @db.VarChar(30)
+  status                String              @default("OPEN") @db.VarChar(32)
+  createdAt             DateTime            @default(now()) @db.Timestamp(3)
+  updatedAt             DateTime            @updatedAt @db.Timestamp(3)
+  lastMessageAt         DateTime?           @db.Timestamp(3)
+  site                  Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor               Visitor             @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session               Session?            @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  assignedAgent         User?               @relation("ChatThreadAssignedAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  messages              ChatMessage[]
+  notifications         Notification[]
 
   @@index([siteId, updatedAt])
   @@index([visitorId, updatedAt])
@@ -295,28 +313,28 @@ model Notification {
 }
 
 model Call {
-  id          String      @id @default(cuid()) @db.VarChar(30)
-  siteId      String      @db.VarChar(30)
-  visitorId   String      @db.VarChar(30)
-  sessionId   String?     @db.VarChar(30)
-  agentId     String?     @db.VarChar(30)
-  type        CallType
-  visitorInitiated Boolean @default(false)
-  status      CallStatus  @default(RINGING)
-  roomName    String?     @unique @db.VarChar(191)
-  requestedAt DateTime    @default(now()) @db.Timestamp(3)
-  respondedAt DateTime?   @db.Timestamp(3)
-  startedAt   DateTime?   @db.Timestamp(3)
-  endedAt     DateTime?   @db.Timestamp(3)
-  failureCode String?     @db.VarChar(64)
-  createdAt   DateTime    @default(now()) @db.Timestamp(3)
-  updatedAt   DateTime    @updatedAt @db.Timestamp(3)
-  site        Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  visitor     Visitor     @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  session     Session?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  agent       User?       @relation("CallAgent", fields: [agentId], references: [id], onDelete: SetNull)
-  events      CallEvent[]
-  notifications Notification[]
+  id               String         @id @default(cuid()) @db.VarChar(30)
+  siteId           String         @db.VarChar(30)
+  visitorId        String         @db.VarChar(30)
+  sessionId        String?        @db.VarChar(30)
+  agentId          String?        @db.VarChar(30)
+  type             CallType
+  visitorInitiated Boolean        @default(false)
+  status           CallStatus     @default(RINGING)
+  roomName         String?        @unique @db.VarChar(191)
+  requestedAt      DateTime       @default(now()) @db.Timestamp(3)
+  respondedAt      DateTime?      @db.Timestamp(3)
+  startedAt        DateTime?      @db.Timestamp(3)
+  endedAt          DateTime?      @db.Timestamp(3)
+  failureCode      String?        @db.VarChar(64)
+  createdAt        DateTime       @default(now()) @db.Timestamp(3)
+  updatedAt        DateTime       @updatedAt @db.Timestamp(3)
+  site             Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  visitor          Visitor        @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  session          Session?       @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  agent            User?          @relation("CallAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  events           CallEvent[]
+  notifications    Notification[]
 
   @@index([visitorId, requestedAt])
   @@index([agentId, requestedAt])

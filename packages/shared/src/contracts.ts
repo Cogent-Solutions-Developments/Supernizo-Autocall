@@ -231,7 +231,58 @@ export const ChatThreadSchema = z.object({
   visitorId: IdSchema,
 });
 
+export const ChatFollowUpStatusSchema = z.enum(['NEEDS_REPLY', 'FOLLOW_UP_PENDING', 'RESOLVED']);
+export const ChatContactChannelSchema = z.enum(['EMAIL', 'WHATSAPP', 'BOTH']);
+export const CHAT_CONTACT_CONSENT_VERSION = 'conversation-follow-up-v1';
+export const CHAT_CONTACT_CONSENT_TEXT = 'You may contact me about this conversation.';
+const ContactEmailSchema = z.string().trim().email().max(254);
+const ContactWhatsAppSchema = z
+  .string()
+  .regex(/^\+[1-9]\d{7,14}$/, 'Use an international number with a country code.');
+export const ChatContactInputSchema = z.discriminatedUnion('channel', [
+  z.object({ channel: z.literal('EMAIL'), email: ContactEmailSchema, consent: z.literal(true) }),
+  z.object({
+    channel: z.literal('WHATSAPP'),
+    whatsapp: ContactWhatsAppSchema,
+    consent: z.literal(true),
+  }),
+  z.object({
+    channel: z.literal('BOTH'),
+    email: ContactEmailSchema,
+    whatsapp: ContactWhatsAppSchema,
+    consent: z.literal(true),
+  }),
+]);
+export const ChatVisitorContactRequestSchema = z.object({
+  context: TrackingContextSchema,
+  threadId: IdSchema.optional(),
+  contact: ChatContactInputSchema,
+});
+export const ChatContactPromptSchema = z.object({
+  available: z.boolean().nullable(),
+  saved: z.boolean(),
+});
+export const ChatFollowUpSchema = z.object({
+  status: ChatFollowUpStatusSchema,
+  contact: z
+    .object({
+      channel: ChatContactChannelSchema,
+      email: ContactEmailSchema.nullable(),
+      whatsapp: ContactWhatsAppSchema.nullable(),
+      consentAt: UtcDateTimeSchema,
+      consentVersion: z.string(),
+    })
+    .nullable(),
+});
+export const ChatFollowUpUpdateSchema = z.object({ status: ChatFollowUpStatusSchema });
+export type ChatContactInput = z.infer<typeof ChatContactInputSchema>;
+export type ChatFollowUp = z.infer<typeof ChatFollowUpSchema>;
+export type ChatFollowUpStatus = z.infer<typeof ChatFollowUpStatusSchema>;
+export type ChatContactPrompt = z.infer<typeof ChatContactPromptSchema>;
+
 export const ChatInboxThreadSchema = ChatThreadSchema.extend({
+  followUpStatus: ChatFollowUpStatusSchema.optional(),
+  hasContact: z.boolean().optional(),
   lastMessageAt: UtcDateTimeSchema.nullable(),
   lastMessagePreview: z.string().trim().min(1).max(2_000).nullable(),
   visitorLabel: z.string().trim().min(1).max(191),

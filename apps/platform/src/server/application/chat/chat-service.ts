@@ -178,6 +178,8 @@ export function createChatService(
     return threads.map((thread) =>
       ChatInboxThreadSchema.parse({
         id: thread.id,
+        followUpStatus: thread.followUpStatus,
+        hasContact: Boolean(thread.contactConsentAt),
         lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
         lastMessagePreview: thread.messages[0]?.content ?? null,
         siteId: thread.siteId,
