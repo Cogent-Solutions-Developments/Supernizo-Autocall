@@ -7,9 +7,9 @@ import { z } from 'zod';
 
 import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
 
-import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
-import { mergeChatMessage } from '@/app/components/chat-state';
-import { FlowingRibbons } from '@/app/components/flowing-ribbons';
+import { CallerIdentityVideo } from '@/components/caller-identity-video';
+import { mergeChatMessage } from '@/components/chat-state';
+import { FlowingRibbons } from '@/components/flowing-ribbons';
 import { withAppBasePath } from '@/lib/app-path';
 
 import { NizoVerifiedIcon } from '../call/call-action-icons';
@@ -27,7 +27,10 @@ const { useRealtime } = createRealtime<{
 type ChatWidgetFrameProps = Readonly<{ hostOrigin: string }>;
 type WidgetConfig = z.infer<typeof WidgetConfigSchema>;
 
-const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const messageDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
 });
@@ -45,9 +48,9 @@ function displayAgentName(name: string | null | undefined): string {
   return name?.trim() || 'Swetha Sahanya';
 }
 
-function messageTime(sentAt: string): string {
+function messageDateTime(sentAt: string): string {
   const date = new Date(sentAt);
-  return Number.isNaN(date.getTime()) ? '' : messageTimeFormatter.format(date);
+  return Number.isNaN(date.getTime()) ? '' : messageDateTimeFormatter.format(date);
 }
 
 function conversationDay(sentAt: string | undefined): string {
@@ -269,6 +272,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                           <li className="chat-message flex justify-center" key={message.id}>
                             <p className="m-0 max-w-[90%] px-3 py-1.5 text-center text-[10px] leading-4 text-[#71717a]">
                               {message.content}
+                              <time className="mt-1 block text-[9px]" dateTime={message.sentAt}>
+                                {messageDateTime(message.sentAt)}
+                              </time>
                             </p>
                           </li>
                         );
@@ -302,7 +308,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                                 isVisitor ? 'justify-end' : 'justify-start'
                               }`}
                             >
-                              <span>{messageTime(message.sentAt)}</span>
+                              <time dateTime={message.sentAt}>
+                                {messageDateTime(message.sentAt)}
+                              </time>
                               {isVisitor ? (
                                 <ChecksIcon aria-label="Sent" size={12} weight="bold" />
                               ) : null}

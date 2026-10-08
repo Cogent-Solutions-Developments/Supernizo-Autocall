@@ -1,7 +1,7 @@
 import Image from 'next/image';
 
-import { AuthClientProvider } from '@/app/components/auth-client-provider';
-import { LoginForm } from '@/app/components/login-form';
+import { AuthClientProvider } from '@/components/auth-client-provider';
+import { LoginForm } from '@/components/login-form';
 import loginBackground from '@/assets/loging  background.webp';
 import supernizoLogo from '@/assets/logo-transparent.png';
 

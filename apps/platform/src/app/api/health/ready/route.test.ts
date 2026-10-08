@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getDependencyReadiness } from '@/server/diagnostics/dependency-readiness';
+import { getDependencyReadiness } from '@/server/infrastructure/diagnostics/dependency-readiness';
 
 import { GET } from './route';
 
-vi.mock('@/server/diagnostics/dependency-readiness', () => ({
+vi.mock('@/server/infrastructure/diagnostics/dependency-readiness', () => ({
   getDependencyReadiness: vi.fn(),
 }));
 

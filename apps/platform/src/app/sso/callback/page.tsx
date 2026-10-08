@@ -1,9 +1,9 @@
-import { AuthClientProvider } from '@/app/components/auth-client-provider';
-import { SupernizoSignIn } from '@/app/components/supernizo-sign-in';
+import { AuthClientProvider } from '@/components/auth-client-provider';
+import { SupernizoSignIn } from '@/components/supernizo-sign-in';
 import {
   notificationDeepLinkFromValues,
   notificationDeepLinkPath,
-} from '@/server/auth/notification-deep-link';
+} from '@/server/interfaces/auth/notification-deep-link';
 
 export const metadata = { title: 'Opening Autocall | Supernizo', referrer: 'no-referrer' as const };
 export const dynamic = 'force-dynamic';

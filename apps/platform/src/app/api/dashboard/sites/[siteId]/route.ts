@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { IdSchema, SiteUpdateSchema } from '@supernizo/shared';
 
-import { requireRole, requireSiteAccess } from '@/server/auth/access';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { getSiteById, updateSite } from '@/server/services/site-service';
+import { requireRole, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { getSiteById, updateSite } from '@/server/composition/sites/site-service';
 
 type SiteRouteContext = Readonly<{
   params: Promise<{

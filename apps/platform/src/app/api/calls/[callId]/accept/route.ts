@@ -2,11 +2,11 @@ import { after, NextResponse } from 'next/server';
 
 import { CallVisitorActionRequestSchema, IdSchema } from '@supernizo/shared';
 
-import { handlePublicChatRequest } from '@/server/chat/public-route';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { acceptVisitorCallWithMedia } from '@/server/services/livekit-token-service';
+import { handlePublicChatRequest } from '@/server/interfaces/chat/public-route';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { acceptVisitorCallWithMedia } from '@/server/composition/calls/livekit-token-service';
 
 type CallRouteContext = Readonly<{ params: Promise<{ callId: string }> }>;
 

@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth/next';
 import type { NextRequest } from 'next/server';
 
-import { getAuthOptions } from '@/server/auth/auth-options';
+import { getAuthOptions } from '@/server/interfaces/auth/auth-options';
 
 type AuthRouteContext = Readonly<{
   params: Promise<{

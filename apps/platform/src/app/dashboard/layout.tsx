@@ -1,15 +1,15 @@
 import Link from 'next/link';
 import { Suspense, type ReactNode } from 'react';
-import { AgentAvailabilityControl } from '@/app/components/agent-availability-control';
-import { DashboardDock } from '@/app/components/dashboard-dock';
-import { DashboardSessionGuard } from '@/app/components/dashboard-session-guard';
-import { DashboardNotificationCenter } from '@/app/components/dashboard-notification-center';
-import { IncomingCallAlert } from '@/app/components/incoming-call-alert';
-import { requireDashboardUser } from '@/server/auth/access';
-import { AutocallWordmark } from '@/app/components/autocall-wordmark';
-import { HeavyWorkspaceBackground } from '@/app/components/heavy-workspace-background';
-import { listNotificationsForUser } from '@/server/services/notification-service';
-import { listIncomingCallsForAgent } from '@/server/services/call-service';
+import { AgentAvailabilityControl } from '@/components/agent-availability-control';
+import { DashboardDock } from '@/components/dashboard-dock';
+import { DashboardSessionGuard } from '@/components/dashboard-session-guard';
+import { DashboardNotificationCenter } from '@/components/dashboard-notification-center';
+import { IncomingCallAlert } from '@/components/incoming-call-alert';
+import { requireDashboardUser } from '@/server/interfaces/auth/access';
+import { AutocallWordmark } from '@/components/autocall-wordmark';
+import { HeavyWorkspaceBackground } from '@/components/heavy-workspace-background';
+import { listNotificationsForUser } from '@/server/composition/notifications/notification-service';
+import { listIncomingCallsForAgent } from '@/server/composition/calls/call-service';
 
 export const dynamic = 'force-dynamic';
 

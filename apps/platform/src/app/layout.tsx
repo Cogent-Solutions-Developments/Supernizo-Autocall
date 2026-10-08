@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
-import { RealtimeClientProvider } from '@/app/components/realtime-client-provider';
+import { RealtimeClientProvider } from '@/components/realtime-client-provider';
 
 import './globals.css';
 import '@livekit/components-styles';

@@ -7,18 +7,18 @@ import {
   IdSchema,
 } from '@supernizo/shared';
 
-import { requireRole, requireSiteAccess, requireUser } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { handlePublicChatRequest } from '@/server/chat/public-route';
-import { ForbiddenError, ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
+import { requireRole, requireSiteAccess, requireUser } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { handlePublicChatRequest } from '@/server/interfaces/chat/public-route';
+import { ForbiddenError, ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
 import {
   getChatHistory,
   getChatThreadScope,
   sendAgentChatMessage,
   sendVisitorChatMessage,
-} from '@/server/services/chat-service';
+} from '@/server/composition/chat/chat-service';
 
 type ChatMessageRouteContext = Readonly<{ params: Promise<{ threadId: string }> }>;
 

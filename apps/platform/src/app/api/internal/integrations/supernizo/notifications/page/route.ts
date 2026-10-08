@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { NotificationSyncPageRequestSchema } from '@supernizo/shared';
 
-import { ServiceUnavailableError, ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
+import { ServiceUnavailableError, ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
 import {
   notificationSyncEnabled,
   readNotificationSyncBody,
   verifyNotificationSyncSignature,
-} from '@/server/integrations/supernizo-signature';
-import { listNotificationSyncPage } from '@/server/services/notification-sync-service';
+} from '@/server/infrastructure/integrations/supernizo-signature';
+import { listNotificationSyncPage } from '@/server/composition/notifications/notification-sync-service';
 
 export const runtime = 'nodejs';
 

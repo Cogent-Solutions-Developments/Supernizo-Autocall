@@ -1,10 +1,10 @@
-import { LiveVisitorDashboard } from '@/app/components/live-visitor-dashboard';
+import { LiveVisitorDashboard } from '@/components/live-visitor-dashboard';
 import { IdSchema } from '@supernizo/shared';
 import { notFound } from 'next/navigation';
 
-import { requireDashboardUser } from '@/server/auth/access';
-import { listLiveVisitorsForSite } from '@/server/services/live-presence-service';
-import { listSitesForUser } from '@/server/services/site-service';
+import { requireDashboardUser } from '@/server/interfaces/auth/access';
+import { listLiveVisitorsForSite } from '@/server/composition/presence/live-presence-service';
+import { listSitesForUser } from '@/server/composition/sites/site-service';
 
 export const dynamic = 'force-dynamic';
 

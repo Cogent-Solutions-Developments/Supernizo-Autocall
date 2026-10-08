@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { NextRequest, NextResponse } from 'next/server';
-import { startSupernizoSignIn } from '@/server/auth/supernizo-sso';
-import { notificationDeepLinkFromSearchParams } from '@/server/auth/notification-deep-link';
-import { ValidationError } from '@/server/errors/app-error';
+import { startSupernizoSignIn } from '@/server/interfaces/auth/supernizo-sso';
+import { notificationDeepLinkFromSearchParams } from '@/server/interfaces/auth/notification-deep-link';
+import { ValidationError } from '@/server/domain/errors/app-error';
 
 export function GET(request: NextRequest) {
   try {

@@ -1,0 +1,21 @@
+name: supernizo-autocall-local
+
+services:
+  postgres:
+    image: postgres:17.11-bookworm
+    environment:
+      POSTGRES_USER: supernizo
+      POSTGRES_PASSWORD: supernizo-dev-password
+      POSTGRES_DB: supernizo
+    ports:
+      - '127.0.0.1:15433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U supernizo -d supernizo']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - autocall_local_postgres:/var/lib/postgresql/data
+
+volumes:
+  autocall_local_postgres:

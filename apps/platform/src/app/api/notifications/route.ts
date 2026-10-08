@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { NotificationListQuerySchema } from '@supernizo/shared';
 
-import { requireRole } from '@/server/auth/access';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { listNotificationsForUser } from '@/server/services/notification-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { listNotificationsForUser } from '@/server/composition/notifications/notification-service';
 
 export const runtime = 'nodejs';
 

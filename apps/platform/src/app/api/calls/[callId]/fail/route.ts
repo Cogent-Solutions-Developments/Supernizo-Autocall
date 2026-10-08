@@ -2,11 +2,11 @@ import { after, NextResponse } from 'next/server';
 
 import { CallVisitorMediaFailureRequestSchema, IdSchema } from '@supernizo/shared';
 
-import { handlePublicChatRequest } from '@/server/chat/public-route';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { failVisitorCall } from '@/server/services/call-service';
+import { handlePublicChatRequest } from '@/server/interfaces/chat/public-route';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { failVisitorCall } from '@/server/composition/calls/call-service';
 
 type CallRouteContext = Readonly<{ params: Promise<{ callId: string }> }>;
 

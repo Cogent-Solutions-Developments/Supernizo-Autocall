@@ -1,6 +1,6 @@
-import { SiteManagement } from '@/app/components/site-management';
-import { requireDashboardUser } from '@/server/auth/access';
-import { listSitesForUser } from '@/server/services/site-service';
+import { SiteManagement } from '@/components/site-management';
+import { requireDashboardUser } from '@/server/interfaces/auth/access';
+import { listSitesForUser } from '@/server/composition/sites/site-service';
 
 export const metadata = { title: 'Autocall | Supernizo' };
 

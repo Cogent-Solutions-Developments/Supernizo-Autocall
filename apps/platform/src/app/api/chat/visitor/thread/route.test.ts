@@ -1,15 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { handlePublicChatQuery, handlePublicChatRequest } from '@/server/chat/public-route';
-import { startVisitorChat } from '@/server/services/chat-service';
+import {
+  handlePublicChatQuery,
+  handlePublicChatRequest,
+} from '@/server/interfaces/chat/public-route';
+import { startVisitorChat } from '@/server/composition/chat/chat-service';
 
 import { POST } from './route';
 
-vi.mock('@/server/chat/public-route', () => ({
+vi.mock('@/server/interfaces/chat/public-route', () => ({
   handlePublicChatQuery: vi.fn(),
   handlePublicChatRequest: vi.fn(),
 }));
-vi.mock('@/server/services/chat-service', () => ({
+vi.mock('@/server/composition/chat/chat-service', () => ({
   getVisitorChatThread: vi.fn(),
   startVisitorChat: vi.fn(),
 }));

@@ -1,5 +1,83 @@
 # Architecture
 
+## Repository structure
+
+This is a modular Next.js application in a pnpm workspace. App Router files remain the delivery entrypoints; the tracker SDK and shared contracts remain independent packages.
+
+```text
+apps/platform/src/
+  app/                       Pages, layouts, API routes, and route-local widget UI
+  components/                Reusable dashboard, auth, media, and visual components
+  client/calls/              Browser LiveKit session lifecycle and React hook
+  lib/                       Browser-safe paths, fetch helpers, navigation, validation
+  server/
+    domain/                  Role/origin rules, errors, directory contracts, visitor metrics
+    application/
+      auth/                  Account lookup, local sign-in, and subject-based provisioning
+      calls/                 Call lifecycle, history, and media authorization
+      chat/                  Conversations and messages
+      directory/             User synchronization, eligibility, and reconciliation
+      notifications/         Notifications and synchronization
+      presence/              Agent availability and visitor presence orchestration
+      sites/                 Site management
+      tracking/              Tracker bootstrap and engagement
+      visitors/              Visitor history and analytics queries
+      diagnostics/           Architecture probe
+      ports/                 Repository, unit-of-work, and provider interfaces
+    composition/             Production wiring; imported only by server delivery entrypoints
+    infrastructure/          Prisma, Redis, Upstash, LiveKit, geo-IP, logging, configuration
+    interfaces/              Authentication, HTTP responses, public request guards, SSE handling
+  test/                      Architecture checks and server-only test shim
+packages/shared/             Zod schemas and serializable cross-boundary contracts
+packages/tracker-sdk/        Embeddable browser tracker and widgets
+prisma/                      Schema, migrations, seed and provisioning scripts
+tests/                       Test configurations, browser tests, deployment tests
+ops/                         Deployment operations
+```
+
+### Dependency rules
+
+- Domain rules depend only on domain code and shared validation/contracts. They do not access Next.js, React, Prisma, Redis, or provider SDKs.
+- Application factories coordinate use cases through injected ports. They do not import routes, UI, HTTP/auth interfaces, infrastructure, composition, or concrete provider SDKs.
+- Infrastructure implements provider and storage access. It may implement application ports, but must not call application services or delivery code.
+- Interfaces adapt HTTP/authentication to application services. Routes validate, authorize, invoke a service, and map the response.
+- Reusable components, client hooks, and browser helpers do not import server modules (including composition) or generated Prisma code. Preserve server-only guards and explicit client directives.
+- Import concrete modules directly. Do not create a server barrel that can accidentally enter browser bundles.
+
+These boundaries are checked by `apps/platform/src/test/architecture.test.ts` during `pnpm test`, including relative imports and dynamic imports.
+
+### Composition and transaction boundaries
+
+Application modules export `create*Service(dependencies)` factories. Dependencies are explicit, typed repository and provider contracts owned by application/ports. The application layer does not import Prisma, generated database models, provider SDKs, infrastructure, or composition. Services can be exercised with in-memory fakes without configuring PostgreSQL, Redis, or LiveKit.
+
+Server-only composition modules instantiate each service once with production adapters and other use cases. Routes, pages, authentication adapters, and SSE handlers import the composed operations. Repository factories resolve database clients lazily; importing a service does not open a connection. Reusable browser components never import composition modules.
+
+```mermaid
+flowchart LR
+  Delivery[Next.js routes and server pages] --> Composition[Server composition]
+  Composition --> Application[Application service factories]
+  Composition --> Infrastructure[Prisma and provider adapters]
+  Application --> Ports[Application-owned interfaces]
+  Application --> Domain[Domain rules and contracts]
+  Infrastructure -. implements .-> Ports
+```
+
+Repository operations have named, typed inputs and plain data results. Prisma selectors, filters, generated model types, raw SQL, and retryable Prisma error classification live in infrastructure. Provider ports cover presence, realtime, media tokens, configuration, location lookup, logging, and directory access. The Next.js cookie/session and request/response adapters remain in interfaces.
+
+The repository `transaction(work, options)` unit of work binds every operation supplied to `work` to the same Prisma transaction. Exceptions propagate to Prisma and roll back the transaction. Application code retains authorization and business decisions inside that callback. Call participant locks, conditional status writes and event inserts preserve their ordering; directory subject/event advisory locks, monotonic revision checks, eligibility checks and receipt writes retain their existing transaction boundaries. No media bytes pass through Next.js.
+
+Directory SSO provisioning and reconciliation share the same injected directory service. The CLI entrypoint is `server/interfaces/cli/reconcile-supernizo-users.ts`; its launcher remains `pnpm directory:reconcile`.
+
+### Extending and validating the architecture
+
+1. Add pure rules to domain and use-case orchestration to an application factory.
+2. Define a narrow, provider-independent contract in application/ports. Keep database query syntax and generated types out of the contract.
+3. Implement persistence and external calls in infrastructure; preserve transaction and idempotency requirements.
+4. Wire the adapter in server/composition, and call the composed use case from the delivery entrypoint after validation and authorization.
+5. Test policy with injected fakes, adapter semantics with repository tests, and HTTP behavior with route tests.
+
+Tests remain beside their code. The architecture suite enforces domain isolation, application dependency inversion, infrastructure direction, browser boundaries, and the absence of direct database imports in routes/pages/interfaces. Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. Database integration tests require their configured database and TLS certificate. These dependency changes do not require a database migration.
+
 ## Production topology
 
 Supernizo Autocall is a single Next.js and TypeScript application. In production, Docker Compose runs the application and PostgreSQL together on the existing Hetzner host under `/home/deploy/app/autocall`. Nginx terminates public TLS and forwards only `/autocall-db` traffic to the application’s loopback port.

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireRole } from '@/server/auth/access';
-import { ForbiddenError } from '@/server/errors/app-error';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ForbiddenError } from '@/server/domain/errors/app-error';
 
 import { POST } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
+vi.mock('@/server/interfaces/auth/access', () => ({ requireRole: vi.fn() }));
 
 describe('POST /api/dashboard/access/users', () => {
   beforeEach(() => vi.clearAllMocks());

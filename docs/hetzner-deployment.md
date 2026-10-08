@@ -61,7 +61,7 @@ The lead-generation monitoring stack already binds Loki to `127.0.0.1:3100`, so 
 sudo ss -lntp | grep ':3200 ' || true
 ```
 
-No output means the port is currently free. If another service is shown, stop here and choose one different loopback port consistently in `.env.production`, `docker-compose.production.yml`, the deployment health check, the validator, and the Nginx snippet.
+No output means the port is currently free. If another service is shown, stop here and choose one different loopback port consistently in `.env.production`, `ops/docker/docker-compose.production.yml`, the deployment health check, the validator, and the Nginx snippet.
 
 GitHub-hosted runner addresses change. If TCP 22 cannot be dynamically allow-listed, leave it reachable but enforce SSH keys, the forced command in section 8, disabled password login, and normal SSH rate limiting. Do not weaken SSH authentication to make CI work.
 
@@ -179,7 +179,7 @@ Obtain production Upstash Redis REST and LiveKit credentials from their provider
 
 ```sh
 cd /home/deploy/app/autocall
-bash scripts/create-production-env.sh .env.production
+bash ops/scripts/create-production-env.sh .env.production
 stat -c '%a %U:%G %n' .env.production
 ```
 
@@ -194,7 +194,7 @@ It prompts silently for provider tokens and the two Supernizo secrets, writes `.
 To configure an existing file manually instead, copy `.env.production.example`, replace every placeholder, set mode `0600`, and run:
 
 ```sh
-bash scripts/validate-production-env.sh .env.production
+bash ops/scripts/validate-production-env.sh .env.production
 ```
 
 Never commit, print, upload, or paste `.env.production` into a GitHub issue or Actions secret.
@@ -265,7 +265,7 @@ ssh-keygen -t ed25519 -f ./supernizo-autocall-actions -C github-actions-autocall
 On Hetzner, append exactly one restricted line to `/home/deploy/.ssh/authorized_keys`, replacing the key body with `supernizo-autocall-actions.pub`:
 
 ```text
-restrict,command="/usr/bin/bash /home/deploy/app/autocall/scripts/github-deploy-command.sh" ssh-ed25519 REPLACE_WITH_ACTIONS_PUBLIC_KEY github-actions-autocall
+restrict,command="/usr/bin/bash /home/deploy/app/autocall/ops/scripts/github-deploy-command.sh" ssh-ed25519 REPLACE_WITH_ACTIONS_PUBLIC_KEY github-actions-autocall
 ```
 
 Then enforce ownership and permissions:
@@ -324,7 +324,7 @@ cd /home/deploy/app/autocall
 docker compose \
   --env-file .env.production \
   --env-file .deployment/current-images.env \
-  -f docker-compose.production.yml ps
+  -f ops/docker/docker-compose.production.yml ps
 cat .deployment/current-commit
 cat .deployment/current-images.env
 curl --fail http://127.0.0.1:3200/autocall-db/api/health/ready
@@ -348,7 +348,7 @@ export ADMIN_EMAIL ADMIN_PASSWORD
 docker compose \
   --env-file .env.production \
   --env-file .deployment/current-images.env \
-  -f docker-compose.production.yml \
+  -f ops/docker/docker-compose.production.yml \
   run --rm -e ADMIN_EMAIL -e ADMIN_PASSWORD migrate \
   ./node_modules/.bin/tsx prisma/provision-admin.ts
 unset ADMIN_EMAIL ADMIN_PASSWORD
@@ -384,11 +384,11 @@ cd /home/deploy/app/autocall
 docker compose \
   --env-file .env.production \
   --env-file .deployment/current-images.env \
-  -f docker-compose.production.yml logs --tail=200 app
+  -f ops/docker/docker-compose.production.yml logs --tail=200 app
 docker compose \
   --env-file .env.production \
   --env-file .deployment/current-images.env \
-  -f docker-compose.production.yml logs --tail=200 postgres
+  -f ops/docker/docker-compose.production.yml logs --tail=200 postgres
 docker stats
 df -h
 ```
@@ -412,7 +412,7 @@ If any credential was ever committed, deleting the working-tree file is not suff
 
 - Leadgen still works through the existing `/` route.
 - `/autocall-db` loads over HTTPS; `/autocall-db/` redirects once to `/autocall-db`. Nginx must proxy the exact root rather than adding a slash that Next.js removes.
-- `bash scripts/check-public-routing.sh` passes through the public Nginx endpoint after deployment.
+- `bash ops/scripts/check-public-routing.sh` passes through the public Nginx endpoint after deployment.
 - Loopback and public readiness endpoints return HTTP 200.
 - `docker compose ps` shows app only on `127.0.0.1:3200` and no PostgreSQL host port.
 - Both deployed image values use the approved GHCR repositories with `@sha256:` digests.

@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireRole } from '@/server/auth/access';
-import { ServiceUnavailableError } from '@/server/errors/app-error';
-import { heartbeatAgent } from '@/server/services/agent-presence-service';
-import { reconcileStaleCallsForAgent } from '@/server/services/call-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ServiceUnavailableError } from '@/server/domain/errors/app-error';
+import { heartbeatAgent } from '@/server/composition/presence/agent-presence-service';
+import { reconcileStaleCallsForAgent } from '@/server/composition/calls/call-service';
 
 import { POST } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
-vi.mock('@/server/logging/logger', () => ({ logger: { log: vi.fn() } }));
-vi.mock('@/server/services/agent-presence-service', () => ({ heartbeatAgent: vi.fn() }));
-vi.mock('@/server/services/call-service', () => ({ reconcileStaleCallsForAgent: vi.fn() }));
+vi.mock('@/server/interfaces/auth/access', () => ({ requireRole: vi.fn() }));
+vi.mock('@/server/infrastructure/logging/logger', () => ({ logger: { log: vi.fn() } }));
+vi.mock('@/server/composition/presence/agent-presence-service', () => ({
+  heartbeatAgent: vi.fn(),
+}));
+vi.mock('@/server/composition/calls/call-service', () => ({
+  reconcileStaleCallsForAgent: vi.fn(),
+}));
 
 describe('POST /api/dashboard/agent-presence', () => {
   beforeEach(() => {

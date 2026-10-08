@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 
 import { AgentPresenceHeartbeatSchema } from '@supernizo/shared';
 
-import { requireRole } from '@/server/auth/access';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { heartbeatAgent } from '@/server/services/agent-presence-service';
-import { reconcileStaleCallsForAgent } from '@/server/services/call-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { heartbeatAgent } from '@/server/composition/presence/agent-presence-service';
+import { reconcileStaleCallsForAgent } from '@/server/composition/calls/call-service';
 
 export const runtime = 'nodejs';
 

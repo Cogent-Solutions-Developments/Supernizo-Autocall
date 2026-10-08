@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getDependencyReadiness } from '@/server/diagnostics/dependency-readiness';
+import { getDependencyReadiness } from '@/server/infrastructure/diagnostics/dependency-readiness';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
