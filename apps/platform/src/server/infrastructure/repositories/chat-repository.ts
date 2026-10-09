@@ -6,7 +6,9 @@ import type {
   ChatRepositorySession,
 } from '@/server/application/ports/chat-repository';
 const messageSelect = {
-  agent: { select: { displayName: true } },
+  agent: {
+    select: { displayName: true, profile: { select: { displayName: true, imageUrl: true } } },
+  },
   content: true,
   id: true,
   senderType: true,

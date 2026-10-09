@@ -342,6 +342,57 @@ class EngagementManager {
 exports.EngagementManager = EngagementManager;
 
   };
+  modules['./chat-identity-session'] = (require, exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatIdentitySession = exports.CHAT_IDENTITY_TIMEOUT_MS = void 0;
+// Keep the browser bundle independent of server/shared runtime modules.
+exports.CHAT_IDENTITY_TIMEOUT_MS = 45_000;
+// Only the header identity expires. The durable thread and messages stay available.
+class ChatIdentitySession {
+    key;
+    storage;
+    lastSeenAt;
+    startedAt;
+    constructor(key, startedAt, storage, now = Date.now()) {
+        this.key = key;
+        this.storage = storage;
+        this.startedAt = startedAt;
+        this.lastSeenAt = now;
+        try {
+            const savedStart = storage?.getItem(`${key}:start`);
+            const savedLastSeen = storage?.getItem(`${key}:last_seen`);
+            if (savedStart && Date.parse(savedStart) > Date.parse(startedAt)) {
+                this.startedAt = savedStart;
+            }
+            if (savedLastSeen && Number.isFinite(Number(savedLastSeen))) {
+                this.lastSeenAt = Number(savedLastSeen);
+            }
+        }
+        catch {
+            // Storage restrictions must not break the host page.
+        }
+    }
+    currentStart(visible, now = Date.now()) {
+        if (visible) {
+            if (now - this.lastSeenAt >= exports.CHAT_IDENTITY_TIMEOUT_MS) {
+                this.startedAt = new Date(Math.max(now, Date.parse(this.startedAt))).toISOString();
+            }
+            this.lastSeenAt = now;
+        }
+        try {
+            this.storage?.setItem(`${this.key}:start`, this.startedAt);
+            this.storage?.setItem(`${this.key}:last_seen`, String(this.lastSeenAt));
+        }
+        catch {
+            // Keep the boundary in memory when session storage is unavailable.
+        }
+        return this.startedAt;
+    }
+}
+exports.ChatIdentitySession = ChatIdentitySession;
+
+  };
   modules['./chat-widget'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -350,6 +401,7 @@ exports.shouldScheduleChatLauncherCollapse = shouldScheduleChatLauncherCollapse;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
 exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
 const platform_url_1 = require("./platform-url");
+const chat_identity_session_1 = require("./chat-identity-session");
 exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
 exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
 const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
@@ -421,6 +473,7 @@ class ChatWidgetController {
     };
     contactTimer;
     currentConfig;
+    identitySession;
     frame;
     frameAnimation;
     launcher;
@@ -433,15 +486,24 @@ class ChatWidgetController {
     latestAgentMessageId;
     openRequested = false;
     syncTimer;
-    constructor(context, bootstrapEndpoint, callEnabled = false, onCallRequest) {
+    constructor(context, bootstrapEndpoint, callEnabled = false, onCallRequest, sessionStartedAt = new Date().toISOString()) {
         this.context = context;
         this.bootstrapEndpoint = bootstrapEndpoint;
         this.callEnabled = callEnabled;
         this.onCallRequest = onCallRequest;
+        let storage;
+        try {
+            storage = window.sessionStorage;
+        }
+        catch {
+            // The widget also works without browser storage.
+        }
+        this.identitySession = new chat_identity_session_1.ChatIdentitySession(`supernizo_chat_identity:${context.sitePublicKey}:${context.sessionId}`, sessionStartedAt, storage);
     }
     start() {
         try {
             this.mountLauncher();
+            document.addEventListener('visibilitychange', this.handleVisibilityChange);
             void this.syncThread();
             this.contactTimer = window.setInterval(() => {
                 if (this.openRequested)
@@ -463,6 +525,7 @@ class ChatWidgetController {
         }
         this.cancelLauncherCollapse();
         window.removeEventListener('message', this.receiveMessage);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         this.unmountFrame(false);
         this.launcher?.remove();
         this.launcher = undefined;
@@ -905,6 +968,12 @@ class ChatWidgetController {
         this.postConfig();
         this.postOpenRequest();
     }
+    handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            this.postConfig();
+            void this.syncThread();
+        }
+    };
     receiveMessage = (event) => {
         if (event.origin !== new URL(this.bootstrapEndpoint).origin ||
             event.source !== this.frame?.contentWindow) {
@@ -1007,6 +1076,7 @@ class ChatWidgetController {
         this.frame?.contentWindow?.postMessage({ type: 'supernizo-chat-contact-result', saved }, new URL(this.bootstrapEndpoint).origin);
     }
     async syncThread() {
+        this.identitySession.currentStart(document.visibilityState === 'visible');
         try {
             const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/thread'));
             endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
@@ -1047,7 +1117,11 @@ class ChatWidgetController {
         if (!this.currentConfig || !this.frame?.contentWindow)
             return;
         this.frame.contentWindow.postMessage({
-            config: { ...this.currentConfig, callEnabled: this.callEnabled },
+            config: {
+                ...this.currentConfig,
+                callEnabled: this.callEnabled,
+                sessionStartedAt: this.identitySession.currentStart(document.visibilityState === 'visible'),
+            },
             type: 'supernizo-chat-config',
         }, new URL(this.bootstrapEndpoint).origin);
     }
@@ -1860,6 +1934,8 @@ function isBootstrapResponse(value) {
     const response = value;
     return (typeof response.visitorId === 'string' &&
         typeof response.sessionId === 'string' &&
+        typeof response.chatSessionStartedAt === 'string' &&
+        Number.isFinite(Date.parse(response.chatSessionStartedAt)) &&
         typeof response.heartbeatIntervalSeconds === 'number' &&
         Boolean(response.features) &&
         Boolean(response.realtime));
@@ -1982,7 +2058,7 @@ exports.Tracker = {
                     sessionId: responseBody.sessionId,
                     sitePublicKey,
                     visitorId: responseBody.visitorId,
-                }, bootstrapEndpoint, responseBody.features.audioCallEnabled, () => callWidget?.requestAudioCall())
+                }, bootstrapEndpoint, responseBody.features.audioCallEnabled, () => callWidget?.requestAudioCall(), responseBody.chatSessionStartedAt)
                 : undefined;
             chatWidget?.stop();
             chatWidget = nextChatWidget;

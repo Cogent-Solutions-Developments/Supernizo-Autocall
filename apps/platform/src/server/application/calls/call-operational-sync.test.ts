@@ -104,6 +104,36 @@ describe('deferred call operational synchronization', () => {
     expect(mocks.callFindUnique).toHaveBeenCalledTimes(2);
   });
 
+  it('uses the calling user profile instead of the event avatar', async () => {
+    const photo = 'data:image/png;base64,iVBORw0KGgo=';
+    const call = {
+      ...selectedCall,
+      agent: { displayName: 'Directory name', profile: { displayName: 'Alice', imageUrl: photo } },
+      site: { widgetAvatarUrl: 'https://example.com/event-logo.png' },
+    };
+    mocks.callFindUnique.mockReset().mockResolvedValue(call);
+    mocks.transactionCallFindUnique.mockResolvedValue({ ...call, status: 'ENDED' });
+    const result = await transitionCall('call_123', 'end', undefined, {
+      scheduleOperationalSync: vi.fn(),
+    });
+    expect(result).toMatchObject({ agentDisplayName: 'Alice', agentAvatarUrl: photo });
+  });
+
+  it('does not show an event avatar while waiting for an agent', async () => {
+    const call = {
+      ...selectedCall,
+      agent: null,
+      agentId: null,
+      site: { widgetAvatarUrl: 'https://example.com/event-logo.png' },
+    };
+    mocks.callFindUnique.mockReset().mockResolvedValue(call);
+    mocks.transactionCallFindUnique.mockResolvedValue({ ...call, status: 'ENDED' });
+    const result = await transitionCall('call_123', 'end', undefined, {
+      scheduleOperationalSync: vi.fn(),
+    });
+    expect(result).toMatchObject({ agentDisplayName: null, agentAvatarUrl: null });
+  });
+
   it('defers non-critical created-call work so the incoming ring can be published first', async () => {
     let scheduledTask: (() => Promise<void>) | undefined;
     const scheduler = vi.fn((task: () => Promise<void>) => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ProfileImageSchema } from './profile';
 
 export const IdSchema = z
   .string()
@@ -145,6 +146,7 @@ export const TrackerBootstrapRequestSchema = z.object({
 });
 
 export const TrackerBootstrapResponseSchema = z.object({
+  chatSessionStartedAt: z.string().datetime(),
   calling: LiveKitPreparationSchema.optional(),
   features: SiteFeatureFlagsSchema,
   heartbeatIntervalSeconds: z.number().int().positive(),
@@ -220,6 +222,7 @@ export const ChatMessageSchema = z.object({
   content: ChatMessageContentSchema,
   id: IdSchema,
   senderName: z.string().trim().min(1).max(191).nullable(),
+  senderAvatarUrl: ProfileImageSchema.optional(),
   senderType: ChatSenderTypeSchema,
   sentAt: UtcDateTimeSchema,
   threadId: IdSchema,
@@ -384,7 +387,7 @@ export const CallStatusSchema = z.enum([
 ]);
 
 export const CallSchema = z.object({
-  agentAvatarUrl: OptionalHttpUrlSchema,
+  agentAvatarUrl: ProfileImageSchema.optional(),
   agentDisplayName: z.string().trim().min(1).max(191).nullable(),
   id: IdSchema,
   requestedAt: UtcDateTimeSchema,

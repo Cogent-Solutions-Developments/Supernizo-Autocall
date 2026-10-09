@@ -1,5 +1,12 @@
+import { config } from 'dotenv';
 import type { NextConfig } from 'next';
 import { resolve } from 'node:path';
+
+// Load workspace settings before NextAuth initializes its URL defaults.
+// Explicit launcher/deployment variables and app-local files keep precedence.
+for (const name of ['.env.local', '.env']) {
+  config({ path: resolve(import.meta.dirname, '../..', name), override: false, quiet: true });
+}
 
 const nextConfig: NextConfig = {
   basePath: '/autocall-db',

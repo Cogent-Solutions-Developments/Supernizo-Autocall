@@ -5,6 +5,7 @@ import type {
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import {
+  getAgentIdentity,
   CallSchema,
   CallStatusSchema,
   type Call,
@@ -99,9 +100,10 @@ export function createCallService(
   };
 
   function mapCall(call: SelectedCall): Call {
+    const agent = getAgentIdentity(call.agent);
     return CallSchema.parse({
-      agentAvatarUrl: call.site.widgetAvatarUrl,
-      agentDisplayName: call.agent?.displayName ?? null,
+      agentAvatarUrl: agent?.imageUrl ?? null,
+      agentDisplayName: agent?.displayName ?? null,
       id: call.id,
       requestedAt: call.requestedAt.toISOString(),
       roomName: call.roomName ?? `call_${call.id}`,

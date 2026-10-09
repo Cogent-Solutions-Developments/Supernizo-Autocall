@@ -1,3 +1,4 @@
+import type { AgentProfileRecord } from '@supernizo/shared';
 import type { CallType, CallStatus } from '@supernizo/shared';
 import type { JsonValue } from './json-value';
 export type GetSiteCallSettingsResult = null | {
@@ -18,10 +19,10 @@ export type FindCallResult = null | {
   roomName: null | string;
   requestedAt: Date;
   failureCode: null | string;
-  site: { name: string; widgetAvatarUrl: null | string };
+  site: { name: string };
   visitor: { anonymousId: string };
   session: null | { geoCountry: null | string; geoCity: null | string };
-  agent: null | { displayName: null | string };
+  agent: AgentProfileRecord | null;
 };
 
 export type FindStaleCallsResult = Array<{
@@ -41,10 +42,10 @@ export type ListCallsByIdsResult = Array<{
   roomName: null | string;
   requestedAt: Date;
   failureCode: null | string;
-  site: { name: string; widgetAvatarUrl: null | string };
+  site: { name: string };
   visitor: { anonymousId: string };
   session: null | { geoCountry: null | string; geoCity: null | string };
-  agent: null | { displayName: null | string };
+  agent: AgentProfileRecord | null;
 }>;
 
 export type GetCallExpiryResult = null | {
@@ -73,10 +74,10 @@ export type CreateAgentCallResult = {
   roomName: null | string;
   requestedAt: Date;
   failureCode: null | string;
-  site: { name: string; widgetAvatarUrl: null | string };
+  site: { name: string };
   visitor: { anonymousId: string };
   session: null | { geoCountry: null | string; geoCity: null | string };
-  agent: null | { displayName: null | string };
+  agent: AgentProfileRecord | null;
 };
 
 export type FindRequestingVisitorResult = null | {
@@ -208,10 +209,10 @@ export interface CallRepositorySession {
       roomName: null | string;
       requestedAt: Date;
       failureCode: null | string;
-      site: { name: string; widgetAvatarUrl: null | string };
+      site: { name: string };
       visitor: { anonymousId: string };
       session: null | { geoCountry: null | string; geoCity: null | string };
-      agent: null | { displayName: null | string };
+      agent: AgentProfileRecord | null;
     },
     current: CallStatus,
     target: CallStatus,
@@ -232,10 +233,10 @@ export interface CallRepositorySession {
       roomName: null | string;
       requestedAt: Date;
       failureCode: null | string;
-      site: { name: string; widgetAvatarUrl: null | string };
+      site: { name: string };
       visitor: { anonymousId: string };
       session: null | { geoCountry: null | string; geoCity: null | string };
-      agent: null | { displayName: null | string };
+      agent: AgentProfileRecord | null;
     },
     current: CallStatus,
     target: CallStatus,

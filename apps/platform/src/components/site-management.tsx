@@ -42,9 +42,6 @@ type SitePayload = Readonly<{
   name: string;
   trackingEnabled: boolean;
   videoCallEnabled: boolean;
-  widgetAvatarUrl: string | null;
-  widgetDisplayName: string | null;
-  widgetLogoUrl: string | null;
 }>;
 
 function valueOrNull(value: FormDataEntryValue | null): string | null {
@@ -70,9 +67,6 @@ function formDataToPayload(formData: FormData): SitePayload {
     name: String(formData.get('name') ?? '').trim(),
     trackingEnabled: formData.get('trackingEnabled') === 'on',
     videoCallEnabled: formData.get('videoCallEnabled') === 'on',
-    widgetAvatarUrl: valueOrNull(formData.get('widgetAvatarUrl')),
-    widgetDisplayName: valueOrNull(formData.get('widgetDisplayName')),
-    widgetLogoUrl: valueOrNull(formData.get('widgetLogoUrl')),
   };
 }
 
@@ -218,18 +212,9 @@ function SiteForm({
         open={Boolean(defaultSite)}
       >
         <summary className="cursor-pointer text-sm font-semibold text-strong">
-          Widget appearance and consent settings
+          Consent settings
         </summary>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-medium text-body">
-            Widget display name
-            <input
-              className="workspace-input"
-              defaultValue={defaultSite?.widgetDisplayName ?? ''}
-              name="widgetDisplayName"
-              placeholder="Event concierge"
-            />
-          </label>
           <label className="grid gap-1.5 text-sm font-medium text-body">
             Consent mode
             <input
@@ -237,24 +222,6 @@ function SiteForm({
               defaultValue={defaultSite?.consentMode ?? ''}
               name="consentMode"
               placeholder="optional"
-            />
-          </label>
-          <label className="grid gap-1.5 text-sm font-medium text-body">
-            Avatar URL
-            <input
-              className="workspace-input"
-              defaultValue={defaultSite?.widgetAvatarUrl ?? ''}
-              name="widgetAvatarUrl"
-              type="url"
-            />
-          </label>
-          <label className="grid gap-1.5 text-sm font-medium text-body">
-            Logo URL
-            <input
-              className="workspace-input"
-              defaultValue={defaultSite?.widgetLogoUrl ?? ''}
-              name="widgetLogoUrl"
-              type="url"
             />
           </label>
         </div>

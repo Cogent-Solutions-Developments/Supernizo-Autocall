@@ -5,7 +5,7 @@ test('the tracker fixture mounts chat and call widget iframes', async ({ page })
   page.on('pageerror', (error) => browserErrors.push(error.message));
 
   await page.goto('/autocall-db/sdk/fixture.html');
-  const chatLauncher = page.getByRole('button', { name: 'Open chat with the event team' });
+  const chatLauncher = page.locator('button[data-supernizo-launcher="true"]');
 
   await expect(chatLauncher).toBeVisible();
   await expect(page.locator('iframe[title="Incoming calls"]')).toHaveCount(1);

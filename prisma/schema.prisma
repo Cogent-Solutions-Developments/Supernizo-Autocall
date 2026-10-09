@@ -74,6 +74,15 @@ model User {
   requestedCalls  Call[]              @relation("CallAgent")
   auditLogs       AuditLog[]          @relation("AuditActor")
   supernizoState  SupernizoUserState?
+  profile         UserProfile?
+}
+
+model UserProfile {
+  userId      String   @id @db.VarChar(30)
+  displayName String   @db.VarChar(191)
+  imageUrl    String?  @db.Text
+  updatedAt   DateTime @updatedAt @db.Timestamp(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model SupernizoUserState {

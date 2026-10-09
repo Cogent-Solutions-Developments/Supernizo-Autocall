@@ -3,27 +3,30 @@ import 'server-only';
 import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
-import { withAppBasePath } from '@/lib/app-path';
+import { APP_BASE_PATH, withAppBasePath } from '@/lib/app-path';
 import { authorizeLocalAdmin } from '@/server/interfaces/auth/local-admin-login';
 import { getAuthenticationEnvironment } from '@/server/infrastructure/config/env';
 import { authorizeSupernizo } from '@/server/interfaces/auth/supernizo-sso';
 
 export function getAuthOptions(): NextAuthOptions {
   const { AUTH_SECRET: secret } = getAuthenticationEnvironment();
+  const secure = process.env.NODE_ENV === 'production';
+  const cookiePrefix = secure ? '__Secure-' : '';
+  const cookieOptions = { httpOnly: true, sameSite: 'lax', path: APP_BASE_PATH, secure } as const;
 
   return {
     cookies: {
       sessionToken: {
-        name:
-          process.env.NODE_ENV === 'production'
-            ? '__Secure-autocall.session-token'
-            : 'autocall.session-token',
-        options: {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/autocall-db',
-          secure: process.env.NODE_ENV === 'production',
-        },
+        name: `${cookiePrefix}autocall.session-token`,
+        options: cookieOptions,
+      },
+      csrfToken: {
+        name: `${cookiePrefix}autocall.csrf-token`,
+        options: cookieOptions,
+      },
+      callbackUrl: {
+        name: `${cookiePrefix}autocall.callback-url`,
+        options: cookieOptions,
       },
     },
     callbacks: {

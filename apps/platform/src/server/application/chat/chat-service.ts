@@ -2,6 +2,8 @@ import type { ChatRepository } from '@/server/application/ports/chat-repository'
 import 'server-only';
 import { Buffer } from 'node:buffer';
 import {
+  getAgentIdentity,
+  type AgentProfileRecord,
   ChatHistoryQuerySchema,
   ChatInboxThreadSchema,
   ChatMessageSchema,
@@ -66,17 +68,19 @@ export function createChatService(
 
   function mapMessage(message: {
     id: string;
-    agent: null | { displayName: null | string };
+    agent: AgentProfileRecord | null;
     sentAt: Date;
     threadId: string;
     senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';
     content: string;
   }): ChatMessage {
+    const agent = message.senderType === 'AGENT' ? getAgentIdentity(message.agent) : null;
     return ChatMessageSchema.parse({
       content: message.content,
       id: message.id,
       senderName:
-        message.senderType === 'AGENT' ? (message.agent?.displayName ?? 'Support team') : 'Visitor',
+        message.senderType === 'AGENT' ? (agent?.displayName ?? 'Support agent') : 'Visitor',
+      senderAvatarUrl: agent?.imageUrl ?? null,
       senderType: message.senderType,
       sentAt: message.sentAt.toISOString(),
       threadId: message.threadId,

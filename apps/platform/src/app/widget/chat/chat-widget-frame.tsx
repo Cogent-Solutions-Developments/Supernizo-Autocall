@@ -6,6 +6,7 @@ import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 
 import { z } from 'zod';
 
 import {
+  getChatAgentIdentity,
   ChatContactPromptSchema,
   type ChatContactInput,
   type ChatContactPrompt,
@@ -13,6 +14,7 @@ import {
   type ChatMessage,
 } from '@supernizo/shared';
 
+import { AgentAvatar } from '@/components/agent-avatar';
 import { CallerIdentityVideo } from '@/components/caller-identity-video';
 import { mergeChatMessage } from '@/components/chat-state';
 import { FlowingRibbons } from '@/components/flowing-ribbons';
@@ -25,6 +27,7 @@ import { NizoVerifiedIcon } from '../call/call-action-icons';
 const WidgetConfigSchema = z.object({
   callEnabled: z.boolean().default(false),
   messages: z.array(ChatMessageSchema),
+  sessionStartedAt: z.string().datetime().optional(),
   threadId: z.string().min(1),
   token: z.string().min(1),
 });
@@ -101,9 +104,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   const [unread, setUnread] = useState(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const agentName = displayAgentName(
-    [...messages].reverse().find((message) => message.senderType === 'AGENT')?.senderName,
-  );
+  const agent = getChatAgentIdentity(messages, config?.sessionStartedAt);
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
@@ -241,7 +242,15 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             <header className="chat-header flex items-center justify-between gap-3 px-4 pt-4 pb-2.5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative h-11 w-11 shrink-0">
-                  <CallerIdentityVideo className="ring-2 ring-white" />
+                  {agent ? (
+                    <AgentAvatar
+                      className="ring-2 ring-white"
+                      name={agent.displayName}
+                      imageUrl={agent.imageUrl}
+                    />
+                  ) : (
+                    <CallerIdentityVideo className="ring-2 ring-white" />
+                  )}
                   <span
                     aria-label="Online now"
                     className="absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-[#55c985]"
@@ -250,7 +259,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="m-0 truncate text-[15px] leading-5 font-semibold tracking-[-0.025em] text-[#18181b]">
-                    {agentName}
+                    {agent?.displayName ?? 'Swetha Sahanya'}
                   </p>
                   <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-[#85858d]">
                     <span>Online now</span>
@@ -449,9 +458,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             sans-serif;
           color-scheme: light;
         }
-        .message-scroll {
-          scrollbar-color: #d4d4d8 transparent;
-          scrollbar-width: thin;
+        .message-scroll,
+        .composer-field textarea {
+          scrollbar-width: none;
         }
         @media (max-width: 320px) {
           .composer-field textarea {
@@ -472,12 +481,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             height: 44px;
           }
         }
-        .message-scroll::-webkit-scrollbar {
-          width: 5px;
-        }
-        .message-scroll::-webkit-scrollbar-thumb {
-          background: #d4d4d8;
-          border-radius: 999px;
+        .message-scroll::-webkit-scrollbar,
+        .composer-field textarea::-webkit-scrollbar {
+          display: none;
         }
         .chat-header {
           animation: chat-content-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 70ms both;

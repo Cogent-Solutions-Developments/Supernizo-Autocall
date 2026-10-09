@@ -1,6 +1,8 @@
 'use client';
 
-import { CalendarDays, Radar, Headset, ChartSpline, ArrowUpRight } from 'lucide-react';
+import { CalendarDays, Radar, Headset, ChartSpline, ArrowUpRight, Settings } from 'lucide-react';
+import type { UserProfile } from '@supernizo/shared';
+import { DashboardProfileSettings } from './dashboard-profile-settings';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   dashboardHref,
@@ -11,7 +13,10 @@ import { FloatingDock, type FloatingDockItem } from './heavy-floating-dock';
 
 const icons = { events: CalendarDays, live: Radar, calls: Headset, analytics: ChartSpline };
 
-export function DashboardDock({ returnTo }: Readonly<{ returnTo: string | undefined }>) {
+export function DashboardDock({
+  returnTo,
+  initialProfile,
+}: Readonly<{ returnTo: string | undefined; initialProfile: UserProfile }>) {
   const pathname = usePathname();
   const siteId = useSearchParams().get('siteId');
   const sections = pathname === '/dashboard' ? [] : dashboardSections;
@@ -30,12 +35,26 @@ export function DashboardDock({ returnTo }: Readonly<{ returnTo: string | undefi
       href: returnTo,
       icon: <ArrowUpRight className="h-full w-full" />,
     });
-  if (items.length === 0) return null;
 
   return (
     <div className="heavy-dock-frame">
       <div className="heavy-dock-position">
-        <FloatingDock key={pathname} items={items} />
+        <DashboardProfileSettings
+          initialProfile={initialProfile}
+          renderTrigger={(openSettings) => (
+            <FloatingDock
+              key={pathname}
+              items={[
+                ...items,
+                {
+                  title: 'Profile settings',
+                  icon: <Settings aria-hidden="true" className="h-full w-full" />,
+                  onClick: openSettings,
+                },
+              ]}
+            />
+          )}
+        />
       </div>
     </div>
   );

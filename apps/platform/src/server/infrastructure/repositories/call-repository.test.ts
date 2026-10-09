@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const transaction = {
     $queryRaw: vi.fn(),
@@ -8,21 +8,56 @@ const mocks = vi.hoisted(() => {
   const runTransaction = vi.fn(async (work: (tx: typeof transaction) => Promise<unknown>) =>
     work(transaction),
   );
-  return { transaction, runTransaction, rootUpdate: vi.fn() };
+  return { transaction, runTransaction, rootUpdate: vi.fn(), findAgents: vi.fn() };
 });
 vi.mock('@/server/infrastructure/db/client', () => ({
   getDatabaseClient: () => ({
     $transaction: mocks.runTransaction,
     call: { updateMany: mocks.rootUpdate },
+    user: { findMany: mocks.findAgents },
   }),
 }));
 import { createCallRepository } from './call-repository';
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.findAgents.mockResolvedValue([{ id: 'local-admin' }]);
   mocks.transaction.call.updateMany.mockResolvedValue({ count: 1 });
   mocks.transaction.callEvent.create.mockResolvedValue({});
   mocks.transaction.call.findUniqueOrThrow.mockResolvedValue({ id: 'call-1' });
 });
+afterEach(() => vi.unstubAllEnvs());
+
+describe('development call recipients', () => {
+  it('includes password-based local administrators during development', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    await expect(createCallRepository().listEligibleAgents()).resolves.toEqual([
+      { id: 'local-admin' },
+    ]);
+    expect(mocks.findAgents).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { supernizoId: { not: null } },
+          { globalRole: 'ADMIN', supernizoId: null, passwordHash: { not: null } },
+        ],
+      },
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+  });
+  it.each(['production', 'test', undefined])(
+    'keeps local administrators out when NODE_ENV is %s',
+    async (mode) => {
+      vi.stubEnv('NODE_ENV', mode);
+      await createCallRepository().listEligibleAgents();
+      expect(mocks.findAgents).toHaveBeenCalledWith({
+        where: { supernizoId: { not: null } },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+    },
+  );
+});
+
 describe('call repository unit of work', () => {
   it('binds locks, conditional claims, and events to the transaction client', async () => {
     const repository = createCallRepository();

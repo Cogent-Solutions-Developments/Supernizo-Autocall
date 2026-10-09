@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 import { withAppBasePath } from '@/lib/app-path';
+import { getLocalSignInError } from '@/lib/local-sign-in';
 
 export function LoginForm() {
   const router = useRouter();
@@ -20,22 +21,26 @@ export function LoginForm() {
     const formData = new FormData(event.currentTarget);
     const email = formData.get('email');
     const password = formData.get('password');
-    const result = await signIn('credentials', {
-      callbackUrl: withAppBasePath('/dashboard'),
-      email: typeof email === 'string' ? email : '',
-      password: typeof password === 'string' ? password : '',
-      redirect: false,
-    });
+    try {
+      const result = await signIn('credentials', {
+        callbackUrl: withAppBasePath('/dashboard'),
+        email: typeof email === 'string' ? email : '',
+        password: typeof password === 'string' ? password : '',
+        redirect: false,
+      });
+      const error = getLocalSignInError(result, window.location.origin);
+      if (error) {
+        setErrorMessage(error);
+        return;
+      }
 
-    setIsSubmitting(false);
-
-    if (!result || result.error) {
-      setErrorMessage('Email or password is incorrect.');
-      return;
+      router.replace('/dashboard');
+      router.refresh();
+    } catch {
+      setErrorMessage('Unable to sign in. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    router.replace(result.url ?? withAppBasePath('/dashboard'));
-    router.refresh();
   }
 
   return (

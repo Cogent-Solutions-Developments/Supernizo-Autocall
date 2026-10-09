@@ -7,6 +7,8 @@ import {
   type ChatContactInput,
   type ChatContactPrompt,
 } from '@supernizo/shared';
+
+import { FlowingRibbons } from '@/components/flowing-ribbons';
 export function ChatContactForm({
   prompt,
   hasVisitorMessage,
@@ -62,7 +64,7 @@ export function ChatContactForm({
   }
   return (
     <>
-      <div className="shrink-0 px-4 pb-3 text-center text-[11px] text-[#71717a]">
+      <div className="flex shrink-0 flex-col items-center gap-1 px-4 pb-3 text-center text-[11px] text-[#71717a]">
         {saved ? (
           <span role="status" className="mr-1 text-emerald-700">
             Contact details saved.
@@ -87,10 +89,25 @@ export function ChatContactForm({
         aria-describedby="contact-description"
         onCancel={close}
         onClose={close}
-        className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none overflow-y-auto border-0 bg-[#fbfbfa] p-0 text-[#18181b] backdrop:bg-black/20"
+        className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none overflow-y-auto rounded-[22px] border border-black/10 bg-[#fbfbfa] p-0 text-[#18181b] shadow-[0_24px_68px_rgba(24,24,27,0.18),0_3px_12px_rgba(24,24,27,0.08)] backdrop:bg-black/20"
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-[radial-gradient(ellipse_at_top_left,rgba(85,201,133,0.18),transparent_65%)]" />
-        <div className="relative flex min-h-full flex-col px-5 py-4">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[22px]"
+        >
+          <div className="absolute inset-x-0 top-0 h-48 bg-[radial-gradient(circle_at_16%_4%,rgba(85,201,133,0.11),transparent_46%),radial-gradient(circle_at_92%_8%,rgba(24,24,27,0.055),transparent_38%)]" />
+          <div className="absolute inset-0 opacity-[0.94]">
+            {visible ? (
+              <FlowingRibbons
+                animationSpeed={0.34}
+                backgroundColor="transparent"
+                lineColor="rgba(63,63,70,0.18)"
+                placement="bottom"
+              />
+            ) : null}
+          </div>
+        </div>
+        <div className="relative flex min-h-full flex-col px-4 py-4">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#85858d]">
               Stay in touch
@@ -99,7 +116,7 @@ export function ChatContactForm({
               type="button"
               aria-label="Close contact form"
               onClick={close}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-white/80 text-[#71717a] shadow-sm hover:text-[#18181b]"
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border border-black/[0.06] bg-white/70 text-[#71717a] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md transition-[background-color,color,transform] duration-200 hover:bg-white hover:text-[#18181b] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] motion-reduce:transition-none"
             >
               <XIcon size={16} weight="bold" />
             </button>
@@ -107,33 +124,36 @@ export function ChatContactForm({
           <form
             aria-label="Contact details for follow-up"
             onSubmit={submit}
-            className="my-auto py-3"
+            className="my-auto w-full max-w-80 self-center py-3"
           >
-            <div className="mb-4 flex h-12 [@media(max-height:600px)]:hidden w-12 items-center justify-center rounded-2xl border border-white bg-white/80 text-[#26834c] shadow-sm">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-[15px] border border-black/[0.07] bg-white/80 text-[#18181b] shadow-[0_1px_2px_rgba(24,24,27,0.04)] backdrop-blur-md [@media(max-height:600px)]:hidden">
               <EnvelopeSimpleIcon size={25} weight="duotone" />
             </div>
             <h2
               id="contact-heading"
-              className="m-0 text-[26px] leading-[1.1] font-semibold tracking-[-0.045em]"
+              className="m-0 text-center text-[28px] leading-[1.08] font-semibold tracking-[-0.045em]"
             >
               Let’s keep
               <br />
               the conversation going.
             </h2>
-            <p id="contact-description" className="mt-3 text-[12px] leading-5 text-[#71717a]">
+            <p
+              id="contact-description"
+              className="mt-3 text-center text-[13px] leading-5 text-[#71717a]"
+            >
               Leave your email, WhatsApp, or both so our team can get back to you. It’s completely
               optional.
             </p>
             <label className="mt-4 block text-[11px] font-medium">
               Email address
-              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 focus-within:border-[#55a875] focus-within:ring-2 focus-within:ring-[#55c985]/15">
+              <div className="mt-1.5 flex items-center gap-2 rounded-[15px] border border-black/10 bg-white/90 px-3.5 shadow-[0_1px_3px_rgba(24,24,27,0.04)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 focus-within:border-black/25 focus-within:shadow-[0_0_0_3px_rgba(24,24,27,0.04)] motion-reduce:transition-none">
                 <EnvelopeSimpleIcon
                   aria-hidden="true"
                   size={17}
                   className="shrink-0 text-[#a1a1aa]"
                 />
                 <input
-                  className="h-10 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                  className="h-11 min-w-0 flex-1 bg-transparent text-[13px] text-[#18181b] outline-none placeholder:text-[#a1a1aa]"
                   autoComplete="email"
                   type="email"
                   maxLength={254}
@@ -145,14 +165,14 @@ export function ChatContactForm({
             </label>
             <label className="mt-3 block text-[11px] font-medium">
               WhatsApp number
-              <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 focus-within:border-[#55a875] focus-within:ring-2 focus-within:ring-[#55c985]/15">
+              <div className="mt-1.5 flex items-center gap-2 rounded-[15px] border border-black/10 bg-white/90 px-3.5 shadow-[0_1px_3px_rgba(24,24,27,0.04)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200 focus-within:border-black/25 focus-within:shadow-[0_0_0_3px_rgba(24,24,27,0.04)] motion-reduce:transition-none">
                 <WhatsappLogoIcon
                   aria-hidden="true"
                   size={17}
                   className="shrink-0 text-[#a1a1aa]"
                 />
                 <input
-                  className="h-10 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                  className="h-11 min-w-0 flex-1 bg-transparent text-[13px] text-[#18181b] outline-none placeholder:text-[#a1a1aa]"
                   type="tel"
                   autoComplete="tel"
                   maxLength={25}
@@ -182,7 +202,7 @@ export function ChatContactForm({
               </p>
             ) : null}
             <button
-              className="mt-4 flex h-10 w-full items-center justify-between rounded-xl bg-[#18181b] px-4 text-[12px] font-medium text-white shadow-sm hover:bg-[#303036] disabled:opacity-50"
+              className="mx-auto mt-4 flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] bg-[#18181b] px-4 text-[13px] font-medium text-white shadow-[0_4px_12px_rgba(24,24,27,0.15)] transition-[background-color,transform,box-shadow] duration-200 hover:bg-black hover:shadow-[0_6px_16px_rgba(24,24,27,0.22)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] disabled:cursor-wait disabled:opacity-50 motion-reduce:transition-none"
               disabled={state === 'saving'}
               type="submit"
             >
@@ -191,7 +211,7 @@ export function ChatContactForm({
             </button>
             <button
               type="button"
-              className="mt-2 w-full py-1 text-[11px] text-[#85858d] hover:text-[#18181b]"
+              className="mx-auto mt-2 flex min-h-9 w-fit cursor-pointer items-center justify-center rounded-lg px-4 text-center text-[11px] text-[#85858d] transition-colors hover:text-[#18181b] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#18181b] motion-reduce:transition-none"
               onClick={close}
             >
               Maybe later
@@ -202,6 +222,14 @@ export function ChatContactForm({
           </p>
         </div>
       </dialog>
+      <style jsx>{`
+        dialog {
+          scrollbar-width: none;
+        }
+        dialog::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </>
   );
 }

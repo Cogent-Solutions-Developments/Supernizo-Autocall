@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { getDatabaseClient } from '@/server/infrastructure/db/client';
 
 import {
+  getChatHistory,
   chatThreadBelongsToVisitor,
   visitorOwnsChatThread,
 } from '@/server/composition/chat/chat-service';
@@ -41,5 +42,33 @@ describe('dashboard notification thread authorization', () => {
     await expect(chatThreadBelongsToVisitor('thread-a', 'site-a', 'visitor-b')).resolves.toBe(
       false,
     );
+  });
+});
+
+describe('chat sender profiles', () => {
+  it('returns each messaging user profile in history without leaking it onto visitor messages', async () => {
+    const photo = 'data:image/png;base64,iVBORw0KGgo=';
+    const agent = {
+      displayName: 'Directory name',
+      profile: { displayName: 'Alice', imageUrl: photo },
+    };
+    const base = {
+      content: 'Hello',
+      threadId: 'thread_1',
+      sentAt: new Date('2026-10-09T10:00:00.000Z'),
+    };
+    vi.mocked(getDatabaseClient).mockReturnValue({
+      chatMessage: {
+        findMany: vi.fn().mockResolvedValue([
+          { ...base, id: 'message_2', senderType: 'VISITOR', agent: null },
+          { ...base, id: 'message_1', senderType: 'AGENT', agent },
+        ]),
+      },
+    } as unknown as ReturnType<typeof getDatabaseClient>);
+    const history = await getChatHistory('thread_1', {});
+    expect(history?.messages).toMatchObject([
+      { senderName: 'Alice', senderAvatarUrl: photo },
+      { senderName: 'Visitor', senderAvatarUrl: null },
+    ]);
   });
 });

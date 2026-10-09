@@ -1,7 +1,11 @@
 import type { TrackerBootstrapRepository } from '@/server/application/ports/tracker-bootstrap-repository';
 import 'server-only';
 import { z } from 'zod';
-import type { TrackerBootstrapRequest, TrackerBootstrapResponse } from '@supernizo/shared';
+import {
+  VISITOR_PRESENCE_TIMEOUT_MS,
+  type TrackerBootstrapRequest,
+  type TrackerBootstrapResponse,
+} from '@supernizo/shared';
 import { ConflictError, ForbiddenError, NotFoundError } from '@/server/domain/errors/app-error';
 import { isOriginAllowed } from '@/server/domain/sites/origins';
 import type {
@@ -153,13 +157,25 @@ export function createTrackerBootstrapService(
       ...readUtmValues(browser.url),
     };
 
-    await repository.upsertSession(input.payload, now, site, visitor, sessionDetails);
+    const session = await repository.upsertSession(
+      input.payload,
+      now,
+      site,
+      visitor,
+      sessionDetails,
+    );
+    const returningAfterExpiry =
+      existingSession &&
+      ((existingSession.endedAt !== null &&
+        existingSession.lastSeenAt <= existingSession.endedAt) ||
+        now.getTime() - existingSession.lastSeenAt.getTime() >= VISITOR_PRESENCE_TIMEOUT_MS);
 
     const visitorChannel = `visitor:${site.id}:${input.payload.visitorId}`;
     const callsEnabled = site.audioCallEnabled || site.videoCallEnabled;
 
     return {
       ...(callsEnabled ? { calling: getLiveKitPublicConfig() } : {}),
+      chatSessionStartedAt: (returningAfterExpiry ? now : session.startedAt).toISOString(),
       features: {
         audioCallEnabled: site.audioCallEnabled,
         chatEnabled: site.chatEnabled,

@@ -25,3 +25,7 @@ export const CallStateSchema = z.enum([
 ]);
 
 export type CallState = z.infer<typeof CallStateSchema>;
+
+export * from './profile';
+
+export * from './agent-identity';

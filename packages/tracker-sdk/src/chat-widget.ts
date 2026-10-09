@@ -1,6 +1,7 @@
 import type { ChatMessage, TrackingContext } from '@supernizo/shared';
 
 import { resolveApplicationEndpoint } from './platform-url';
+import { ChatIdentitySession } from './chat-identity-session';
 
 type ChatThreadResponse = Readonly<{
   history: Readonly<{ messages: ChatMessage[] }>;
@@ -104,6 +105,7 @@ export class ChatWidgetController {
   };
   private contactTimer: number | undefined;
   private currentConfig: ChatWidgetConfig | undefined;
+  private readonly identitySession: ChatIdentitySession;
   private frame: HTMLIFrameElement | undefined;
   private frameAnimation: Animation | undefined;
   private launcher: HTMLButtonElement | undefined;
@@ -122,11 +124,25 @@ export class ChatWidgetController {
     private readonly bootstrapEndpoint: string,
     private readonly callEnabled = false,
     private readonly onCallRequest?: () => void,
-  ) {}
+    sessionStartedAt = new Date().toISOString(),
+  ) {
+    let storage: Storage | undefined;
+    try {
+      storage = window.sessionStorage;
+    } catch {
+      // The widget also works without browser storage.
+    }
+    this.identitySession = new ChatIdentitySession(
+      `supernizo_chat_identity:${context.sitePublicKey}:${context.sessionId}`,
+      sessionStartedAt,
+      storage,
+    );
+  }
 
   public start(): void {
     try {
       this.mountLauncher();
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
       void this.syncThread();
       this.contactTimer = window.setInterval(() => {
         if (this.openRequested) void this.syncContactPrompt();
@@ -146,6 +162,7 @@ export class ChatWidgetController {
     }
     this.cancelLauncherCollapse();
     window.removeEventListener('message', this.receiveMessage);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.unmountFrame(false);
     this.launcher?.remove();
     this.launcher = undefined;
@@ -675,6 +692,13 @@ export class ChatWidgetController {
     this.postOpenRequest();
   }
 
+  private readonly handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.postConfig();
+      void this.syncThread();
+    }
+  };
+
   private readonly receiveMessage = (event: MessageEvent<unknown>): void => {
     if (
       event.origin !== new URL(this.bootstrapEndpoint).origin ||
@@ -801,6 +825,7 @@ export class ChatWidgetController {
   }
 
   private async syncThread(): Promise<void> {
+    this.identitySession.currentStart(document.visibilityState === 'visible');
     try {
       const endpoint = new URL(
         resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/thread'),
@@ -851,7 +876,13 @@ export class ChatWidgetController {
     if (!this.currentConfig || !this.frame?.contentWindow) return;
     this.frame.contentWindow.postMessage(
       {
-        config: { ...this.currentConfig, callEnabled: this.callEnabled },
+        config: {
+          ...this.currentConfig,
+          callEnabled: this.callEnabled,
+          sessionStartedAt: this.identitySession.currentStart(
+            document.visibilityState === 'visible',
+          ),
+        },
         type: 'supernizo-chat-config',
       },
       new URL(this.bootstrapEndpoint).origin,

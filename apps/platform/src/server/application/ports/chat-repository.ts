@@ -1,3 +1,4 @@
+import type { AgentProfileRecord } from '@supernizo/shared';
 export type GetSiteChatSettingsResult = null | {
   status: 'ACTIVE' | 'INACTIVE';
   chatEnabled: boolean;
@@ -20,7 +21,7 @@ export type CreateThreadResult = { id: string; siteId: string; visitorId: string
 
 export type ListMessagesResult = Array<{
   id: string;
-  agent: null | { displayName: null | string };
+  agent: AgentProfileRecord | null;
   sentAt: Date;
   threadId: string;
   senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';
@@ -29,7 +30,7 @@ export type ListMessagesResult = Array<{
 
 export type CreateOpeningMessageResult = {
   id: string;
-  agent: null | { displayName: null | string };
+  agent: AgentProfileRecord | null;
   sentAt: Date;
   threadId: string;
   senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';
@@ -83,7 +84,7 @@ export interface ChatRepositorySession {
     thread: { id: string; siteId: string; visitorId: string },
     created: {
       id: string;
-      agent: null | { displayName: null | string };
+      agent: AgentProfileRecord | null;
       sentAt: Date;
       threadId: string;
       senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';
@@ -100,7 +101,7 @@ export interface ChatRepositorySession {
     agentId: string,
     created: {
       id: string;
-      agent: null | { displayName: null | string };
+      agent: AgentProfileRecord | null;
       sentAt: Date;
       threadId: string;
       senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';
@@ -112,7 +113,7 @@ export interface ChatRepositorySession {
     threadId: string,
     created: {
       id: string;
-      agent: null | { displayName: null | string };
+      agent: AgentProfileRecord | null;
       sentAt: Date;
       threadId: string;
       senderType: 'AGENT' | 'VISITOR' | 'SYSTEM';

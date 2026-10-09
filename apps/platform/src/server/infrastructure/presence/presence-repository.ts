@@ -3,9 +3,9 @@ import 'server-only';
 import { getRedisClient } from '@/server/infrastructure/redis/client';
 import { getEnvironmentReadiness } from '@/server/infrastructure/config/env';
 
-import type { VisitorPresenceSnapshot } from '@supernizo/shared';
+import { VISITOR_PRESENCE_TIMEOUT_MS, type VisitorPresenceSnapshot } from '@supernizo/shared';
 
-export const PRESENCE_TTL_SECONDS = 45;
+export const PRESENCE_TTL_SECONDS = VISITOR_PRESENCE_TIMEOUT_MS / 1_000;
 
 export type PresenceWriteResult = Readonly<{
   wasOnline: boolean;

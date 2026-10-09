@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 const browserDirectory = resolve(import.meta.dirname, '../dist/browser');
 const indexSource = resolve(browserDirectory, 'index.js');
 const engagementSource = resolve(browserDirectory, 'engagement.js');
+const chatIdentitySessionSource = resolve(browserDirectory, 'chat-identity-session.js');
 const chatWidgetSource = resolve(browserDirectory, 'chat-widget.js');
 const callWidgetSource = resolve(browserDirectory, 'call-widget.js');
 const platformUrlSource = resolve(browserDirectory, 'platform-url.js');
@@ -11,14 +12,21 @@ const packageBundle = resolve(import.meta.dirname, '../dist/index.global.js');
 const destinationDirectory = resolve(import.meta.dirname, '../../../apps/platform/public/sdk');
 const destination = resolve(destinationDirectory, 'tracker.js');
 
-const [engagementModule, chatWidgetModule, callWidgetModule, platformUrlModule, indexModule] =
-  await Promise.all([
-    readFile(engagementSource, 'utf8'),
-    readFile(chatWidgetSource, 'utf8'),
-    readFile(callWidgetSource, 'utf8'),
-    readFile(platformUrlSource, 'utf8'),
-    readFile(indexSource, 'utf8'),
-  ]);
+const [
+  engagementModule,
+  chatIdentitySessionModule,
+  chatWidgetModule,
+  callWidgetModule,
+  platformUrlModule,
+  indexModule,
+] = await Promise.all([
+  readFile(engagementSource, 'utf8'),
+  readFile(chatIdentitySessionSource, 'utf8'),
+  readFile(chatWidgetSource, 'utf8'),
+  readFile(callWidgetSource, 'utf8'),
+  readFile(platformUrlSource, 'utf8'),
+  readFile(indexSource, 'utf8'),
+]);
 const browserBundle = `(function () {
   const modules = {};
   const cache = {};
@@ -33,6 +41,9 @@ const browserBundle = `(function () {
   };
   modules['./engagement'] = (require, exports) => {
 ${engagementModule}
+  };
+  modules['./chat-identity-session'] = (require, exports) => {
+${chatIdentitySessionModule}
   };
   modules['./chat-widget'] = (require, exports) => {
 ${chatWidgetModule}

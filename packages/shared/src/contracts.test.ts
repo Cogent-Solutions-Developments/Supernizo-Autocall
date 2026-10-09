@@ -4,6 +4,7 @@ import {
   CallVisitorMediaFailureRequestSchema,
   CallSchema,
   ChatInboxQuerySchema,
+  ChatMessageSchema,
   NotificationSyncPageRequestSchema,
   NotificationSyncPageResponseSchema,
   PaginationSchema,
@@ -38,7 +39,7 @@ describe('shared API contracts', () => {
     ).toMatchObject({ data: { limit: 25 } });
   });
 
-  it('accepts a configured caller avatar URL and rejects unsafe values', () => {
+  it('accepts a user photo URL or uploaded image and rejects unsafe values', () => {
     const call = {
       agentAvatarUrl: 'https://images.example.com/agent.jpg',
       agentDisplayName: 'Local Admin',
@@ -52,12 +53,37 @@ describe('shared API contracts', () => {
     };
 
     expect(CallSchema.parse(call).agentAvatarUrl).toBe(call.agentAvatarUrl);
+    const upload = 'data:image/png;base64,iVBORw0KGgo=';
+    expect(CallSchema.parse({ ...call, agentAvatarUrl: upload }).agentAvatarUrl).toBe(upload);
+    expect(
+      ChatMessageSchema.parse({
+        content: 'Hi',
+        id: 'message_1',
+        threadId: 'thread_1',
+        senderType: 'AGENT',
+        senderName: 'Alice',
+        senderAvatarUrl: upload,
+        sentAt: call.requestedAt,
+      }).senderAvatarUrl,
+    ).toBe(upload);
+    expect(() =>
+      ChatMessageSchema.parse({
+        content: 'Hi',
+        id: 'message_1',
+        threadId: 'thread_1',
+        senderType: 'AGENT',
+        senderName: 'Alice',
+        senderAvatarUrl: 'javascript:alert(1)',
+        sentAt: call.requestedAt,
+      }),
+    ).toThrow();
     expect(() => CallSchema.parse({ ...call, agentAvatarUrl: 'javascript:alert(1)' })).toThrow();
   });
 
   it('accepts a public LiveKit preparation URL in tracker bootstrap data', () => {
     const result = TrackerBootstrapResponseSchema.parse({
       calling: { url: 'wss://example.livekit.cloud' },
+      chatSessionStartedAt: '2026-10-09T10:00:00.000Z',
       features: {
         audioCallEnabled: true,
         chatEnabled: true,

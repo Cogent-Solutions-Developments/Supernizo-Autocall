@@ -11,7 +11,9 @@ import type {
   CallRepositorySession,
 } from '@/server/application/ports/call-repository';
 const callSelect = {
-  agent: { select: { displayName: true } },
+  agent: {
+    select: { displayName: true, profile: { select: { displayName: true, imageUrl: true } } },
+  },
   agentId: true,
   failureCode: true,
   id: true,
@@ -19,7 +21,7 @@ const callSelect = {
   roomName: true,
   sessionId: true,
   session: { select: { geoCity: true, geoCountry: true } },
-  site: { select: { name: true, widgetAvatarUrl: true } },
+  site: { select: { name: true } },
   siteId: true,
   status: true,
   type: true,
@@ -160,7 +162,17 @@ function bindRepository(getClient: () => Prisma.TransactionClient): CallReposito
     async listEligibleAgents() {
       const database = getClient();
       return database.user.findMany({
-        where: { supernizoId: { not: null } },
+        // Local password admins can answer development calls without an SSO account.
+        // Production recipients continue to require a Supernizo identity.
+        where:
+          process.env.NODE_ENV === 'development'
+            ? {
+                OR: [
+                  { supernizoId: { not: null } },
+                  { globalRole: 'ADMIN', supernizoId: null, passwordHash: { not: null } },
+                ],
+              }
+            : { supernizoId: { not: null } },
         orderBy: { id: 'asc' },
         select: { id: true },
       });
