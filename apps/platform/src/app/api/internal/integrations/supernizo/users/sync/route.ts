@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { DirectoryEventSchema } from '@/server/integrations/supernizo-contract';
+import { DirectoryEventSchema } from '@/server/domain/directory/supernizo-contract';
 import {
   directorySyncEnabled,
   readDirectoryBody,
   verifyDirectorySignature,
-} from '@/server/integrations/supernizo-signature';
-import { ServiceUnavailableError, ValidationError } from '@/server/errors/app-error';
-import { synchronizeDirectoryEvent } from '@/server/services/supernizo-directory-service';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
+} from '@/server/infrastructure/integrations/supernizo-signature';
+import { ServiceUnavailableError, ValidationError } from '@/server/domain/errors/app-error';
+import { synchronizeDirectoryEvent } from '@/server/composition/directory/supernizo-directory-service';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
 
 export const runtime = 'nodejs';
 

@@ -2,8 +2,8 @@ import { after, NextResponse } from 'next/server';
 
 import { CallRequestRequestSchema } from '@supernizo/shared';
 
-import { handlePublicChatRequest } from '@/server/chat/public-route';
-import { requestVisitorCall } from '@/server/services/call-service';
+import { handlePublicChatRequest } from '@/server/interfaces/chat/public-route';
+import { requestVisitorCall } from '@/server/composition/calls/call-service';
 
 export const runtime = 'nodejs';
 

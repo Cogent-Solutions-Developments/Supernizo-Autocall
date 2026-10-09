@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   NOTIFICATION_SYNC_PATH,
   signIntegrationRequest,
-} from '@/server/integrations/supernizo-signature';
-import { listNotificationSyncPage } from '@/server/services/notification-sync-service';
+} from '@/server/infrastructure/integrations/supernizo-signature';
+import { listNotificationSyncPage } from '@/server/composition/notifications/notification-sync-service';
 
 import { POST } from './route';
 
-vi.mock('@/server/services/notification-sync-service', () => ({
+vi.mock('@/server/composition/notifications/notification-sync-service', () => ({
   listNotificationSyncPage: vi.fn(),
 }));
 

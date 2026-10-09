@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-import { requireDashboardUser } from '@/server/auth/access';
+import { requireDashboardUser } from '@/server/interfaces/auth/access';
 
 export const dynamic = 'force-dynamic';
 

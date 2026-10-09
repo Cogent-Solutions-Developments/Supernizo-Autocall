@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { requireRole, requireSiteAccess } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { claimIncomingCall, getCallScope } from '@/server/services/call-service';
+import { requireRole, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { claimIncomingCall, getCallScope } from '@/server/composition/calls/call-service';
 
 type RouteContext = Readonly<{ params: Promise<{ callId: string }> }>;
 

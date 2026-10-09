@@ -1,7 +1,7 @@
 import { TrackerHeartbeatRequestSchema } from '@supernizo/shared';
 
-import { recordTrackerHeartbeat } from '@/server/services/tracker-engagement-service';
-import { handleTrackingRequest } from '@/server/tracking/route-handler';
+import { recordTrackerHeartbeat } from '@/server/composition/tracking/tracker-engagement-service';
+import { handleTrackingRequest } from '@/server/interfaces/tracking/route-handler';
 
 export const runtime = 'nodejs';
 

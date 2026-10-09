@@ -1,11 +1,11 @@
 import { TrackerBootstrapRequestSchema } from '@supernizo/shared';
 import { NextResponse } from 'next/server';
 
-import { ForbiddenError, ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { bootstrapTracker } from '@/server/services/tracker-bootstrap-service';
-import { enforceTrackingBootstrapRateLimit } from '@/server/tracking/rate-limit';
+import { ForbiddenError, ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { bootstrapTracker } from '@/server/composition/tracking/tracker-bootstrap-service';
+import { enforceTrackingBootstrapRateLimit } from '@/server/infrastructure/security/rate-limit';
 
 export const runtime = 'nodejs';
 

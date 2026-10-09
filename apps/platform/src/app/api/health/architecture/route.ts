@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { architectureHealthService } from '@/server/services/architecture-health-service';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { architectureHealthService } from '@/server/application/diagnostics/architecture-health-service';
 
 const ArchitectureHealthQuerySchema = z.object({
   probe: z.literal('architecture').default('architecture'),

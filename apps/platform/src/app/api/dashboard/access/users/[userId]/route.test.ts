@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { requireRole } from '@/server/auth/access';
-import { ForbiddenError, UnauthorizedError } from '@/server/errors/app-error';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ForbiddenError, UnauthorizedError } from '@/server/domain/errors/app-error';
 import { PATCH } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
+vi.mock('@/server/interfaces/auth/access', () => ({ requireRole: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 
 it('rejects the retired assignment endpoint even for administrators', async () => {

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireRole } from '@/server/auth/access';
-import { listNotificationsForUser } from '@/server/services/notification-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { listNotificationsForUser } from '@/server/composition/notifications/notification-service';
 
 import { GET } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
-vi.mock('@/server/services/notification-service', () => ({
+vi.mock('@/server/interfaces/auth/access', () => ({ requireRole: vi.fn() }));
+vi.mock('@/server/composition/notifications/notification-service', () => ({
   listNotificationsForUser: vi.fn(),
 }));
 

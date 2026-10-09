@@ -33,4 +33,6 @@ Thumbs.db
 .deployment/
 backups/
 
-docker-compose.local.yml
+/docker-compose.local.yml
+# Browser debug output
+/debug.log

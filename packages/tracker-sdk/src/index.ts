@@ -235,6 +235,8 @@ function isBootstrapResponse(value: unknown): value is TrackerBootstrapResponse 
   return (
     typeof response.visitorId === 'string' &&
     typeof response.sessionId === 'string' &&
+    typeof response.chatSessionStartedAt === 'string' &&
+    Number.isFinite(Date.parse(response.chatSessionStartedAt)) &&
     typeof response.heartbeatIntervalSeconds === 'number' &&
     Boolean(response.features) &&
     Boolean(response.realtime)
@@ -380,6 +382,7 @@ export const Tracker: TrackerRuntime = {
             bootstrapEndpoint,
             responseBody.features.audioCallEnabled,
             () => callWidget?.requestAudioCall(),
+            responseBody.chatSessionStartedAt,
           )
         : undefined;
       chatWidget?.stop();

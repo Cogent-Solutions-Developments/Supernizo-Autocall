@@ -1,6 +1,6 @@
-import { requireUser } from '@/server/auth/access';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
+import { requireUser } from '@/server/interfaces/auth/access';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

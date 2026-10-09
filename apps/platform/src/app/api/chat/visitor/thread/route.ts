@@ -6,8 +6,11 @@ import {
   TrackingContextSchema,
 } from '@supernizo/shared';
 
-import { handlePublicChatQuery, handlePublicChatRequest } from '@/server/chat/public-route';
-import { getVisitorChatThread, startVisitorChat } from '@/server/services/chat-service';
+import {
+  handlePublicChatQuery,
+  handlePublicChatRequest,
+} from '@/server/interfaces/chat/public-route';
+import { getVisitorChatThread, startVisitorChat } from '@/server/composition/chat/chat-service';
 
 const VisitorThreadQuerySchema = TrackingContextSchema.merge(PaginationSchema);
 

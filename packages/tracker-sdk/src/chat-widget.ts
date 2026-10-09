@@ -1,6 +1,7 @@
 import type { ChatMessage, TrackingContext } from '@supernizo/shared';
 
 import { resolveApplicationEndpoint } from './platform-url';
+import { ChatIdentitySession } from './chat-identity-session';
 
 type ChatThreadResponse = Readonly<{
   history: Readonly<{ messages: ChatMessage[] }>;
@@ -98,7 +99,13 @@ function isMessage(value: unknown): value is ChatMessage {
 }
 
 export class ChatWidgetController {
+  private contactPrompt: { available: boolean | null; saved: boolean } = {
+    available: null,
+    saved: false,
+  };
+  private contactTimer: number | undefined;
   private currentConfig: ChatWidgetConfig | undefined;
+  private readonly identitySession: ChatIdentitySession;
   private frame: HTMLIFrameElement | undefined;
   private frameAnimation: Animation | undefined;
   private launcher: HTMLButtonElement | undefined;
@@ -117,12 +124,29 @@ export class ChatWidgetController {
     private readonly bootstrapEndpoint: string,
     private readonly callEnabled = false,
     private readonly onCallRequest?: () => void,
-  ) {}
+    sessionStartedAt = new Date().toISOString(),
+  ) {
+    let storage: Storage | undefined;
+    try {
+      storage = window.sessionStorage;
+    } catch {
+      // The widget also works without browser storage.
+    }
+    this.identitySession = new ChatIdentitySession(
+      `supernizo_chat_identity:${context.sitePublicKey}:${context.sessionId}`,
+      sessionStartedAt,
+      storage,
+    );
+  }
 
   public start(): void {
     try {
       this.mountLauncher();
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
       void this.syncThread();
+      this.contactTimer = window.setInterval(() => {
+        if (this.openRequested) void this.syncContactPrompt();
+      }, 30_000);
       this.syncTimer = window.setInterval(() => void this.syncThread(), 3_000);
     } catch {
       // The widget is optional and must never interrupt the tracked website.
@@ -130,12 +154,15 @@ export class ChatWidgetController {
   }
 
   public stop(): void {
+    if (this.contactTimer !== undefined) window.clearInterval(this.contactTimer);
+    this.contactTimer = undefined;
     if (this.syncTimer !== undefined) {
       window.clearInterval(this.syncTimer);
       this.syncTimer = undefined;
     }
     this.cancelLauncherCollapse();
     window.removeEventListener('message', this.receiveMessage);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.unmountFrame(false);
     this.launcher?.remove();
     this.launcher = undefined;
@@ -657,12 +684,20 @@ export class ChatWidgetController {
 
   private openChat(): void {
     this.openRequested = true;
+    void this.syncContactPrompt();
     this.cancelLauncherCollapse();
     this.launcher?.removeAttribute('data-supernizo-unread');
     this.mount();
     this.postConfig();
     this.postOpenRequest();
   }
+
+  private readonly handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.postConfig();
+      void this.syncThread();
+    }
+  };
 
   private readonly receiveMessage = (event: MessageEvent<unknown>): void => {
     if (
@@ -672,9 +707,15 @@ export class ChatWidgetController {
       return;
     }
     if (!event.data || typeof event.data !== 'object') return;
-    const data = event.data as { message?: unknown; type?: unknown };
+    const data = event.data as { message?: unknown; contact?: unknown; type?: unknown };
+
+    if (data.type === 'supernizo-chat-contact-save') {
+      void this.saveContact(data.contact);
+      return;
+    }
 
     if (data.type === 'supernizo-chat-ready') {
+      this.postContactPrompt();
       this.postCallAvailability();
       this.postConfig();
       this.postOpenRequest();
@@ -698,7 +739,93 @@ export class ChatWidgetController {
     }
   };
 
+  private postContactPrompt(): void {
+    this.frame?.contentWindow?.postMessage(
+      { type: 'supernizo-chat-contact-state', prompt: this.contactPrompt },
+      new URL(this.bootstrapEndpoint).origin,
+    );
+  }
+
+  private async syncContactPrompt(): Promise<void> {
+    try {
+      const endpoint = new URL(
+        resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/contact'),
+      );
+      endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
+      endpoint.searchParams.set('visitorId', this.context.visitorId);
+      endpoint.searchParams.set('sessionId', this.context.sessionId);
+      const response = await fetch(endpoint, { credentials: 'omit', mode: 'cors' });
+      if (!response.ok) return;
+      const body: unknown = await response.json();
+      if (
+        !body ||
+        typeof body !== 'object' ||
+        !('data' in body) ||
+        !body.data ||
+        typeof body.data !== 'object'
+      )
+        return;
+      const prompt = body.data;
+      if (
+        !('saved' in prompt) ||
+        typeof prompt.saved !== 'boolean' ||
+        !('available' in prompt) ||
+        !(prompt.available === null || typeof prompt.available === 'boolean')
+      )
+        return;
+      this.contactPrompt = { saved: prompt.saved, available: prompt.available };
+      this.postContactPrompt();
+    } catch {
+      /* Keep chat usable when availability cannot be checked. */
+    }
+  }
+
+  private async saveContact(contact: unknown): Promise<void> {
+    let saved = false;
+    try {
+      const response = await fetch(
+        resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/contact'),
+        {
+          method: 'POST',
+          credentials: 'omit',
+          mode: 'cors',
+          signal: AbortSignal.timeout(15_000),
+          headers: { 'content-type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify({
+            contact,
+            context: this.context,
+            threadId: this.currentConfig?.threadId,
+          }),
+        },
+      );
+      if (response.ok) {
+        const body: unknown = await response.json();
+        saved = Boolean(
+          body &&
+          typeof body === 'object' &&
+          'data' in body &&
+          body.data &&
+          typeof body.data === 'object' &&
+          'saved' in body.data &&
+          body.data.saved === true,
+        );
+      }
+    } catch {
+      /* Report only a generic failure, never contact values. */
+    }
+    if (saved) {
+      this.contactPrompt = { ...this.contactPrompt, saved: true };
+      this.postContactPrompt();
+      void this.syncThread();
+    }
+    this.frame?.contentWindow?.postMessage(
+      { type: 'supernizo-chat-contact-result', saved },
+      new URL(this.bootstrapEndpoint).origin,
+    );
+  }
+
   private async syncThread(): Promise<void> {
+    this.identitySession.currentStart(document.visibilityState === 'visible');
     try {
       const endpoint = new URL(
         resolveApplicationEndpoint(this.bootstrapEndpoint, '/api/chat/visitor/thread'),
@@ -749,7 +876,13 @@ export class ChatWidgetController {
     if (!this.currentConfig || !this.frame?.contentWindow) return;
     this.frame.contentWindow.postMessage(
       {
-        config: { ...this.currentConfig, callEnabled: this.callEnabled },
+        config: {
+          ...this.currentConfig,
+          callEnabled: this.callEnabled,
+          sessionStartedAt: this.identitySession.currentStart(
+            document.visibilityState === 'visible',
+          ),
+        },
         type: 'supernizo-chat-config',
       },
       new URL(this.bootstrapEndpoint).origin,

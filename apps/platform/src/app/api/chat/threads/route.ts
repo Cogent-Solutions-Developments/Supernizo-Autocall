@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 
 import { ChatInboxQuerySchema, ChatThreadCreateRequestSchema } from '@supernizo/shared';
 
-import { requireRole, requireSiteAccess } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { listChatInboxThreads, resolveOrCreateChatThread } from '@/server/services/chat-service';
+import { requireRole, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import {
+  listChatInboxThreads,
+  resolveOrCreateChatThread,
+} from '@/server/composition/chat/chat-service';
 
 export const runtime = 'nodejs';
 

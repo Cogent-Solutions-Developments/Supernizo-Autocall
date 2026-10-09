@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { requireRole, requireSiteAccess } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { listChatInboxThreads } from '@/server/services/chat-service';
+import { requireRole, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { listChatInboxThreads } from '@/server/composition/chat/chat-service';
 
 import { GET } from './route';
 
-vi.mock('@/server/auth/access', () => ({
+vi.mock('@/server/interfaces/auth/access', () => ({
   requireRole: vi.fn(),
   requireSiteAccess: vi.fn(),
 }));
-vi.mock('@/server/auth/roles', () => ({ assertRole: vi.fn() }));
-vi.mock('@/server/services/chat-service', () => ({
+vi.mock('@/server/domain/auth/roles', () => ({ assertRole: vi.fn() }));
+vi.mock('@/server/composition/chat/chat-service', () => ({
   listChatInboxThreads: vi.fn(),
   resolveOrCreateChatThread: vi.fn(),
 }));

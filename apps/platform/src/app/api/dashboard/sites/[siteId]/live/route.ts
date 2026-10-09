@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { requireSiteAccess } from '@/server/auth/access';
-import { ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { listLiveVisitorsForSite } from '@/server/services/live-presence-service';
+import { requireSiteAccess } from '@/server/interfaces/auth/access';
+import { ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { listLiveVisitorsForSite } from '@/server/composition/presence/live-presence-service';
 
 type LiveVisitorsRouteContext = Readonly<{
   params: Promise<{ siteId: string }>;

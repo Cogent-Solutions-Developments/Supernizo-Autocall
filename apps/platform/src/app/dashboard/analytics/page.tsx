@@ -1,13 +1,13 @@
-import { WorkspaceSelect } from '@/app/components/workspace-select';
+import { WorkspaceSelect } from '@/components/workspace-select';
 import Link from 'next/link';
 import { dashboardHref } from '@/lib/dashboard-navigation';
 import { notFound } from 'next/navigation';
 
 import { DashboardDateRangeSchema, IdSchema } from '@supernizo/shared';
 
-import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
-import { getSiteAnalytics } from '@/server/services/visitor-insights-service';
-import { listSitesForUser } from '@/server/services/site-service';
+import { requireDashboardUser, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { getSiteAnalytics } from '@/server/composition/visitors/visitor-insights-service';
+import { listSitesForUser } from '@/server/composition/sites/site-service';
 
 type AnalyticsPageProps = Readonly<{
   searchParams: Promise<{

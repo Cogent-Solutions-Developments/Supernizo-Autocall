@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { requireRole } from '@/server/auth/access';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { listIncomingCallsForAgent } from '@/server/services/call-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { listIncomingCallsForAgent } from '@/server/composition/calls/call-service';
 
 export const runtime = 'nodejs';
 

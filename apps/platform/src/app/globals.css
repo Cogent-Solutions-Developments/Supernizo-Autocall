@@ -661,3 +661,31 @@ button.workspace-record:hover {
   padding: 0.25rem;
   color: #b8d9df;
 }
+
+.profile-settings-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  margin: auto;
+  border: 1px solid #bee2ff30;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background: #0d1522;
+  color: var(--color-body);
+  box-shadow: 0 24px 80px #0009;
+}
+.profile-settings-dialog::backdrop {
+  background: #01040ab3;
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 480px) {
+  .workspace-header {
+    gap: 0.75rem;
+    padding-inline: 1rem;
+    flex-wrap: wrap;
+  }
+  .workspace-account {
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+}

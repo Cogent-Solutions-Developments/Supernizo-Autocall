@@ -1,4 +1,4 @@
-import { handleRealtimeRequest } from '@/server/realtime/realtime-request-handler';
+import { handleRealtimeRequest } from '@/server/interfaces/realtime/realtime-request-handler';
 
 export const runtime = 'nodejs';
 

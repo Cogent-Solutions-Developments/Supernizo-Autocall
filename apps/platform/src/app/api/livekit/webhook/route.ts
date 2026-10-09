@@ -2,13 +2,13 @@ import { WebhookReceiver } from 'livekit-server-sdk';
 import { after } from 'next/server';
 import { z } from 'zod';
 
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { getLiveKitServerConfig } from '@/server/livekit/config';
-import { logger } from '@/server/logging/logger';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { getLiveKitServerConfig } from '@/server/infrastructure/livekit/config';
+import { logger } from '@/server/infrastructure/logging/logger';
 import {
   handleLiveKitWebhookEvent,
   liveKitCallEventNames,
-} from '@/server/services/livekit-token-service';
+} from '@/server/composition/calls/livekit-token-service';
 
 export const runtime = 'nodejs';
 

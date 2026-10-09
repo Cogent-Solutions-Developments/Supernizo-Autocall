@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-import { requireUser } from '@/server/auth/access';
-import { ServiceUnavailableError, UnauthorizedError } from '@/server/errors/app-error';
+import { requireUser } from '@/server/interfaces/auth/access';
+import { ServiceUnavailableError, UnauthorizedError } from '@/server/domain/errors/app-error';
 import { GET } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireUser: vi.fn() }));
+vi.mock('@/server/interfaces/auth/access', () => ({ requireUser: vi.fn() }));
 beforeEach(() => vi.resetAllMocks());
 
 it('checks the live identity on every request and never caches a grant or rejection', async () => {

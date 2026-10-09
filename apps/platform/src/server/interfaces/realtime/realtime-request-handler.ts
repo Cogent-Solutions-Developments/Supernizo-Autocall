@@ -1,0 +1,72 @@
+import 'server-only';
+
+import { handle } from '@upstash/realtime';
+
+import { requireSiteAccess, requireUser } from '@/server/interfaces/auth/access';
+
+import { authorizeRealtimeChannels } from './channel-authorization';
+import { createUpstashRealtimeClient } from '../../infrastructure/realtime/upstash-realtime-provider';
+import { verifyVisitorRealtimeToken } from '../../infrastructure/realtime/visitor-token';
+import { getCallScope } from '@/server/composition/calls/call-service';
+import { getChatThreadScope } from '@/server/composition/chat/chat-service';
+
+export function resolveVisitorRealtimeToken(request: Request, pathToken?: string): string | null {
+  return pathToken ?? new URL(request.url).searchParams.get('visitor_token');
+}
+
+export async function handleRealtimeRequest(
+  request: Request,
+  pathToken?: string,
+): Promise<Response> {
+  const visitorToken = resolveVisitorRealtimeToken(request, pathToken);
+  const routeHandler = handle({
+    middleware: async ({ channels, request: realtimeRequest }) => {
+      const visitorChannel = verifyVisitorRealtimeToken(
+        resolveVisitorRealtimeToken(realtimeRequest, visitorToken ?? undefined),
+      );
+      const isAuthorized = await authorizeRealtimeChannels(channels, {
+        authorizeDashboardCall: async (callId) => {
+          try {
+            const scope = await getCallScope(callId);
+            if (!scope) return false;
+            await requireSiteAccess(scope.siteId);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        authorizeDashboardChat: async (threadId) => {
+          try {
+            const scope = await getChatThreadScope(threadId);
+            if (!scope) return false;
+            await requireSiteAccess(scope.siteId);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        authorizeDashboardSite: async (siteId) => {
+          try {
+            await requireSiteAccess(siteId);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        authorizeDashboardUser: async (userId) => {
+          try {
+            return (await requireUser()).id === userId;
+          } catch {
+            return false;
+          }
+        },
+        visitorChannel,
+      });
+
+      return isAuthorized ? undefined : new Response('Unauthorized channel.', { status: 403 });
+    },
+    realtime: createUpstashRealtimeClient(),
+  });
+  const response = await routeHandler(request);
+  return response ?? new Response(null, { status: 204 });
+}

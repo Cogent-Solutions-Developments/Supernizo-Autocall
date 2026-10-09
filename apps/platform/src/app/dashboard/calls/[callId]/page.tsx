@@ -2,10 +2,10 @@ import { notFound } from 'next/navigation';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { IncomingCallWorkspace } from '@/app/components/incoming-call-workspace';
-import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { getCall, getCallScope } from '@/server/services/call-service';
+import { IncomingCallWorkspace } from '@/components/incoming-call-workspace';
+import { requireDashboardUser, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { getCall, getCallScope } from '@/server/composition/calls/call-service';
 
 import { getCallWorkspaceAccess } from './call-workspace-access';
 

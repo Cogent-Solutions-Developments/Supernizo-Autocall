@@ -1,7 +1,7 @@
-import { requireRole } from '@/server/auth/access';
-import { ForbiddenError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { ForbiddenError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
 
 export const runtime = 'nodejs';
 

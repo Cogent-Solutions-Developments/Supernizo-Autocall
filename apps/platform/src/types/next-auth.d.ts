@@ -1,6 +1,6 @@
 import type { StaffRole } from '@supernizo/shared';
 import type { DefaultSession } from 'next-auth';
-import type { SupernizoIdentity } from '@/server/auth/supernizo-sso';
+import type { SupernizoIdentity } from '@/server/interfaces/auth/supernizo-sso';
 
 declare module 'next-auth' {
   interface Session {

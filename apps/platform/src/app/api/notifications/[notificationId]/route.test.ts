@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DashboardNotificationSchema } from '@supernizo/shared';
 
-import { requireRole } from '@/server/auth/access';
-import { markNotificationRead } from '@/server/services/notification-service';
+import { requireRole } from '@/server/interfaces/auth/access';
+import { markNotificationRead } from '@/server/composition/notifications/notification-service';
 
 import { PATCH } from './route';
 
-vi.mock('@/server/auth/access', () => ({ requireRole: vi.fn() }));
-vi.mock('@/server/services/notification-service', () => ({ markNotificationRead: vi.fn() }));
+vi.mock('@/server/interfaces/auth/access', () => ({ requireRole: vi.fn() }));
+vi.mock('@/server/composition/notifications/notification-service', () => ({
+  markNotificationRead: vi.fn(),
+}));
 
 const user = {
   email: 'agent@example.com',

@@ -2,17 +2,17 @@ import { NextResponse } from 'next/server';
 
 import { LiveKitTokenRequestSchema } from '@supernizo/shared';
 
-import { requireRole, requireSiteAccess } from '@/server/auth/access';
-import { assertRole } from '@/server/auth/roles';
-import { handlePublicChatRequest } from '@/server/chat/public-route';
-import { ForbiddenError, ValidationError } from '@/server/errors/app-error';
-import { toHttpErrorResponse } from '@/server/http/error-response';
-import { getRequestId, withRequestId } from '@/server/http/request-id';
-import { getCallScope } from '@/server/services/call-service';
+import { requireRole, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { assertRole } from '@/server/domain/auth/roles';
+import { handlePublicChatRequest } from '@/server/interfaces/chat/public-route';
+import { ForbiddenError, ValidationError } from '@/server/domain/errors/app-error';
+import { toHttpErrorResponse } from '@/server/interfaces/http/error-response';
+import { getRequestId, withRequestId } from '@/server/interfaces/http/request-id';
+import { getCallScope } from '@/server/composition/calls/call-service';
 import {
   issueAgentLiveKitToken,
   issueVisitorLiveKitToken,
-} from '@/server/services/livekit-token-service';
+} from '@/server/composition/calls/livekit-token-service';
 
 export const runtime = 'nodejs';
 

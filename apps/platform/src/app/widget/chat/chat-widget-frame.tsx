@@ -5,18 +5,29 @@ import { createRealtime, RealtimeProvider } from '@upstash/realtime/client';
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
-import { ChatMessageSchema, type ChatMessage } from '@supernizo/shared';
+import {
+  getChatAgentIdentity,
+  ChatContactPromptSchema,
+  type ChatContactInput,
+  type ChatContactPrompt,
+  ChatMessageSchema,
+  type ChatMessage,
+} from '@supernizo/shared';
 
-import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
-import { mergeChatMessage } from '@/app/components/chat-state';
-import { FlowingRibbons } from '@/app/components/flowing-ribbons';
+import { AgentAvatar } from '@/components/agent-avatar';
+import { CallerIdentityVideo } from '@/components/caller-identity-video';
+import { mergeChatMessage } from '@/components/chat-state';
+import { FlowingRibbons } from '@/components/flowing-ribbons';
 import { withAppBasePath } from '@/lib/app-path';
+
+import { ChatContactForm } from './chat-contact-form';
 
 import { NizoVerifiedIcon } from '../call/call-action-icons';
 
 const WidgetConfigSchema = z.object({
   callEnabled: z.boolean().default(false),
   messages: z.array(ChatMessageSchema),
+  sessionStartedAt: z.string().datetime().optional(),
   threadId: z.string().min(1),
   token: z.string().min(1),
 });
@@ -27,7 +38,10 @@ const { useRealtime } = createRealtime<{
 type ChatWidgetFrameProps = Readonly<{ hostOrigin: string }>;
 type WidgetConfig = z.infer<typeof WidgetConfigSchema>;
 
-const messageTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const messageDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
   hour: 'numeric',
   minute: '2-digit',
 });
@@ -45,9 +59,9 @@ function displayAgentName(name: string | null | undefined): string {
   return name?.trim() || 'Swetha Sahanya';
 }
 
-function messageTime(sentAt: string): string {
+function messageDateTime(sentAt: string): string {
   const date = new Date(sentAt);
-  return Number.isNaN(date.getTime()) ? '' : messageTimeFormatter.format(date);
+  return Number.isNaN(date.getTime()) ? '' : messageDateTimeFormatter.format(date);
 }
 
 function conversationDay(sentAt: string | undefined): string {
@@ -78,6 +92,11 @@ function ChatSubscription({
 
 function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   const [callEnabled, setCallEnabled] = useState(false);
+  const [contactPrompt, setContactPrompt] = useState<ChatContactPrompt>({
+    available: null,
+    saved: false,
+  });
+  const [contactState, setContactState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [config, setConfig] = useState<WidgetConfig | null>(null);
   const [content, setContent] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -85,20 +104,33 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
   const [unread, setUnread] = useState(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const agentName = displayAgentName(
-    [...messages].reverse().find((message) => message.senderType === 'AGENT')?.senderName,
-  );
+  const agent = getChatAgentIdentity(messages, config?.sessionStartedAt);
 
   useEffect(() => {
     const receive = (event: MessageEvent<unknown>) => {
-      if (event.origin !== hostOrigin || !event.data || typeof event.data !== 'object') return;
+      if (
+        event.source !== window.parent ||
+        event.origin !== hostOrigin ||
+        !event.data ||
+        typeof event.data !== 'object'
+      )
+        return;
       const data = event.data as {
+        prompt?: unknown;
+        saved?: unknown;
         callEnabled?: unknown;
         config?: unknown;
         message?: unknown;
         type?: unknown;
       };
 
+      if (data.type === 'supernizo-chat-contact-state') {
+        const parsed = ChatContactPromptSchema.safeParse(data.prompt);
+        if (parsed.success) setContactPrompt(parsed.data);
+      }
+      if (data.type === 'supernizo-chat-contact-result' && typeof data.saved === 'boolean') {
+        setContactState(data.saved ? 'saved' : 'error');
+      }
       if (data.type === 'supernizo-chat-config') {
         const parsed = WidgetConfigSchema.safeParse(data.config);
         if (!parsed.success) return;
@@ -162,6 +194,11 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
     event.currentTarget.form?.requestSubmit();
   }
 
+  function saveContact(contact: ChatContactInput): void {
+    setContactState('saving');
+    window.parent.postMessage({ type: 'supernizo-chat-contact-save', contact }, hostOrigin);
+  }
+
   function closeChat(): void {
     window.parent.postMessage({ type: 'supernizo-chat-close' }, hostOrigin);
   }
@@ -205,7 +242,15 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             <header className="chat-header flex items-center justify-between gap-3 px-4 pt-4 pb-2.5">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative h-11 w-11 shrink-0">
-                  <CallerIdentityVideo className="ring-2 ring-white" />
+                  {agent ? (
+                    <AgentAvatar
+                      className="ring-2 ring-white"
+                      name={agent.displayName}
+                      imageUrl={agent.imageUrl}
+                    />
+                  ) : (
+                    <CallerIdentityVideo className="ring-2 ring-white" />
+                  )}
                   <span
                     aria-label="Online now"
                     className="absolute right-0 bottom-0 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-[#55c985]"
@@ -214,7 +259,7 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 </div>
                 <div className="min-w-0">
                   <p className="m-0 truncate text-[15px] leading-5 font-semibold tracking-[-0.025em] text-[#18181b]">
-                    {agentName}
+                    {agent?.displayName ?? 'Swetha Sahanya'}
                   </p>
                   <div className="mt-1 flex items-center gap-1.5 text-[10px] font-medium text-[#85858d]">
                     <span>Online now</span>
@@ -269,6 +314,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                           <li className="chat-message flex justify-center" key={message.id}>
                             <p className="m-0 max-w-[90%] px-3 py-1.5 text-center text-[10px] leading-4 text-[#71717a]">
                               {message.content}
+                              <time className="mt-1 block text-[9px]" dateTime={message.sentAt}>
+                                {messageDateTime(message.sentAt)}
+                              </time>
                             </p>
                           </li>
                         );
@@ -302,7 +350,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                                 isVisitor ? 'justify-end' : 'justify-start'
                               }`}
                             >
-                              <span>{messageTime(message.sentAt)}</span>
+                              <time dateTime={message.sentAt}>
+                                {messageDateTime(message.sentAt)}
+                              </time>
                               {isVisitor ? (
                                 <ChecksIcon aria-label="Sent" size={12} weight="bold" />
                               ) : null}
@@ -366,6 +416,12 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
                 <span>{content.length > 1600 ? `${content.length}/2000` : 'Enter to send'}</span>
               </div>
             </form>
+            <ChatContactForm
+              prompt={contactPrompt}
+              hasVisitorMessage={messages.some((message) => message.senderType === 'VISITOR')}
+              state={contactState}
+              onSave={saveContact}
+            />
           </div>
         </section>
       ) : (
@@ -402,9 +458,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             sans-serif;
           color-scheme: light;
         }
-        .message-scroll {
-          scrollbar-color: #d4d4d8 transparent;
-          scrollbar-width: thin;
+        .message-scroll,
+        .composer-field textarea {
+          scrollbar-width: none;
         }
         @media (max-width: 320px) {
           .composer-field textarea {
@@ -425,12 +481,9 @@ function ChatWidgetContent({ hostOrigin }: ChatWidgetFrameProps) {
             height: 44px;
           }
         }
-        .message-scroll::-webkit-scrollbar {
-          width: 5px;
-        }
-        .message-scroll::-webkit-scrollbar-thumb {
-          background: #d4d4d8;
-          border-radius: 999px;
+        .message-scroll::-webkit-scrollbar,
+        .composer-field textarea::-webkit-scrollbar {
+          display: none;
         }
         .chat-header {
           animation: chat-content-in 240ms cubic-bezier(0.23, 1, 0.32, 1) 70ms both;

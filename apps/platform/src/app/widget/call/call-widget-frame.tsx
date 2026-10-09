@@ -13,9 +13,9 @@ import {
   type LiveKitTokenResponse,
 } from '@supernizo/shared';
 
-import { CallerIdentityVideo } from '@/app/components/caller-identity-video';
-import { FlowingRibbons } from '@/app/components/flowing-ribbons';
-import { LiveKitMediaRoom } from '@/app/components/livekit-media-room';
+import { CallerIdentityVideo } from '@/components/caller-identity-video';
+import { FlowingRibbons } from '@/components/flowing-ribbons';
+import { LiveKitMediaRoom } from '@/components/livekit-media-room';
 import { useLiveKitCallSession } from '@/client/calls/use-livekit-call-session';
 import { withAppBasePath } from '@/lib/app-path';
 

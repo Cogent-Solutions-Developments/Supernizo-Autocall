@@ -4,10 +4,10 @@ import { POST } from './route';
 import {
   DIRECTORY_SYNC_PATH,
   signDirectoryRequest,
-} from '@/server/integrations/supernizo-signature';
-import { synchronizeDirectoryEvent } from '@/server/services/supernizo-directory-service';
+} from '@/server/infrastructure/integrations/supernizo-signature';
+import { synchronizeDirectoryEvent } from '@/server/composition/directory/supernizo-directory-service';
 
-vi.mock('@/server/services/supernizo-directory-service', () => ({
+vi.mock('@/server/composition/directory/supernizo-directory-service', () => ({
   synchronizeDirectoryEvent: vi.fn(),
 }));
 const key = 'directory-route-test-key-'.repeat(3);

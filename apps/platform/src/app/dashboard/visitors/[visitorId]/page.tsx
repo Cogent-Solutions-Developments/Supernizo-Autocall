@@ -3,12 +3,12 @@ import { notFound } from 'next/navigation';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { DashboardChatPane } from '@/app/components/dashboard-chat-pane';
-import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
-import { getLiveVisitor } from '@/server/services/live-presence-service';
-import { getVisitorProfile } from '@/server/services/visitor-insights-service';
-import { listVisitorCallHistory } from '@/server/services/call-history-service';
-import { chatThreadBelongsToVisitor } from '@/server/services/chat-service';
+import { DashboardChatPane } from '@/components/dashboard-chat-pane';
+import { requireDashboardUser, requireSiteAccess } from '@/server/interfaces/auth/access';
+import { getLiveVisitor } from '@/server/composition/presence/live-presence-service';
+import { getVisitorProfile } from '@/server/composition/visitors/visitor-insights-service';
+import { listVisitorCallHistory } from '@/server/composition/calls/call-history-service';
+import { chatThreadBelongsToVisitor } from '@/server/composition/chat/chat-service';
 
 type VisitorPageProps = Readonly<{
   params: Promise<{ visitorId: string }>;

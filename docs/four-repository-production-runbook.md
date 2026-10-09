@@ -71,7 +71,7 @@ placeholder credentials. Keep `TWILIO_VALIDATE_SIGNATURE=true`.
 
 The production file is `/home/deploy/app/autocall/.env.production`, mode `0600`.
 It accepts only these keys, which are validated by
-`scripts/validate-production-env.sh`:
+`ops/scripts/validate-production-env.sh`:
 
 | Group              | Variables                                                                                                                                                                        |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -82,7 +82,7 @@ It accepts only these keys, which are validated by
 | Supernizo SSO      | `SUPERNIZO_BACKEND_URL=${BACKEND_URL}`, `SUPERNIZO_LIGHT_URL=${LIGHT_URL}`, `SUPERNIZO_HEAVY_URL=${HEAVY_URL}`, `SUPERNIZO_AUTOCALL_CLIENT_SECRET`.                              |
 | Directory bridge   | `SUPERNIZO_DIRECTORY_SYNC_ENABLED=false` for the first deploy, `SUPERNIZO_DIRECTORY_SYNC_SECRET`.                                                                                |
 
-The initializer `bash scripts/create-production-env.sh .env.production` writes
+The initializer `bash ops/scripts/create-production-env.sh .env.production` writes
 the file with correct permissions and prompts for every external credential.
 It intentionally leaves directory delivery disabled until both sides are
 deployed.

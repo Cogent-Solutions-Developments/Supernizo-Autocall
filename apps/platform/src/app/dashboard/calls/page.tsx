@@ -1,12 +1,15 @@
-import { WorkspaceSelect } from '@/app/components/workspace-select';
+import { WorkspaceSelect } from '@/components/workspace-select';
 import { notFound } from 'next/navigation';
 
 import { IdSchema } from '@supernizo/shared';
 
-import { requireDashboardUser, requireSiteAccess } from '@/server/auth/access';
-import { listAgentsForSite, listCallHistory } from '@/server/services/call-history-service';
-import { reconcileStaleCallsForAgent } from '@/server/services/call-service';
-import { listSitesForUser } from '@/server/services/site-service';
+import { requireDashboardUser, requireSiteAccess } from '@/server/interfaces/auth/access';
+import {
+  listAgentsForSite,
+  listCallHistory,
+} from '@/server/composition/calls/call-history-service';
+import { reconcileStaleCallsForAgent } from '@/server/composition/calls/call-service';
+import { listSitesForUser } from '@/server/composition/sites/site-service';
 
 export const dynamic = 'force-dynamic';
 

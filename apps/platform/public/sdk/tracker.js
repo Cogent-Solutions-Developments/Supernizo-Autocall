@@ -342,6 +342,57 @@ class EngagementManager {
 exports.EngagementManager = EngagementManager;
 
   };
+  modules['./chat-identity-session'] = (require, exports) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatIdentitySession = exports.CHAT_IDENTITY_TIMEOUT_MS = void 0;
+// Keep the browser bundle independent of server/shared runtime modules.
+exports.CHAT_IDENTITY_TIMEOUT_MS = 45_000;
+// Only the header identity expires. The durable thread and messages stay available.
+class ChatIdentitySession {
+    key;
+    storage;
+    lastSeenAt;
+    startedAt;
+    constructor(key, startedAt, storage, now = Date.now()) {
+        this.key = key;
+        this.storage = storage;
+        this.startedAt = startedAt;
+        this.lastSeenAt = now;
+        try {
+            const savedStart = storage?.getItem(`${key}:start`);
+            const savedLastSeen = storage?.getItem(`${key}:last_seen`);
+            if (savedStart && Date.parse(savedStart) > Date.parse(startedAt)) {
+                this.startedAt = savedStart;
+            }
+            if (savedLastSeen && Number.isFinite(Number(savedLastSeen))) {
+                this.lastSeenAt = Number(savedLastSeen);
+            }
+        }
+        catch {
+            // Storage restrictions must not break the host page.
+        }
+    }
+    currentStart(visible, now = Date.now()) {
+        if (visible) {
+            if (now - this.lastSeenAt >= exports.CHAT_IDENTITY_TIMEOUT_MS) {
+                this.startedAt = new Date(Math.max(now, Date.parse(this.startedAt))).toISOString();
+            }
+            this.lastSeenAt = now;
+        }
+        try {
+            this.storage?.setItem(`${this.key}:start`, this.startedAt);
+            this.storage?.setItem(`${this.key}:last_seen`, String(this.lastSeenAt));
+        }
+        catch {
+            // Keep the boundary in memory when session storage is unavailable.
+        }
+        return this.startedAt;
+    }
+}
+exports.ChatIdentitySession = ChatIdentitySession;
+
+  };
   modules['./chat-widget'] = (require, exports) => {
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -350,6 +401,7 @@ exports.shouldScheduleChatLauncherCollapse = shouldScheduleChatLauncherCollapse;
 exports.shouldOpenChatForNewAgentMessage = shouldOpenChatForNewAgentMessage;
 exports.chatWidgetFrameStyles = chatWidgetFrameStyles;
 const platform_url_1 = require("./platform-url");
+const chat_identity_session_1 = require("./chat-identity-session");
 exports.CHAT_LAUNCHER_COLLAPSE_AFTER_MS = 15_000;
 exports.CHAT_LAUNCHER_COLLAPSED_HEIGHT_PX = 54;
 const CHAT_LAUNCHER_COLLAPSE_DURATION_MS = 1_250;
@@ -415,7 +467,13 @@ class ChatWidgetController {
     bootstrapEndpoint;
     callEnabled;
     onCallRequest;
+    contactPrompt = {
+        available: null,
+        saved: false,
+    };
+    contactTimer;
     currentConfig;
+    identitySession;
     frame;
     frameAnimation;
     launcher;
@@ -428,16 +486,29 @@ class ChatWidgetController {
     latestAgentMessageId;
     openRequested = false;
     syncTimer;
-    constructor(context, bootstrapEndpoint, callEnabled = false, onCallRequest) {
+    constructor(context, bootstrapEndpoint, callEnabled = false, onCallRequest, sessionStartedAt = new Date().toISOString()) {
         this.context = context;
         this.bootstrapEndpoint = bootstrapEndpoint;
         this.callEnabled = callEnabled;
         this.onCallRequest = onCallRequest;
+        let storage;
+        try {
+            storage = window.sessionStorage;
+        }
+        catch {
+            // The widget also works without browser storage.
+        }
+        this.identitySession = new chat_identity_session_1.ChatIdentitySession(`supernizo_chat_identity:${context.sitePublicKey}:${context.sessionId}`, sessionStartedAt, storage);
     }
     start() {
         try {
             this.mountLauncher();
+            document.addEventListener('visibilitychange', this.handleVisibilityChange);
             void this.syncThread();
+            this.contactTimer = window.setInterval(() => {
+                if (this.openRequested)
+                    void this.syncContactPrompt();
+            }, 30_000);
             this.syncTimer = window.setInterval(() => void this.syncThread(), 3_000);
         }
         catch {
@@ -445,12 +516,16 @@ class ChatWidgetController {
         }
     }
     stop() {
+        if (this.contactTimer !== undefined)
+            window.clearInterval(this.contactTimer);
+        this.contactTimer = undefined;
         if (this.syncTimer !== undefined) {
             window.clearInterval(this.syncTimer);
             this.syncTimer = undefined;
         }
         this.cancelLauncherCollapse();
         window.removeEventListener('message', this.receiveMessage);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
         this.unmountFrame(false);
         this.launcher?.remove();
         this.launcher = undefined;
@@ -886,12 +961,19 @@ class ChatWidgetController {
     }
     openChat() {
         this.openRequested = true;
+        void this.syncContactPrompt();
         this.cancelLauncherCollapse();
         this.launcher?.removeAttribute('data-supernizo-unread');
         this.mount();
         this.postConfig();
         this.postOpenRequest();
     }
+    handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            this.postConfig();
+            void this.syncThread();
+        }
+    };
     receiveMessage = (event) => {
         if (event.origin !== new URL(this.bootstrapEndpoint).origin ||
             event.source !== this.frame?.contentWindow) {
@@ -900,7 +982,12 @@ class ChatWidgetController {
         if (!event.data || typeof event.data !== 'object')
             return;
         const data = event.data;
+        if (data.type === 'supernizo-chat-contact-save') {
+            void this.saveContact(data.contact);
+            return;
+        }
         if (data.type === 'supernizo-chat-ready') {
+            this.postContactPrompt();
             this.postCallAvailability();
             this.postConfig();
             this.postOpenRequest();
@@ -920,7 +1007,76 @@ class ChatWidgetController {
             void this.sendMessage(data.message);
         }
     };
+    postContactPrompt() {
+        this.frame?.contentWindow?.postMessage({ type: 'supernizo-chat-contact-state', prompt: this.contactPrompt }, new URL(this.bootstrapEndpoint).origin);
+    }
+    async syncContactPrompt() {
+        try {
+            const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/contact'));
+            endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
+            endpoint.searchParams.set('visitorId', this.context.visitorId);
+            endpoint.searchParams.set('sessionId', this.context.sessionId);
+            const response = await fetch(endpoint, { credentials: 'omit', mode: 'cors' });
+            if (!response.ok)
+                return;
+            const body = await response.json();
+            if (!body ||
+                typeof body !== 'object' ||
+                !('data' in body) ||
+                !body.data ||
+                typeof body.data !== 'object')
+                return;
+            const prompt = body.data;
+            if (!('saved' in prompt) ||
+                typeof prompt.saved !== 'boolean' ||
+                !('available' in prompt) ||
+                !(prompt.available === null || typeof prompt.available === 'boolean'))
+                return;
+            this.contactPrompt = { saved: prompt.saved, available: prompt.available };
+            this.postContactPrompt();
+        }
+        catch {
+            /* Keep chat usable when availability cannot be checked. */
+        }
+    }
+    async saveContact(contact) {
+        let saved = false;
+        try {
+            const response = await fetch((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/contact'), {
+                method: 'POST',
+                credentials: 'omit',
+                mode: 'cors',
+                signal: AbortSignal.timeout(15_000),
+                headers: { 'content-type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify({
+                    contact,
+                    context: this.context,
+                    threadId: this.currentConfig?.threadId,
+                }),
+            });
+            if (response.ok) {
+                const body = await response.json();
+                saved = Boolean(body &&
+                    typeof body === 'object' &&
+                    'data' in body &&
+                    body.data &&
+                    typeof body.data === 'object' &&
+                    'saved' in body.data &&
+                    body.data.saved === true);
+            }
+        }
+        catch {
+            /* Report only a generic failure, never contact values. */
+        }
+        if (saved) {
+            this.contactPrompt = { ...this.contactPrompt, saved: true };
+            this.postContactPrompt();
+            void this.syncThread();
+        }
+        this.frame?.contentWindow?.postMessage({ type: 'supernizo-chat-contact-result', saved }, new URL(this.bootstrapEndpoint).origin);
+    }
     async syncThread() {
+        this.identitySession.currentStart(document.visibilityState === 'visible');
         try {
             const endpoint = new URL((0, platform_url_1.resolveApplicationEndpoint)(this.bootstrapEndpoint, '/api/chat/visitor/thread'));
             endpoint.searchParams.set('sitePublicKey', this.context.sitePublicKey);
@@ -961,7 +1117,11 @@ class ChatWidgetController {
         if (!this.currentConfig || !this.frame?.contentWindow)
             return;
         this.frame.contentWindow.postMessage({
-            config: { ...this.currentConfig, callEnabled: this.callEnabled },
+            config: {
+                ...this.currentConfig,
+                callEnabled: this.callEnabled,
+                sessionStartedAt: this.identitySession.currentStart(document.visibilityState === 'visible'),
+            },
             type: 'supernizo-chat-config',
         }, new URL(this.bootstrapEndpoint).origin);
     }
@@ -1774,6 +1934,8 @@ function isBootstrapResponse(value) {
     const response = value;
     return (typeof response.visitorId === 'string' &&
         typeof response.sessionId === 'string' &&
+        typeof response.chatSessionStartedAt === 'string' &&
+        Number.isFinite(Date.parse(response.chatSessionStartedAt)) &&
         typeof response.heartbeatIntervalSeconds === 'number' &&
         Boolean(response.features) &&
         Boolean(response.realtime));
@@ -1896,7 +2058,7 @@ exports.Tracker = {
                     sessionId: responseBody.sessionId,
                     sitePublicKey,
                     visitorId: responseBody.visitorId,
-                }, bootstrapEndpoint, responseBody.features.audioCallEnabled, () => callWidget?.requestAudioCall())
+                }, bootstrapEndpoint, responseBody.features.audioCallEnabled, () => callWidget?.requestAudioCall(), responseBody.chatSessionStartedAt)
                 : undefined;
             chatWidget?.stop();
             chatWidget = nextChatWidget;
