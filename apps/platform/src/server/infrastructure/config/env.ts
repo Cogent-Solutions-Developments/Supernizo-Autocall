@@ -16,9 +16,12 @@ for (const path of [
 const nonEmptyString = z.string().trim().min(1);
 const httpUrl = z.url().refine(
   (value) => {
-    const protocol = new URL(value).protocol;
-
-    return protocol === 'http:' || protocol === 'https:';
+    try {
+      const protocol = new URL(value).protocol;
+      return protocol === 'http:' || protocol === 'https:';
+    } catch {
+      return false;
+    }
   },
   { message: 'Must use an http or https URL.' },
 );
@@ -80,6 +83,10 @@ export type ServerEnvironment = z.infer<typeof ServerEnvironmentSchema>;
 
 const DatabaseEnvironmentSchema = z.object(databaseEnvironmentShape);
 
+const ApplicationEnvironmentSchema = ServerEnvironmentBaseSchema.pick({
+  APP_URL: true,
+});
+
 const AuthenticationEnvironmentSchema = ServerEnvironmentBaseSchema.pick({
   AUTH_SECRET: true,
 });
@@ -94,6 +101,7 @@ const GeoIpEnvironmentSchema = z.object({
 });
 
 export type DatabaseEnvironment = z.infer<typeof DatabaseEnvironmentSchema>;
+export type ApplicationEnvironment = z.infer<typeof ApplicationEnvironmentSchema>;
 export type AuthenticationEnvironment = z.infer<typeof AuthenticationEnvironmentSchema>;
 export type RedisEnvironment = z.infer<typeof RedisEnvironmentSchema>;
 export type GeoIpEnvironment = z.infer<typeof GeoIpEnvironmentSchema>;
@@ -147,6 +155,18 @@ export function getDatabaseEnvironment(
 
   if (!result.success) {
     throw new EnvironmentConfigurationError(invalidEnvironmentVariables(result.error));
+  }
+
+  return result.data;
+}
+
+export function getApplicationEnvironment(
+  source: EnvironmentSource = process.env,
+): ApplicationEnvironment {
+  const result = ApplicationEnvironmentSchema.safeParse(source);
+
+  if (!result.success) {
+    throw new EnvironmentConfigurationError(['APP_URL']);
   }
 
   return result.data;

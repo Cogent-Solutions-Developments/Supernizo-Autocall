@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   EnvironmentConfigurationError,
+  getApplicationEnvironment,
   getEnvironmentReadiness,
   getGeoIpEnvironment,
   getServerEnvironment,
@@ -76,6 +77,24 @@ describe('server environment', () => {
     for (const GEOIP_DATABASE_PATH of ['GeoLite2-City.mmdb', '/var/lib/GeoIP/city.csv']) {
       expect(() => getGeoIpEnvironment({ GEOIP_DATABASE_PATH })).toThrowError(
         expect.objectContaining({ invalidVariables: ['GEOIP_DATABASE_PATH'] }),
+      );
+    }
+  });
+});
+
+describe('application environment', () => {
+  it('validates the public application URL independently of other dependencies', () => {
+    expect(
+      getApplicationEnvironment({ APP_URL: 'https://api.infrastructuresg.com/autocall-db' }),
+    ).toEqual({
+      APP_URL: 'https://api.infrastructuresg.com/autocall-db',
+    });
+  });
+
+  it('rejects a missing or non-HTTP application URL without exposing its value', () => {
+    for (const APP_URL of [undefined, '', 'not-a-url', 'file:///tmp/profile']) {
+      expect(() => getApplicationEnvironment({ APP_URL })).toThrowError(
+        expect.objectContaining({ invalidVariables: ['APP_URL'] }),
       );
     }
   });
