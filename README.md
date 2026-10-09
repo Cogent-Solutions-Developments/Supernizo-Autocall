@@ -1,6 +1,6 @@
 # Supernizo Autocall
 
-Next.js and TypeScript platform for visitor tracking, live presence, chat, and consent-based audio/video calls. Managed as a pnpm workspace.
+Next.js and TypeScript platform for visitor tracking, live presence, chat, and consent-based audio/video calls. Managed as a pnpm workspace...
 
 - [Architecture and folder responsibilities](docs/architecture.md)
 - [Development environment](docs/development-environment.md)
