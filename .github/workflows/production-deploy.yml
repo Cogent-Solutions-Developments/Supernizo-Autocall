@@ -93,7 +93,7 @@ jobs:
         run: pnpm test:setup
 
       - name: Test deployment configuration
-        run: node --test tests/deployment/nginx-routing.test.mjs tests/deployment/vercel-config.test.mjs
+        run: node --test tests/deployment/nginx-routing.test.mjs tests/deployment/vercel-config.test.mjs tests/deployment/production-compatibility.test.mjs
 
       - name: Test PostgreSQL repositories
         run: pnpm test:db
@@ -141,7 +141,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ops/docker/Dockerfile
+          file: Dockerfile
           target: runner
           push: true
           tags: ${{ steps.app-metadata.outputs.tags }}
@@ -165,7 +165,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ops/docker/Dockerfile
+          file: Dockerfile
           target: migrator
           push: true
           tags: ${{ steps.migrator-metadata.outputs.tags }}
@@ -216,7 +216,7 @@ jobs:
             "deploy ${GITHUB_SHA} ${APP_IMAGE_REF} ${MIGRATOR_IMAGE_REF}"
 
       - name: Verify public Autocall routing
-        run: bash ops/scripts/check-public-routing.sh
+        run: bash scripts/check-public-routing.sh
 
       - name: Remove SSH credentials
         if: always()
