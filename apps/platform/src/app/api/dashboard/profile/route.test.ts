@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { requireUser } from '@/server/interfaces/auth/access';
 import { getProfile, updateProfile } from '@/server/composition/profile/profile-service';
 import { UnauthorizedError } from '@/server/domain/errors/app-error';
@@ -9,7 +9,8 @@ vi.mock('@/server/composition/profile/profile-service', () => ({
   getProfile: vi.fn(),
   updateProfile: vi.fn(),
 }));
-const url = 'http://localhost/autocall-db/api/dashboard/profile';
+const appUrl = 'https://api.infrastructuresg.com/autocall-db';
+const url = 'http://app:3000/autocall-db/api/dashboard/profile';
 const profile = { displayName: 'Alex', imageUrl: null };
 const user = {
   id: 'agent-1',
@@ -18,7 +19,7 @@ const user = {
   role: 'AGENT' as const,
   signInMethod: 'supernizo' as const,
 };
-function request(body: string, origin = 'http://localhost') {
+function request(body: string, origin = new URL(appUrl).origin) {
   return new Request(url, {
     method: 'PATCH',
     headers: { origin, 'Content-Type': 'application/json' },
@@ -27,10 +28,12 @@ function request(body: string, origin = 'http://localhost') {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv('APP_URL', appUrl);
   vi.mocked(requireUser).mockResolvedValue(user);
   vi.mocked(getProfile).mockResolvedValue(profile);
   vi.mocked(updateProfile).mockResolvedValue(profile);
 });
+afterEach(() => vi.unstubAllEnvs());
 it('returns the own profile with no caching', async () => {
   const response = await GET(new Request(url));
   expect(response.status).toBe(200);
