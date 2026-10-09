@@ -1,9 +1,12 @@
 import 'server-only';
+import { getApplicationEnvironment } from '@/server/infrastructure/config/env';
 import { ForbiddenError, ValidationError } from '@/server/domain/errors/app-error';
 
 export async function readProfileRequest(request: Request): Promise<unknown> {
+  // The proxy's internal request URL can differ from the public browser origin.
+  const expectedOrigin = new URL(getApplicationEnvironment().APP_URL).origin;
   const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin)
+  if (!origin || origin !== expectedOrigin)
     throw new ForbiddenError('The request origin is invalid.');
   if (!request.headers.get('content-type')?.startsWith('application/json'))
     throw new ValidationError('The request body must be valid JSON.');
